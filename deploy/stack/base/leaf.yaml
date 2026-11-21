@@ -1,0 +1,63 @@
+# Stand-alone nats-servers that connect to the brokers as leaf nodes. Present in the base at ZERO replicas so that the
+# overlay's image mapping and the namespace apply to them like any other resource (resources added by a component do not get
+# them); the `leafnodes` component scales it to two and opens the brokers' leaf listener. They use the image the overlay
+# names for `nats-server`; the driver's per-run image override applies to the brokers only.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storm-leaf-config
+data:
+  nats-server.conf: |
+    server_name: $POD_NAME
+    listen: 0.0.0.0:4222
+    http: 0.0.0.0:8222
+    leafnodes {
+      remotes [ { url: $LEAF_URL } ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaf
+  labels: {app.kubernetes.io/name: leaf, app.kubernetes.io/part-of: storm-bench}
+spec:
+  replicas: 0
+  selector:
+    matchLabels: {app.kubernetes.io/name: leaf}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: leaf, app.kubernetes.io/part-of: storm-bench}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: leaf
+          image: nats-server
+          imagePullPolicy: IfNotPresent
+          args: ["-c", "/etc/nats/nats-server.conf"]
+          env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: LEAF_PASSWORD
+              valueFrom: {secretKeyRef: {name: storm-secrets, key: leaf-password}}
+            # Kubernetes expands $(LEAF_PASSWORD) here (it must come after the variable it uses); the config reads the result as $LEAF_URL.
+            - name: LEAF_URL
+              value: "nats-leaf://leaf:$(LEAF_PASSWORD)@broker:7422"
+          ports:
+            - {name: client, containerPort: 4222}
+            - {name: monitor, containerPort: 8222}
+          readinessProbe:
+            httpGet: {path: /healthz, port: monitor}
+            periodSeconds: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/nats, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: storm-leaf-config}

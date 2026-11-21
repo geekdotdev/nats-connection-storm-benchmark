@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+# EKS: the load generator runs on the clients node group, away from the brokers. The image is pinned by digest (the list pushed
+# for loadgen:src-9a52195fe7db). EDIT `newName` to your registry account.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: loadgen
+    newName: ghcr.io/cfedersp/loadgen
+    digest: sha256:a38a563e53e9fc0037312d1f0856349eaeed413fea974fa927348442585ee62b   # loadgen:src-9a52195fe7db, amd64 and arm64
+patches:
+  - target: {kind: Job, name: loadgen}
+    patch: |-
+      apiVersion: batch/v1
+      kind: Job
+      metadata: {name: loadgen}
+      spec:
+        template:
+          spec:
+            nodeSelector: {role: client}
+            containers:
+              - name: loadgen
+                resources:
+                  requests: {cpu: "2", memory: 1Gi}
+                  limits: {cpu: "2", memory: 1Gi}

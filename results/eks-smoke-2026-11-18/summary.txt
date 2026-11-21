@@ -1,0 +1,15 @@
+blocks found: [1, 2]
+single: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server:582fb8e939a7
+cluster: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server:582fb8e939a7   settings {"stack": "deploy/stack/overlays/eks-cluster"}
+
+idle
+  single   median auth p50 per block (ms): [1.2, 1.2]  mean 1.2   admitted 80/80   burst length median 0.00s
+  cluster  median auth p50 per block (ms): [1.5, 1.5]  mean 1.5   admitted 80/80   burst length median 0.00s
+  change cluster vs single in the mean of block medians: +24.4%   exact permutation p=0.33333  (n=2 v 2 blocks)
+
+n200
+  single   median auth p50 per block (ms): [32.9, 33.5]  mean 33.2   admitted 3200/3200   burst length median 0.12s
+  cluster  median auth p50 per block (ms): [24.0, 20.4]  mean 22.2   admitted 3200/3200   burst length median 0.10s
+  change cluster vs single in the mean of block medians: -33.3%   exact permutation p=0.33333  (n=2 v 2 blocks)
+  burst length (throughput proxy) change cluster vs single: -20.0%
+

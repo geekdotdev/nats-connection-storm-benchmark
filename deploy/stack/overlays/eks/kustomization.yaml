@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: Apache-2.0
+# EKS (cluster from infra/eks, made by `bench cluster up --target eks`). One broker; the cluster and leaf variants are
+# the sibling overlays eks-cluster and eks-cluster-leaf.
+#
+# Placement: brokers run on the tainted `brokers` node group, one per node, with requests equal to limits (so the
+# kubelet gives them dedicated CPU). The callout and leaf servers run on the `clients` node group.
+# Sizes assume the default 4 vCPU / 8 GiB node (c6i.xlarge): change them together with --instance-type.
+#
+# Images come from GHCR and are pulled without credentials, so the packages must be public. The broker is pinned by
+# digest, not tag (the digest is the list pushed for nats-server 582fb8e93, amd64 and arm64). EDIT `newName` to your
+# registry account. The callout is pinned the same way (its tag names the source hash).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: nats-server
+    newName: ghcr.io/cfedersp/nats-server
+    digest: sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+  - name: callout
+    newName: ghcr.io/cfedersp/callout
+    digest: sha256:a1024b9b0c8fe7c6f78a6a626630fdf6e6be4c575a3555dd095dd780de4064a6   # callout:src-faac5bdfebd5, amd64 and arm64
+patches:
+  - target: {kind: StatefulSet, name: broker}
+    patch: |-
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata: {name: broker}
+      spec:
+        template:
+          spec:
+            nodeSelector: {role: broker}
+            tolerations:
+              - {key: dedicated, operator: Equal, value: broker, effect: NoSchedule}
+            affinity:
+              podAntiAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector: {matchLabels: {app.kubernetes.io/name: broker}}
+                    topologyKey: kubernetes.io/hostname
+            containers:
+              - name: broker
+                resources:
+                  requests: {cpu: "3", memory: 4Gi}
+                  limits: {cpu: "3", memory: 4Gi}
+  - target: {kind: Deployment, name: callout}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: callout}
+      spec:
+        template:
+          spec:
+            nodeSelector: {role: client}
+            containers:
+              - name: callout
+                resources:
+                  requests: {cpu: 500m, memory: 256Mi}
+                  limits: {cpu: 500m, memory: 256Mi}
+  - target: {kind: Deployment, name: leaf}
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata: {name: leaf}
+      spec:
+        template:
+          spec:
+            nodeSelector: {role: client}
+            containers:
+              - name: leaf
+                resources:
+                  requests: {cpu: 500m, memory: 256Mi}
+                  limits: {cpu: 500m, memory: 256Mi}

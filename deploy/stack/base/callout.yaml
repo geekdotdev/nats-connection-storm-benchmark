@@ -1,0 +1,43 @@
+# The auth-callout responder (components/callout). It connects to the broker as the AUTH account's user and
+# answers authorization requests. It may start before the broker: its connection retries.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: callout
+  labels: {app.kubernetes.io/name: callout, app.kubernetes.io/part-of: storm-bench}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: callout}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: callout, app.kubernetes.io/part-of: storm-bench}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: callout
+          image: callout
+          imagePullPolicy: IfNotPresent
+          args: ["serve", "--url", "nats://broker:4222", "--accounts", "16", "--workers", "16"]
+          env:
+            - {name: CALLOUT_SERVICE_USER, value: auth}
+            - name: CALLOUT_SERVICE_PASSWORD
+              valueFrom: {secretKeyRef: {name: storm-secrets, key: service-password}}
+            - name: CALLOUT_ISSUER_SEED
+              valueFrom: {secretKeyRef: {name: storm-secrets, key: issuer-seed}}
+            - name: CALLOUT_USER_PASSWORD
+              valueFrom: {secretKeyRef: {name: storm-secrets, key: user-password}}
+          ports:
+            - {name: health, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /healthz, port: health}
+            periodSeconds: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}

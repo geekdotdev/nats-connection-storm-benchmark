@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# EKS, three brokers with routes. Needs at least three nodes in the brokers group (--broker-nodes 3, the default).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../eks
+components:
+  - ../../components/cluster

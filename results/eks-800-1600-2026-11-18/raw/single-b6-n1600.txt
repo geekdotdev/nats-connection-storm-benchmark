@@ -1,0 +1,52 @@
+run "single-b6-n1600": 1600 connections x 8 run(s) to wss://broker:8443 (users u0..u15 with a shared password), all at once, 4 worker thread(s)
+
+run 1/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 1.5 s (1065 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    222.4     636.6     728.1     747.9
+total (start->PONG)  1600    929.6    1373.8    1481.1    1487.7
+generator scheduling delay p99: 84.9 ms (large means the generator, not the broker, is the limit)
+
+run 2/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 1.1 s (1413 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    237.1     523.3     612.2     634.8
+total (start->PONG)  1600    667.4    1047.8    1111.5    1122.0
+generator scheduling delay p99: 36.5 ms (large means the generator, not the broker, is the limit)
+
+run 3/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 1.2 s (1299 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    318.1     669.0     778.8     838.2
+total (start->PONG)  1600    722.9    1101.7    1202.5    1220.5
+generator scheduling delay p99: 31.0 ms (large means the generator, not the broker, is the limit)
+
+run 4/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 1.2 s (1336 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    243.7     651.4     717.9     765.5
+total (start->PONG)  1600    628.5    1064.9    1159.6    1195.4
+generator scheduling delay p99: 26.0 ms (large means the generator, not the broker, is the limit)
+
+run 5/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 1.1 s (1486 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    217.5     535.9     605.8     620.7
+total (start->PONG)  1600    578.3     959.7    1045.5    1055.5
+generator scheduling delay p99: 24.9 ms (large means the generator, not the broker, is the limit)
+
+run 6/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 2.6 s (606 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    217.5     499.2     616.4     662.9
+total (start->PONG)  1600    596.9     957.9    2526.0    2611.5
+generator scheduling delay p99: 19.1 ms (large means the generator, not the broker, is the limit)
+
+run 7/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 2.6 s (612 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    261.2     688.5     799.6     862.0
+total (start->PONG)  1600    702.7    1156.3    2580.3    2585.5
+generator scheduling delay p99: 27.1 ms (large means the generator, not the broker, is the limit)
+
+run 8/8: admitted 1600   refused 0   timeout 0   error 0   success 100.0%   in 2.7 s (603 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 1600    189.9     561.0     651.7     727.6
+total (start->PONG)  1600    631.0    1040.8    2622.2    2627.6
+generator scheduling delay p99: 22.7 ms (large means the generator, not the broker, is the limit)
+
+across 8 runs, the median auth time: mean 238.4 ms, middle 237.1 ms, from 189.9 to 318.1 ms
+STORM_REPORT_JSON {"run":"single-b6-n1600","runs":[{"authMs":{"max":747.874238,"n":1600,"p50":222.35428,"p90":636.6006279999999,"p99":728.112857},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":84.907,"index":1,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":1.5,"successRate":1.0,"totalMs":{"max":1487.656503,"n":1600,"p50":929.565096,"p90":1373.838938,"p99":1481.086029}},{"authMs":{"max":634.758666,"n":1600,"p50":237.065309,"p90":523.2919919999999,"p99":612.166172},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":36.478,"index":2,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":1.13,"successRate":1.0,"totalMs":{"max":1122.032722,"n":1600,"p50":667.405914,"p90":1047.768835,"p99":1111.464622}},{"authMs":{"max":838.174982,"n":1600,"p50":318.095575,"p90":668.980603,"p99":778.796603},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":30.994,"index":3,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":1.23,"successRate":1.0,"totalMs":{"max":1220.508352,"n":1600,"p50":722.879104,"p90":1101.6676590000002,"p99":1202.497948}},{"authMs":{"max":765.521875,"n":1600,"p50":243.678044,"p90":651.3845150000001,"p99":717.930242},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":25.997,"index":4,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":1.2,"successRate":1.0,"totalMs":{"max":1195.398571,"n":1600,"p50":628.461729,"p90":1064.900437,"p99":1159.647489}},{"authMs":{"max":620.67282,"n":1600,"p50":217.506955,"p90":535.9151509999999,"p99":605.753659},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":24.861,"index":5,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":1.08,"successRate":1.0,"totalMs":{"max":1055.52688,"n":1600,"p50":578.312684,"p90":959.722858,"p99":1045.5278400000002}},{"authMs":{"max":662.915948,"n":1600,"p50":217.47792199999998,"p90":499.161413,"p99":616.444972},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":19.076,"index":6,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":2.64,"successRate":1.0,"totalMs":{"max":2611.470222,"n":1600,"p50":596.90367,"p90":957.912019,"p99":2526.0412570000003}},{"authMs":{"max":862.023822,"n":1600,"p50":261.208638,"p90":688.476222,"p99":799.608578},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":27.117,"index":7,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":2.62,"successRate":1.0,"totalMs":{"max":2585.5124269999997,"n":1600,"p50":702.721821,"p90":1156.291672,"p99":2580.274261}},{"authMs":{"max":727.604075,"n":1600,"p50":189.868132,"p90":561.043171,"p99":651.683523},"connections":1600,"failures":{},"generatorSchedulingDelayP99Ms":22.662,"index":8,"outcomes":{"admitted":1600,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"single-b6-n1600","seconds":2.65,"successRate":1.0,"totalMs":{"max":2627.565239,"n":1600,"p50":631.032967,"p90":1040.806356,"p99":2622.2107760000004}}]}

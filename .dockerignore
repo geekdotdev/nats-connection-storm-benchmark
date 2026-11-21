@@ -1,0 +1,11 @@
+# Build context is the repository root. Keep secrets, the virtualenv, kubeconfigs and build output out of it.
+.git
+.env
+.env.*
+!.env.example
+.venv
+.kube
+.pytest_cache
+**/__pycache__
+**/target
+results

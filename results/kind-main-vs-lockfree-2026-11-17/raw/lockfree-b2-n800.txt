@@ -1,0 +1,52 @@
+run "lockfree-b2-n800": 800 connections x 8 run(s) to wss://broker:8443 (users u0..u15 with a shared password), all at once, 4 worker thread(s)
+
+run 1/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (4747 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     41.2      55.9      66.6      74.4
+total (start->PONG)  800    129.4     157.4     163.8     164.7
+generator scheduling delay p99: 2.5 ms (large means the generator, not the broker, is the limit)
+
+run 2/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (5305 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     21.0      32.5      52.4      63.9
+total (start->PONG)  800    102.2     125.5     134.0     141.7
+generator scheduling delay p99: 6.0 ms (large means the generator, not the broker, is the limit)
+
+run 3/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (4664 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     38.4      59.9      83.6      91.9
+total (start->PONG)  800    117.9     143.3     162.8     167.4
+generator scheduling delay p99: 4.2 ms (large means the generator, not the broker, is the limit)
+
+run 4/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (4817 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     47.7      68.3      83.6     103.7
+total (start->PONG)  800    110.8     136.6     146.3     159.0
+generator scheduling delay p99: 4.7 ms (large means the generator, not the broker, is the limit)
+
+run 5/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (5066 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     48.6      73.7      96.7     107.9
+total (start->PONG)  800    108.8     138.4     149.7     152.8
+generator scheduling delay p99: 5.7 ms (large means the generator, not the broker, is the limit)
+
+run 6/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (4900 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     23.2      38.5      48.6      54.9
+total (start->PONG)  800    113.5     138.4     155.0     159.2
+generator scheduling delay p99: 7.6 ms (large means the generator, not the broker, is the limit)
+
+run 7/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (5318 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     34.1      52.7      63.3      72.5
+total (start->PONG)  800    105.7     132.1     140.4     143.4
+generator scheduling delay p99: 2.6 ms (large means the generator, not the broker, is the limit)
+
+run 8/8: admitted 800   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (5275 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 800     37.4      60.5      82.7      88.7
+total (start->PONG)  800    102.2     130.2     142.9     147.0
+generator scheduling delay p99: 4.3 ms (large means the generator, not the broker, is the limit)
+
+across 8 runs, the median auth time: mean 36.5 ms, middle 38.4 ms, from 21.0 to 48.6 ms
+STORM_REPORT_JSON {"run":"lockfree-b2-n800","runs":[{"authMs":{"max":74.42430999999999,"n":800,"p50":41.192075,"p90":55.910795,"p99":66.55934500000001},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":2.523,"index":1,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.17,"successRate":1.0,"totalMs":{"max":164.713674,"n":800,"p50":129.448437,"p90":157.42345999999998,"p99":163.76484}},{"authMs":{"max":63.855259999999994,"n":800,"p50":21.032517000000002,"p90":32.519443,"p99":52.405209},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":5.992,"index":2,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.15,"successRate":1.0,"totalMs":{"max":141.716447,"n":800,"p50":102.178916,"p90":125.493351,"p99":134.024691}},{"authMs":{"max":91.871199,"n":800,"p50":38.425156,"p90":59.901049,"p99":83.633317},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":4.205,"index":3,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.17,"successRate":1.0,"totalMs":{"max":167.40600999999998,"n":800,"p50":117.89097,"p90":143.279823,"p99":162.831381}},{"authMs":{"max":103.703167,"n":800,"p50":47.744288000000005,"p90":68.31530500000001,"p99":83.550359},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":4.654,"index":4,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.17,"successRate":1.0,"totalMs":{"max":158.978419,"n":800,"p50":110.829381,"p90":136.590027,"p99":146.266701}},{"authMs":{"max":107.899211,"n":800,"p50":48.606331000000004,"p90":73.67885100000001,"p99":96.666286},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":5.715,"index":5,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.16,"successRate":1.0,"totalMs":{"max":152.801956,"n":800,"p50":108.79917,"p90":138.420528,"p99":149.74812}},{"authMs":{"max":54.897878,"n":800,"p50":23.181227,"p90":38.490489000000004,"p99":48.638539},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":7.582,"index":6,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.16,"successRate":1.0,"totalMs":{"max":159.23771200000002,"n":800,"p50":113.519175,"p90":138.350569,"p99":154.980791}},{"authMs":{"max":72.45385,"n":800,"p50":34.065528,"p90":52.717168,"p99":63.31342600000001},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":2.65,"index":7,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.15,"successRate":1.0,"totalMs":{"max":143.38715699999997,"n":800,"p50":105.684501,"p90":132.124398,"p99":140.448613}},{"authMs":{"max":88.689488,"n":800,"p50":37.361572,"p90":60.543298,"p99":82.694483},"connections":800,"failures":{},"generatorSchedulingDelayP99Ms":4.303,"index":8,"outcomes":{"admitted":800,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"lockfree-b2-n800","seconds":0.15,"successRate":1.0,"totalMs":{"max":146.98578500000002,"n":800,"p50":102.151165,"p90":130.18506299999999,"p99":142.85623999999999}}]}

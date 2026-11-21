@@ -1,0 +1,69 @@
+# The benchmark broker's configuration. Nothing secret is in this file: the callout's login password and the
+# issuer's public key come from the environment (the storm-secrets Secret), which nats-server substitutes for
+# $NAME references. The TLS key pair is mounted from the storm-tls Secret.
+#
+# Accounts A0..A15 are the targets of users u0..u15 (see components/callout). To use more or fewer, change the
+# list here and the callout's --accounts and the generator's STORM_ACCOUNTS together.
+#
+# This is the single-server configuration. The optional parts are separate files that nats-server includes, empty here and
+# filled in by the Kustomize components (deploy/stack/components): cluster.conf (routes between brokers) and leafnodes.conf
+# (the leaf node listener). extra.conf, included last, is empty here: a variant of a run (see docs/variants.example.toml) puts
+# its extra nats-server settings there. server_name is the pod name, so the servers of a cluster are distinct.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storm-broker-config
+data:
+  nats-server.conf: |
+    server_name: $POD_NAME
+    listen: 0.0.0.0:4222
+    http: 0.0.0.0:8222
+    system_account: SYS
+
+    websocket {
+      listen: 0.0.0.0:8443
+      tls {
+        cert_file: "/etc/storm/tls/tls.crt"
+        key_file: "/etc/storm/tls/tls.key"
+      }
+    }
+
+    accounts {
+      SYS {}
+      AUTH { users [ {user: "auth", password: $CALLOUT_SERVICE_PASSWORD} ] }
+      A0 {}
+      A1 {}
+      A2 {}
+      A3 {}
+      A4 {}
+      A5 {}
+      A6 {}
+      A7 {}
+      A8 {}
+      A9 {}
+      A10 {}
+      A11 {}
+      A12 {}
+      A13 {}
+      A14 {}
+      A15 {}
+    }
+
+    authorization {
+      timeout: 10s
+      auth_callout {
+        issuer: $CALLOUT_ISSUER_PUBLIC
+        account: AUTH
+        auth_users: [ auth ]
+      }
+    }
+
+    include "cluster.conf"
+    include "leafnodes.conf"
+    include "extra.conf"
+  cluster.conf: |
+    # single server: no cluster
+  leafnodes.conf: |
+    # no leaf node listener
+  extra.conf: |
+    # no extra settings

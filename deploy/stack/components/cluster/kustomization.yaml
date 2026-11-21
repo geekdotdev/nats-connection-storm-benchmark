@@ -1,0 +1,45 @@
+# Three brokers joined by routes, instead of one. Add it to an overlay with `components: [../../components/cluster]`.
+# Change the replica count here and the route list in cluster.conf below together: every broker lists every peer, and a
+# route to a pod that does not exist is only retried, so listing extra peers is harmless but noisy.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - target: {kind: StatefulSet, name: broker}
+    patch: |-
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata: {name: broker}
+      spec:
+        replicas: 3
+        template:
+          spec:
+            containers:
+              - name: broker
+                ports:
+                  - {name: route, containerPort: 6222}
+  - target: {kind: Service, name: broker}
+    patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata: {name: broker}
+      spec:
+        ports:
+          - {name: route, port: 6222}
+  - target: {kind: ConfigMap, name: storm-broker-config}
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata: {name: storm-broker-config}
+      data:
+        cluster.conf: |
+          # Routes between the brokers. The names are the StatefulSet's stable pod names under the headless service.
+          # There is no route authentication or TLS: the cluster network is private to this lab.
+          cluster {
+            name: storm
+            listen: 0.0.0.0:6222
+            routes: [
+              nats-route://broker-0.broker:6222
+              nats-route://broker-1.broker:6222
+              nats-route://broker-2.broker:6222
+            ]
+          }

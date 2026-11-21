@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# EKS, three brokers with routes and two leaf nodes (on the clients group).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../eks
+components:
+  - ../../components/cluster
+  - ../../components/leafnodes

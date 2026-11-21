@@ -1,0 +1,70 @@
+# The nats-server under test: a StatefulSet, so the pods have stable names (broker-0, broker-1, ...) that a cluster's
+# routes can use. One replica and no cluster by default; the `cluster` component makes it three servers with routes.
+# No JetStream. The image is a placeholder name; the driver sets the real image for each run.
+apiVersion: v1
+kind: Service
+metadata:
+  name: broker
+  labels: {app.kubernetes.io/name: broker, app.kubernetes.io/part-of: storm-bench}
+spec:
+  # Headless: DNS returns the pod's address, so no kube-proxy hop is in the measured path.
+  clusterIP: None
+  selector: {app.kubernetes.io/name: broker}
+  ports:
+    - {name: client, port: 4222}
+    - {name: ws, port: 8443}
+    - {name: monitor, port: 8222}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: broker
+  labels: {app.kubernetes.io/name: broker, app.kubernetes.io/part-of: storm-bench}
+spec:
+  serviceName: broker
+  replicas: 1
+  podManagementPolicy: Parallel  # a cluster's servers start together and find each other by retrying routes
+  updateStrategy: {type: RollingUpdate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: broker}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: broker, app.kubernetes.io/part-of: storm-bench}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: broker
+          image: nats-server
+          imagePullPolicy: IfNotPresent
+          args: ["-c", "/etc/nats/nats-server.conf"]
+          env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: CALLOUT_SERVICE_PASSWORD
+              valueFrom: {secretKeyRef: {name: storm-secrets, key: service-password}}
+            - name: CALLOUT_ISSUER_PUBLIC
+              valueFrom: {secretKeyRef: {name: storm-secrets, key: issuer-public}}
+          ports:
+            - {name: client, containerPort: 4222}
+            - {name: ws, containerPort: 8443}
+            - {name: monitor, containerPort: 8222}
+          readinessProbe:
+            httpGet: {path: /healthz, port: monitor}
+            periodSeconds: 2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: config, mountPath: /etc/nats, readOnly: true}
+            - {name: tls, mountPath: /etc/storm/tls, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: storm-broker-config}
+        - name: tls
+          secret: {secretName: storm-tls, defaultMode: 0440}

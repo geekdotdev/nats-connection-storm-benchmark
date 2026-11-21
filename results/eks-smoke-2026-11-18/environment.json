@@ -1,0 +1,93 @@
+{
+ "target": "eks",
+ "date": "2026-11-18T18:38:10-08:00",
+ "variants": [
+  {
+   "label": "single",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server:582fb8e939a7"
+  },
+  {
+   "label": "cluster",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server:582fb8e939a7",
+   "stack": "deploy/stack/overlays/eks-cluster"
+  }
+ ],
+ "design": {
+  "blocks": 2,
+  "order": "alternating by block",
+  "phases": [
+   "warm",
+   "idle",
+   "n200"
+  ],
+  "sizes": [
+   200
+  ],
+  "threads": 4,
+  "settle_s": 5.0,
+  "per_phase": {
+   "warm": {
+    "connections": 200,
+    "runs": 3,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "idle": {
+    "connections": 1,
+    "runs": 40,
+    "pause_ms": 100,
+    "hold_ms": 100
+   },
+   "n200": {
+    "connections": 200,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   }
+  }
+ },
+ "cluster": {
+  "nodes": [
+   {
+    "os_image": "Amazon Linux 2023.12.20261112",
+    "kernel": "6.12.115-140.210.amzn2023.x86_64",
+    "kubelet": "v1.34.12-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7964664Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261112",
+    "kernel": "6.12.115-140.210.amzn2023.x86_64",
+    "kubelet": "v1.34.12-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7964664Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261112",
+    "kernel": "6.12.115-140.210.amzn2023.x86_64",
+    "kubelet": "v1.34.12-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7964652Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261112",
+    "kernel": "6.12.115-140.210.amzn2023.x86_64",
+    "kubelet": "v1.34.12-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7964656Ki"
+   }
+  ]
+ },
+ "driver_host": {
+  "system": "Darwin",
+  "machine": "arm64",
+  "cpus": 16
+ },
+ "driver_version": "0.0.0"
+}

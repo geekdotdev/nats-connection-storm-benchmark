@@ -1,0 +1,29 @@
+# Secrets: never commit. .env.example (names only) is the one exception.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+kubeconfig*
+.kube/
+*.kubeconfig
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+
+# Build output
+components/loadgen/target/
+components/callout/bin/
+*.tar
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+components/callout/callout

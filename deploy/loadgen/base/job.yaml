@@ -1,0 +1,54 @@
+# One storm run: the generator opens STORM_CONNECTIONS connections at once, STORM_RUNS times, and prints its report to
+# stdout (the last line starts STORM_REPORT_JSON). A Job is immutable and runs once, so it is not part of the stack: the
+# driver deletes the previous one and applies a new one per block, with STORM_LABEL set.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: loadgen
+  labels: {app.kubernetes.io/name: loadgen, app.kubernetes.io/part-of: storm-bench}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 1800
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: loadgen, app.kubernetes.io/part-of: storm-bench}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: loadgen
+          image: loadgen
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: STORM_URL, value: "wss://broker:8443"}
+            - {name: STORM_CA_FILE, value: /etc/storm/tls/ca.pem}
+            - {name: STORM_PASSWORD_FILE, value: /etc/storm/secrets/user-password}
+            - {name: STORM_ACCOUNTS, value: "16"}
+            - {name: STORM_CONNECTIONS, value: "800"}
+            - {name: STORM_RUNS, value: "8"}
+            - {name: STORM_PAUSE_MS, value: "1500"}
+            - {name: STORM_HOLD_MS, value: "1000"}
+            - {name: STORM_THREADS, value: "4"}
+            - {name: STORM_LABEL, value: run}
+            - {name: STORM_JSON, value: "-"}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: tls, mountPath: /etc/storm/tls, readOnly: true}
+            - {name: secrets, mountPath: /etc/storm/secrets, readOnly: true}
+      volumes:
+        - name: tls
+          secret:
+            secretName: storm-tls
+            items: [{key: ca.pem, path: ca.pem}]
+        - name: secrets
+          secret:
+            secretName: storm-secrets
+            items: [{key: user-password, path: user-password}]

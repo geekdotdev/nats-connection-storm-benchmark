@@ -1,0 +1,95 @@
+{
+ "run": "cluster-b2-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 32.352349000000004,
+    "n": 200,
+    "p50": 17.742357000000002,
+    "p90": 27.253163,
+    "p99": 31.39617
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 60.23,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "cluster-b2-warm",
+   "seconds": 0.2,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 203.250754,
+    "n": 200,
+    "p50": 175.505753,
+    "p90": 199.452578,
+    "p99": 202.502281
+   }
+  },
+  {
+   "authMs": {
+    "max": 42.374992,
+    "n": 200,
+    "p50": 21.774865000000002,
+    "p90": 38.171211,
+    "p99": 40.962565999999995
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 9.885,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "cluster-b2-warm",
+   "seconds": 0.1,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 98.34246200000001,
+    "n": 200,
+    "p50": 59.368632999999996,
+    "p90": 93.53164799999999,
+    "p99": 97.521496
+   }
+  },
+  {
+   "authMs": {
+    "max": 30.950082000000002,
+    "n": 200,
+    "p50": 18.568753,
+    "p90": 26.208961,
+    "p99": 29.786628999999998
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 4.784,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "cluster-b2-warm",
+   "seconds": 0.09,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 89.32623600000001,
+    "n": 200,
+    "p50": 65.597657,
+    "p90": 86.802181,
+    "p99": 89.205594
+   }
+  }
+ ]
+}

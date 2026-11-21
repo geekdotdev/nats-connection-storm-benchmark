@@ -1,0 +1,40 @@
+# Variants for `bench run --variants docs/variants.example.toml`: two or more configurations of the stack, compared in blocks.
+# The first is the baseline. Every setting but the label and the image is optional; leave it out to keep what the overlay has.
+# Nothing secret belongs here: the file's settings are recorded in the run's environment.json.
+#
+#   label         letters, digits and underscores; used in file names and the report
+#   commit        a full 40 character nats-server sha: the broker image is <image prefix>nats-server:<first 12 characters>
+#   image         the broker image as given (instead of, or as well as, a commit: then the commit is only recorded)
+#   stack         a kustomize overlay under deploy/stack/overlays: topology and sizes (the target's default when left out)
+#   conf          extra nats-server configuration, included after everything else (the broker's extra.conf), or
+#   conf_file     a file with it, relative to this file
+#   broker_env, callout_env       environment variables for those containers (quoted strings; not the ones the manifests wire)
+#   broker_resources              cpu and memory, as both requests and limits (so the pod is Guaranteed)
+#   callout_args  the callout's whole argument list, replacing the overlay's
+#   storm         generator STORM_* settings, on top of the run's (not the phase variables STORM_CONNECTIONS and the like)
+#
+# All variants of a run must have the same Kubernetes objects (preflight checks it): they differ in settings, not in what exists.
+
+[[variant]]
+label = "main"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+
+# Same broker, three brokers in a cluster instead of one.
+[[variant]]
+label = "cluster"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+stack = "deploy/stack/overlays/eks-cluster"
+
+# Same broker and topology as the baseline, with a smaller callout worker pool and a broker setting.
+[[variant]]
+label = "tuned"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+conf = """
+max_payload: 2MB
+"""
+callout_args = ["serve", "--url", "nats://broker:4222", "--accounts", "16", "--workers", "8"]
+[variant.broker_env]
+GOGC = "50"
+[variant.broker_resources]
+cpu = "2"
+memory = "4Gi"
