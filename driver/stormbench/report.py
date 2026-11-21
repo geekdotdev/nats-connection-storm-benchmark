@@ -8,13 +8,14 @@ p value as one comparison among that many. Standard library only. Reads older re
 """
 from __future__ import annotations
 
+import datetime as dt
 import itertools
 import json
 import re
 import statistics as st
 from pathlib import Path
 
-from . import queue
+from . import cpu, cpuchart, qualify, queue
 from .ab import runs_of
 
 
@@ -31,6 +32,12 @@ def perm_p(a: list[float], b: list[float]) -> float:
         tot += 1
         hits += abs(st.mean(ga) - st.mean(gb)) >= obs - 1e-12
     return hits / tot
+
+
+def _storms(raw: Path, label: str, block: int, phase: str) -> list[dict]:
+    """The stored storm report itself (not its bursts): it is where the driver's CPU readings are kept."""
+    p = raw / f"{label}-b{block}-{phase}.json"
+    return [json.loads(p.read_text())] if p.exists() else []
 
 
 def _bursts(raw: Path, label: str, block: int, phase: str) -> list[dict]:
@@ -62,14 +69,18 @@ def write(run_dir: Path) -> str:
     labels, by_phase = bursts_by_phase(run_dir)
     for stale in run_dir.glob("queue-*.svg"):
         stale.unlink()  # a chart from an earlier report of the same directory must not outlive its data
-    queue.write_charts(run_dir, by_phase, labels)
+    env = json.loads((run_dir / "environment.json").read_text())
+    q = qualify.from_env(env)
+    queue.write_charts(run_dir, by_phase, labels, env.get("date", ""), run_id=env.get("run_id", ""), cluster=q["cluster"], namespace=q["namespace"])
+    cpuchart.write(run_dir, run_date=env.get("date", ""), generated=dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+                   run_id=env.get("run_id", ""), cluster=q["cluster"], namespace=q["namespace"])
     return text
 
 
 def summarize(run_dir: Path) -> str:
     env, described, labels, raw, blocks, phases = _load(run_dir)
     base = labels[0]
-    out = [f"blocks found: {blocks}"]
+    out = [qualify.header(env, run_dir.name), f"blocks found: {blocks}"]
     for a in described:
         extras = {k: v for k, v in a.items() if k not in ("label", "commit", "image")}
         what = f"commit {a['commit'][:12]}, " if a.get("commit") else ""
@@ -106,5 +117,6 @@ def summarize(run_dir: Path) -> str:
                 out.append(f"  burst length (throughput proxy) change {label} vs {base}: {100 * (st.median(bsecs) - st.median(asecs)) / st.median(asecs):+.1f}%")
         q = queue.summarize({label: {b: _bursts(raw, label, b, phase) for b in blocks} for label in labels}, labels, perm_p)
         out.extend(q if q else (["  (no per-connection samples in this phase, so no queue curve; runs before the samples were recorded have none)"] if phase != "idle" else []))
+        out.extend(cpu.summarize({label: {b: _storms(raw, label, b, phase) for b in blocks} for label in labels}, labels))
         out.append("")
     return "\n".join(out)

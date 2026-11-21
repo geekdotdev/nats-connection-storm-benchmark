@@ -1,8 +1,10 @@
 # One storm run: the generator opens STORM_CONNECTIONS connections at once, STORM_RUNS times, each presenting its own ticket (a user JWT
 # signed by the scoped signing key in the Secret storm-generator-auth, which the callout pod's init container makes: components/provision),
 # and prints its report to
-# stdout (the last line starts STORM_REPORT_JSON). A Job is immutable and runs once, so it is not part of the stack: the
-# driver deletes the previous one and applies a new one per block, with STORM_LABEL set.
+# stdout (the last line starts STORM_REPORT_JSON). A Job is immutable and runs once, so it is not part of the stack: the driver
+# makes one from this template per storm, named loadgen-<label>-<hash> and labelled with the run, the unit and the attempt, and leaves it
+# (and so its pod's log) on the cluster until the run is over. There is no ttlSecondsAfterFinished: the driver deletes the run's Jobs when
+# the run completes, and the next run deletes any that are left.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -11,7 +13,6 @@ metadata:
 spec:
   backoffLimit: 0
   activeDeadlineSeconds: 1800
-  ttlSecondsAfterFinished: 3600
   template:
     metadata:
       labels: {app.kubernetes.io/name: loadgen, app.kubernetes.io/part-of: storm-bench}

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -110,7 +111,10 @@ class Scripted(Runner):
     def output(self, cmd, *, input=None, env=None, dry_run_value="", quiet=False):
         self.cmds.append(cmd)
         self.stdin.append(input)
-        return self.outputs.pop(0)
+        out = self.outputs.pop(0)
+        if isinstance(out, Exception):
+            raise out
+        return out
 
 
 @pytest.fixture
@@ -122,14 +126,14 @@ def kubeconfig(monkeypatch, tmp_path):
 
 
 def backend(run, **kw):
-    b = kube.KubeBackend(run, sleep=lambda s: None, **kw)
+    b = kube.KubeBackend(run, read_cpu=False, sleep=lambda s: None, **kw)
     b._job = {"spec": {"template": {"spec": {"containers": [{"name": "loadgen", "env": [{"name": "STORM_CONNECTIONS", "value": "800"}, {"name": "STORM_URL", "value": "wss://broker:8443"}]}]}}}}
     return b
 
 
 def test_prepare_points_the_broker_at_a_real_image_before_waiting_for_it(kubeconfig):
     run = Scripted(["kind: Job", json.dumps({"kind": "Job", "spec": {}})])
-    with kube.KubeBackend(run, sleep=lambda s: None) as b:
+    with kube.KubeBackend(run, read_cpu=False, sleep=lambda s: None) as b:
         b.prepare((A, B))
         verbs = [next(a for a in c if a in ("apply", "set", "rollout", "kustomize", "create")) for c in run.cmds]
         assert verbs[:3] == ["apply", "rollout", "rollout"]  # one apply puts the first variant's image in; no placeholder image
@@ -158,10 +162,33 @@ def test_run_storm_reports_a_failed_job_with_the_end_of_its_log(kubeconfig):
     assert "boom" in str(e.value)
 
 
+NO_DNS = subprocess.CalledProcessError(1, ["kubectl"], stderr="dial tcp: lookup x.eks.amazonaws.com: no such host")
+
+
+def test_run_storm_survives_a_failed_poll_and_a_failed_log_read(kubeconfig, capsys):
+    run = Scripted([json.dumps({"status": {}}), NO_DNS, NO_DNS, json.dumps({"status": {"succeeded": 1}}), NO_DNS, "THE LOG"])
+    sleeps = []
+    b = kube.KubeBackend(run, read_cpu=False, sleep=sleeps.append, read_retry_wait_s=7.0)
+    b._job = {"spec": {"template": {"spec": {"containers": [{"name": "loadgen"}]}}}}
+    assert b.run_storm("x", {}) == "THE LOG"
+    assert sleeps.count(7.0) == 3                              # one wait per failed read
+    assert "reading the Job's status failed" in capsys.readouterr().err
+    assert sum(1 for c in run.cmds if "logs" in c) == 2        # the log was asked for twice
+
+
+def test_run_storm_stops_retrying_a_read_that_keeps_failing(kubeconfig):
+    run = Scripted([json.dumps({"status": {}})] + [NO_DNS] * 5)
+    b = kube.KubeBackend(run, read_cpu=False, sleep=lambda s: None, read_retries=3)
+    b._job = {"spec": {"template": {"spec": {"containers": [{"name": "loadgen"}]}}}}
+    with pytest.raises(subprocess.CalledProcessError):
+        b.run_storm("x", {})
+    assert sum(1 for c in run.cmds if "get" in c and "job" in c) == 1 + 4   # the first poll, then the failed one and its 3 retries
+
+
 def test_run_storm_gives_up_when_the_job_never_finishes(kubeconfig):
     ticks = iter(range(0, 10_000, 100))
     run = Scripted([json.dumps({"status": {}})] * 50)
-    b = kube.KubeBackend(run, sleep=lambda s: None, clock=lambda: next(ticks), job_timeout_s=250)
+    b = kube.KubeBackend(run, read_cpu=False, sleep=lambda s: None, clock=lambda: next(ticks), job_timeout_s=250)
     b._job = {"spec": {"template": {"spec": {"containers": [{"name": "loadgen"}]}}}}
     with pytest.raises(ab.StormFailed):
         b.run_storm("x", {})
@@ -177,7 +204,7 @@ def test_start_variant_applies_that_variants_kustomization_and_waits(kubeconfig)
         assert B.image in text and "storm-bench/restarted-at" in text  # the new image and the restart stamp go in one apply
         assert [c[-2] for c in run.cmds if "rollout" in c] == ["statefulset/broker", "deployment/callout"]
         assert not any("patch" in c or "set" in c for c in run.cmds)  # nothing is changed behind apply's back
-    assert facts == {"image_id": "sha256:abc", "pod_image": "i", "server_version": "nats-server: v2.99"}
+    assert facts == {"image_id": "sha256:abc", "pod_image": "i", "server_version": "nats-server: v2.99", "pod_uid": ""}   # (the fixture's pod has no uid)
 
 
 # -- the report --------------------------------------------------------------------------------------------------------

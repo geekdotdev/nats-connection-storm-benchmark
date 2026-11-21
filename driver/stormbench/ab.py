@@ -32,6 +32,8 @@ class Variant:
     conf: str = ""                # extra nats-server configuration, included after everything else (the broker's extra.conf)
     broker_env: dict = field(default_factory=dict)        # environment variables for the broker container
     broker_resources: dict = field(default_factory=dict)  # {"cpu": "2", "memory": "4Gi"}: requests and limits, equal
+    callout_resources: dict = field(default_factory=dict)  # the callout's, the same way
+    generator_resources: dict = field(default_factory=dict)  # the load generator Job's, the same way
     callout_env: dict = field(default_factory=dict)       # environment variables for the callout container
     callout_args: tuple = ()      # the callout's whole argument list, replacing the overlay's
     storm: dict = field(default_factory=dict)             # generator STORM_* variables, on top of the plan's
@@ -39,7 +41,7 @@ class Variant:
     def settings(self) -> dict:
         """What differs from the defaults, for the record in environment.json and the report."""
         out: dict = {}
-        for name in ("stack", "conf", "broker_env", "broker_resources", "callout_env", "callout_args", "storm"):
+        for name in ("stack", "conf", "broker_env", "broker_resources", "callout_resources", "generator_resources", "callout_env", "callout_args", "storm"):
             value = getattr(self, name)
             if value:
                 out[name] = list(value) if isinstance(value, tuple) else value
@@ -47,6 +49,18 @@ class Variant:
 
     def describe(self) -> dict:
         return {"label": self.label, "commit": self.commit, "image": self.image, **self.settings()}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Variant":
+        """The inverse of describe(): a variant from its recorded form (the run state in the cluster keeps variants this way)."""
+        known = {"label", "commit", "image", "stack", "conf", "broker_env", "broker_resources", "callout_resources", "generator_resources",
+                 "callout_env", "callout_args", "storm"}
+        if set(d) - known:
+            raise ValueError(f"a recorded variant has unknown key(s) {sorted(set(d) - known)}: it was made by a different driver")
+        return cls(label=d["label"], commit=d.get("commit", ""), image=d["image"], stack=d.get("stack", ""), conf=d.get("conf", ""),
+                   broker_env=dict(d.get("broker_env", {})), broker_resources=dict(d.get("broker_resources", {})),
+                   callout_resources=dict(d.get("callout_resources", {})), generator_resources=dict(d.get("generator_resources", {})),
+                   callout_env=dict(d.get("callout_env", {})), callout_args=tuple(d.get("callout_args", ())), storm=dict(d.get("storm", {})))
 
 
 Arm = Variant  # the name this class had when a run compared exactly two commits
@@ -120,6 +134,111 @@ def schedule(plan: Plan) -> Iterator[Step]:
                 yield Step(blk, v, ph, f"{v.label}-b{blk}-{ph.name}")
 
 
+@dataclass(frozen=True)
+class Unit:
+    """One variant's turn in one block: a freshly restarted broker and every phase run on it. This is the unit a run is resumed
+    in: a unit that finished is not repeated, and one that did not is redone from the broker restart, because its phases only
+    mean something together (the same broker, from its first warm-up storm on)."""
+    block: int
+    variant: Variant
+    steps: tuple[Step, ...]
+
+    @property
+    def key(self) -> str:
+        return f"{self.variant.label}-b{self.block}"
+
+
+def units(plan: Plan) -> Iterator[Unit]:
+    """The schedule grouped into units, in the same order."""
+    current: list[Step] = []
+    for st in schedule(plan):
+        if current and (current[0].block, current[0].variant.label) != (st.block, st.variant.label):
+            yield Unit(current[0].block, current[0].variant, tuple(current))
+            current = []
+        current.append(st)
+    if current:
+        yield Unit(current[0].block, current[0].variant, tuple(current))
+
+
+class Progress(Protocol):
+    """What run_blocks tells whoever records the run's progress (state.RunState keeps it in the cluster)."""
+    revision: str
+    run_id: str
+
+    def qualifiers(self) -> dict: ...
+    def is_done(self, unit: Unit, raw: Path) -> bool: ...
+    def running_record(self, unit: Unit) -> dict | None: ...
+    def begin(self, unit: Unit) -> str: ...                       # returns the attempt's id
+    def broker_up(self, unit: Unit, facts: dict) -> None: ...
+    def beat(self) -> None: ...
+    def finish(self, unit: Unit) -> None: ...
+    def complete(self) -> None: ...
+
+
+def _labelled(report: dict, progress: "Progress | None", unit: "Unit", st: "Step", cpu: dict | None = None) -> dict:
+    """A storm's report with what qualifies it added (the cluster kind, namespace, run id and start, and which unit and storm it is), so
+    that the file says where it came from even when it is alone. A run with no progress record has nothing to add."""
+    out = {**report, **({"cpu": cpu} if cpu else {})}
+    if progress is None:
+        return out
+    return {**out, "qualifiers": {**progress.qualifiers(), "unit": unit.key, "storm": st.label}}
+
+
+def _valid_json(path: Path) -> bool:
+    try:
+        json.loads(path.read_text())
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def rescue_unit(backend, raw: Path, unit: Unit, progress: Progress, log: Callable[[str], None]) -> bool:
+    """Finish a unit that a stopped driver left running, by reading the storms that already ran for it from the cluster, and report
+    whether that made it whole.
+
+    A storm's Job (and so its log) stays on the cluster until the run is over, so a storm that finished, or was still running, when
+    the driver stopped is not lost: its report is read now. That makes the unit whole only when nothing is missing and nothing is
+    doubtful: the unit must have recorded the broker pod it ran on and that pod must still be the one running (a broker that was
+    replaced since measured something else), and each missing phase must have a Job of this very attempt on the cluster. A phase that
+    never started cannot be run now, on a broker that has been idle for minutes, and still be a phase of this unit: then the unit is
+    run again from a fresh broker, as always."""
+    rec = progress.running_record(unit)
+    if not rec or not rec.get("attempt") or not rec.get("pod_uid"):
+        return False
+    if not (hasattr(backend, "collect_storm") and hasattr(backend, "broker_uid")):
+        return False
+    if not _valid_json(raw / f"{unit.key}.meta.json"):
+        return False
+    if backend.broker_uid() != rec["pod_uid"]:
+        log(f"{unit.key}: the broker it was measured on has been replaced since: it will be run again")
+        return False
+    got = []
+    for st in unit.steps:
+        if _valid_json(raw / f"{st.label}.json"):
+            continue
+        text = backend.collect_storm(st.label, rec["attempt"])
+        if text is None:
+            log(f"{unit.key}: {st.phase.name} has no storm on the cluster from this attempt: the unit will be run again")
+            return False
+        try:
+            report = parse_report(text)
+        except StormFailed:
+            log(f"{unit.key}: the log of {st.phase.name} has no report: the unit will be run again")
+            return False
+        (raw / f"{st.label}.txt").write_text(text)
+        (raw / f"{st.label}.json").write_text(json.dumps(_labelled(report, progress, unit, st), indent=1) + "\n")
+        got.append(st.phase.name)
+    log(f"block {unit.block}, variant {unit.variant.label}: finished from the cluster"
+        + (f" (read the storms of {', '.join(got)} that a stopped driver had left)" if got else " (every storm had been read already)"))
+    return True
+
+
+def clear_unit(raw: Path, unit: Unit) -> None:
+    """Remove what an earlier, unfinished attempt at this unit left, so no file of it outlives the broker it was measured on."""
+    for p in [raw / f"{unit.key}.meta.json", *raw.glob(f"{unit.key}-*.json"), *raw.glob(f"{unit.key}-*.txt")]:
+        p.unlink(missing_ok=True)
+
+
 class StormFailed(RuntimeError):
     pass
 
@@ -146,23 +265,47 @@ def runs_of(report: dict) -> list[dict]:
     return report["runs"] if "runs" in report else [report]
 
 
-def run_blocks(plan: Plan, backend: Backend, raw: Path, *, sleep: Callable[[float], None] = time.sleep,
+def run_blocks(plan: Plan, backend: Backend, raw: Path, *, sleep: Callable[[float], None] | None = None,
                now: Callable[[], str] = lambda: time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-               log: Callable[[str], None] = print) -> None:
+               log: Callable[[str], None] = print, progress: Progress | None = None) -> None:
+    """Run every unit of the plan in schedule order. With a `progress`, a unit it says is done is skipped (the run is being
+    resumed), an unfinished one is redone from the start, and each unit's start, heartbeat and end are reported to it."""
+    sleep = sleep or time.sleep  # looked up here, not when the module loads, so a test that replaces time.sleep is obeyed
     raw.mkdir(parents=True, exist_ok=True)
-    started: set[tuple[int, str]] = set()
-    for st in schedule(plan):
-        key = (st.block, st.variant.label)
-        if key not in started:
-            started.add(key)
-            log(f"block {st.block}/{plan.blocks}, variant {st.variant.label}: fresh broker on {st.variant.image}")
-            meta = {"variant": st.variant.label, "block": st.block, "commit": st.variant.commit, "image": st.variant.image,
-                    "time": now(), **backend.start_variant(st.variant)}
-            (raw / f"{st.variant.label}-b{st.block}.meta.json").write_text(json.dumps(meta, indent=1) + "\n")
-        env = plan.storm_env(st.phase, st.label, st.variant)
-        log(f"  {st.label}: {st.phase.connections} connections x {st.phase.runs}")
-        text = backend.run_storm(st.label, env)
-        (raw / f"{st.label}.txt").write_text(text)
-        (raw / f"{st.label}.json").write_text(json.dumps(parse_report(text), indent=1) + "\n")
-        sleep(2)
+    for unit in units(plan):
+        v = unit.variant
+        if progress and progress.is_done(unit, raw):
+            log(f"block {unit.block}/{plan.blocks}, variant {v.label}: already done, skipped")
+            continue
+        if progress and rescue_unit(backend, raw, unit, progress, log):
+            progress.finish(unit)
+            continue
+        log(f"block {unit.block}/{plan.blocks}, variant {v.label}: fresh broker on {v.image}")
+        attempt = ""
+        if progress:
+            clear_unit(raw, unit)
+            attempt = progress.begin(unit)
+            if hasattr(backend, "clear_unit_jobs"):
+                backend.clear_unit_jobs(unit.key)   # an earlier attempt's storms are not this unit's
+        if hasattr(backend, "set_context"):
+            backend.set_context(progress.run_id if progress else "", unit.key, attempt)
+        facts = backend.start_variant(v)
+        meta = {"variant": v.label, "block": unit.block, "commit": v.commit, "image": v.image, "time": now(),
+                **({"driver_revision": progress.revision, "run_id": progress.run_id,
+                    "qualifiers": {**progress.qualifiers(), "unit": unit.key}} if progress else {}), **facts}
+        (raw / f"{unit.key}.meta.json").write_text(json.dumps(meta, indent=1) + "\n")
+        if progress:
+            progress.broker_up(unit, facts)
+        for st in unit.steps:
+            env = plan.storm_env(st.phase, st.label, v)
+            log(f"  {st.label}: {st.phase.connections} connections x {st.phase.runs}")
+            text = backend.run_storm(st.label, env)
+            (raw / f"{st.label}.txt").write_text(text)
+            (raw / f"{st.label}.json").write_text(
+                json.dumps(_labelled(parse_report(text), progress, unit, st, getattr(backend, "last_cpu", None)), indent=1) + "\n")
+            sleep(2)
+            if progress:
+                progress.beat()
+        if progress:
+            progress.finish(unit)
     (raw / "DONE").write_text(now() + "\n")

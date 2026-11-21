@@ -42,7 +42,7 @@ def test_the_provision_image_is_built_with_the_others_and_alone():
     assert cmd[-1] == "."  # the context is the repository root, as the Dockerfile expects
 
     everything = images.build_commands("c" * 40, tool="podman")
-    assert [c[c.index("-f") + 1] for c in everything] == [f"images/{n}/Dockerfile" for n in ("nats-server", "callout", "loadgen", "provision")]
+    assert [c[c.index("-f") + 1] for c in everything] == [f"images/{n}/Dockerfile" for n in ("nats-server", "callout", "loadgen", "provision", "cpuprobe")]
 
 
 def test_a_multi_platform_build_makes_a_list_without_the_dev_tag():
@@ -195,10 +195,11 @@ def test_the_eks_overlays_pin_every_image_by_digest_and_the_pins_name_their_sour
     text = render(REPO_ROOT / "deploy/stack/overlays/eks") + render(REPO_ROOT / "deploy/loadgen/overlays/eks")
     for name in ("callout", "provision", "loadgen", "nats-server"):
         assert re.search(rf"image: ghcr\.io/\S+/{name}@sha256:[0-9a-f]{{64}}", text), name
-    for overlay in ("deploy/stack/overlays/eks", "deploy/loadgen/overlays/eks"):
+    assert re.search(r"image: ghcr\.io/\S+/cpuprobe@sha256:[0-9a-f]{64}", render(REPO_ROOT / "deploy/monitoring/overlays/eks"))
+    for overlay in ("deploy/stack/overlays/eks", "deploy/loadgen/overlays/eks", "deploy/monitoring/overlays/eks"):
         source = (REPO_ROOT / overlay / "kustomization.yaml").read_text()
         for name, tag in re.findall(r"digest: sha256:[0-9a-f]{64}\s+# (\w+):(src-[0-9a-f]{12}|\S+)", source):
-            if name in ("callout", "provision", "loadgen"):
+            if name in ("callout", "provision", "loadgen", "cpuprobe"):
                 assert tag.startswith("src-"), f"{overlay}: {name} is pinned with a comment that does not name its source: {tag}"
                 assert (REPO_ROOT / "components" / name).is_dir()
 

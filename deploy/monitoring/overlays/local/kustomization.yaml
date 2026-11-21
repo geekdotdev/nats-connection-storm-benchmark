@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# kind: the probe image is the one built on this machine and loaded into the cluster, and the claim uses kind's own StorageClass
+# (rancher's local-path provisioner: a directory on the node, which is as persistent as the cluster is).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - {name: cpuprobe, newName: localhost/cpuprobe, newTag: dev}
+patches:
+  - target: {kind: StatefulSet, name: prometheus}
+    patch: |-
+      - {op: add, path: /spec/volumeClaimTemplates/0/spec/storageClassName, value: standard}

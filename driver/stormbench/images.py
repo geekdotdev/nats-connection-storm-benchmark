@@ -108,13 +108,13 @@ def _build(tool: str, dockerfile: str, tag: str, context: str, platforms: tuple[
     return [cmd + [context]] + after
 
 
-IMAGE_NAMES = ("nats-server", "callout", "loadgen", "provision")
+IMAGE_NAMES = ("nats-server", "callout", "loadgen", "provision", "cpuprobe")
 
 
 def build_commands(ref: str | None, repo: str = DEFAULT_REPO, tool: str | None = None,
                    root: Path = REPO_ROOT, platforms: tuple[str, ...] = (),
                    ref_name: str | None = None, only: tuple[str, ...] = ()) -> list[list[str]]:
-    """The build commands. `only` limits them to the named images (nats-server, callout, loadgen, provision); the
+    """The build commands. `only` limits them to the named images (nats-server, callout, loadgen, provision, cpuprobe); the
     commit is needed only when nats-server is among them. The broker image is always tagged with the commit (the identity). With
     ref_name (a branch or tag name) it also gets that name as a label, org.opencontainers.image.ref.name,
     and as a second tag. The name is where the branch pointed when the image was built, nothing more."""
@@ -144,6 +144,9 @@ def build_commands(ref: str | None, repo: str = DEFAULT_REPO, tool: str | None =
     if want("provision") and (root / "components/provision/go.mod").is_file():
         cmds += _build(tool, "images/provision/Dockerfile", component_tag("provision", root), ".", platforms,
                        extra_tags=dev("provision"))
+    if want("cpuprobe") and (root / "components/cpuprobe/go.mod").is_file():
+        cmds += _build(tool, "images/cpuprobe/Dockerfile", component_tag("cpuprobe", root), ".", platforms,
+                       extra_tags=dev("cpuprobe"))
     return cmds
 
 

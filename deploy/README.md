@@ -37,6 +37,10 @@ The callout pod gets the init container, a ServiceAccount (`storm-provision`, `b
 
 The broker's `nats-server.conf` includes `operator.conf` and `resolver-memory.conf` from the ConfigMap with a relative path, `../storm/operator/...`: nats-server joins an include path to the directory of the file that includes it, even an absolute one. The resolver is the MEMORY resolver with the three account JWTs preloaded, so accounts cannot be changed while a broker runs. Each is its own file so a later version can offer another resolver.
 
+## What the driver adds: the run state
+
+Not part of the manifests: `bench run` creates the ConfigMap `storm-run` in `storm-bench` and keeps a run's progress in it (the plan, the units done, a lease saying which driver holds the run), so that the driver can be stopped and started again with `bench run --resume`; `bench status` shows it. Its `plan.json` records the namespace the components are in (the driver defines it once, in `config.NAMESPACE`; a test checks that the manifests under `deploy/` agree), and `--resume` refuses a run recorded in another one. Applying a stack leaves it alone, `bench cluster down` takes it with the cluster, and `bench run --discard-state` removes it.
+
 ## What the stack expects to exist first
 
 Nothing secret is in the manifests. One Secret must exist in `storm-bench` before the pods can start: `uv run bench secrets create` (`--target eks` for the EKS cluster) makes `storm-tls`, generated in memory and sent to kubectl on stdin, so no value is written to disk or shown. It refuses to replace an existing Secret (`bench secrets delete` first, then restart the pods, since running pods keep the values they started with). `bench secrets delete` also removes the three objects the init container made: the next callout pod then makes new keys, and the broker pods must restart with it, because the broker's trusted operator and accounts are in that ConfigMap (a variant start restarts both).
@@ -45,9 +49,15 @@ Nothing secret is in the manifests. One Secret must exist in `storm-bench` befor
 
 The manifests name placeholder images (`nats-server`, `callout`, `provision`, `loadgen`). The local overlays map them to `localhost/<name>:dev`, which is how podman names a locally built image; the driver overrides the broker's image per variant with Kustomize's `images:`. All containers run as a non-root user with a read-only root filesystem and no capabilities.
 
+## Monitoring: the CPU probe and Prometheus
+
+`deploy/monitoring` is applied by `bench monitoring up`, not by a run, and stays in the `storm-bench` namespace. `base` is the DaemonSet `cpuprobe` (reads other containers' cgroups through a read-only `hostPath` of `/sys/fs/cgroup`; no CPU limit, so it cannot be throttled itself) with its headless Service, and a Prometheus StatefulSet that scrapes every probe once a second into a 2 Gi claim. `overlays/local` uses the image loaded into kind and kind's `standard` StorageClass; `overlays/eks` uses the pushed images by digest, the `gp3` StorageClass (EBS, from the CSI driver `bench cluster addons` installs) and the `infra` node group (`bench cluster infra`), so that Prometheus's disk activity is not on a broker or client node. The monitoring pods are labelled `app.kubernetes.io/part-of: storm-bench-monitoring`; the probe measures only pods labelled `app.kubernetes.io/part-of: storm-bench`.
+
 ## Running a storm
 
-`uv run bench run` does everything below for you. By hand: apply the stack, wait for the broker and the callout to be ready, then apply `loadgen/overlays/local`. The generator's report is the last line of the Job's log, starting `STORM_REPORT_JSON`. Delete the Job before the next run.
+`uv run bench run` does everything below for you. By hand: apply the stack, wait for the broker and the callout to be ready, then apply `loadgen/overlays/local`. The generator's report is the last line of the Job's log, starting `STORM_REPORT_JSON`; delete the Job before applying it again.
+
+`bench run` makes one Job per storm from that template, named `loadgen-<label>-<hash>` (the label is the storm's, for example `mux_main-b4-n800`; the hash tells apart labels that differ only in case or `_`) and labelled `storm-bench/run-id`, `storm-bench/unit`, `storm-bench/attempt` and `storm-bench/label`. A Job's pod and its log stay on the cluster until the Job is deleted, so they are kept (there is no `ttlSecondsAfterFinished`): the driver deletes a run's Jobs when the run completes, and a new run deletes any that are left. That is what lets a resumed run read a storm that finished while the driver was stopped; see the README.
 
 ```sh
 uv run bench images build --only callout,loadgen,provision          # then load callout:dev, loadgen:dev and provision:dev into kind

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import re
 import tempfile
 from dataclasses import dataclass
@@ -55,6 +56,8 @@ class Params:
     instance_type: str = "c6i.xlarge"  # 4 vCPU, 8 GiB, x86. The overlays' resource sizes assume this size.
     broker_nodes: int = 3
     client_nodes: int = 1
+    infra_nodes: int = 1         # for Prometheus and its volume, away from the brokers and the generator (0: none)
+    infra_instance_type: str = "c6i.large"
     k8s_version: str = DEFAULT_K8S_VERSION  # "" would leave it to eksctl's default; the command line cannot ask for that
 
     def __post_init__(self) -> None:
@@ -69,6 +72,10 @@ class Params:
         for what, n in (("broker", self.broker_nodes), ("client", self.client_nodes)):
             if not 1 <= n <= MAX_NODES:
                 raise ValueError(f"{what} nodes must be 1 to {MAX_NODES}, got {n}")
+        if not 0 <= self.infra_nodes <= MAX_NODES:
+            raise ValueError(f"infra nodes must be 0 to {MAX_NODES}, got {self.infra_nodes}")
+        if not _INSTANCE.match(self.infra_instance_type):
+            raise ValueError(f"infra instance type must look like c6i.large, got {self.infra_instance_type!r}")
         if self.k8s_version and not _VERSION.match(self.k8s_version):
             raise ValueError(f"kubernetes version must look like 1.33, got {self.k8s_version!r}")
 
@@ -109,10 +116,10 @@ def kubeconfig_path() -> Path:
     return path
 
 
-def _nodegroup(p: Params, name: str, role: str, count: int, taint: bool) -> dict:
+def _nodegroup(p: Params, name: str, role: str, count: int, taint: bool, instance_type: str | None = None) -> dict:
     group: dict = {
         "name": name,
-        "instanceType": p.instance_type,
+        "instanceType": instance_type or p.instance_type,
         "desiredCapacity": count,
         "minSize": count,
         "maxSize": count,        # fixed size: nothing scales, so nothing changes under a run
@@ -127,6 +134,15 @@ def _nodegroup(p: Params, name: str, role: str, count: int, taint: bool) -> dict
     return group
 
 
+# The add-ons this benchmark's cluster needs beyond eksctl's defaults. The EBS CSI driver provisions EBS volumes for PersistentVolumeClaims
+# (the in-tree provisioner is gone from current Kubernetes). It calls the EC2 API, so it needs an IAM role: with
+# useDefaultPodIdentityAssociations eksctl makes that role (the AWS-managed AmazonEBSCSIDriverPolicy) and ties it to the driver's service
+# account through EKS Pod Identity, which needs the agent add-on. Pod Identity, not IRSA, because IRSA needs an IAM OIDC provider, an
+# account-wide resource this cluster has not got and that outlives it.
+ADDONS = ({"name": "eks-pod-identity-agent"}, {"name": "aws-ebs-csi-driver", "useDefaultPodIdentityAssociations": True})
+STORAGECLASS = REPO_ROOT / "infra" / "eks" / "storageclass-gp3.yaml"
+
+
 def cluster_config(p: Params) -> dict:
     metadata: dict = {"name": p.cluster, "region": p.region, "tags": dict(TAGS)}
     if p.k8s_version:
@@ -139,9 +155,13 @@ def cluster_config(p: Params) -> dict:
         # The nodes sit in public subnets (they pull images over the internet gateway), so the NAT gateway eksctl
         # makes by default would cost money and carry nothing.
         "vpc": {"nat": {"gateway": "Disable"}},
+        "addons": [dict(a) for a in ADDONS],
         "managedNodeGroups": [
             _nodegroup(p, "brokers", "broker", p.broker_nodes, taint=True),
             _nodegroup(p, "clients", "client", p.client_nodes, taint=False),
+            # Prometheus and the volume its data is on: a node of their own, tainted so nothing else lands there, so that nothing
+            # that is measured shares a machine with the thing that keeps the measurements.
+            *([_nodegroup(p, "infra", "infra", p.infra_nodes, taint=True, instance_type=p.infra_instance_type)] if p.infra_nodes else []),
         ],
     }
 
@@ -190,13 +210,27 @@ def create_command(config_file: Path, kubeconfig: Path) -> list[str]:
     return ["eksctl", "create", "cluster", "--config-file", str(config_file), "--kubeconfig", str(kubeconfig)]
 
 
+def addons_command(config_file: Path) -> list[str]:
+    return ["eksctl", "create", "addon", "--config-file", str(config_file)]
+
+
+def storageclass_command() -> list[str]:
+    from . import k8s
+    return k8s.kubectl_command("apply", "-f", str(STORAGECLASS), target="eks")
+
+
+def infra_command(config_file: Path) -> list[str]:
+    return ["eksctl", "create", "nodegroup", "--config-file", str(config_file), "--include", "infra"]
+
+
 def delete_command(p: Params) -> list[str]:
     return ["eksctl", "delete", "cluster", "--name", p.cluster, "--region", p.region, "--wait"]
 
 
 def plan_text(p: Params) -> str:
     return (f"{p.cluster} in {p.region} (nodes in {p.node_zone}): {p.broker_nodes} broker node(s) and "
-            f"{p.client_nodes} client node(s), {p.instance_type} each, plus the EKS control plane. "
+            f"{p.client_nodes} client node(s), {p.instance_type} each"
+            + (f", {p.infra_nodes} infra node(s) of {p.infra_instance_type}" if p.infra_nodes else "") + ", plus the EKS control plane. "
             "All of it is billed by the hour until `bench cluster down --target eks`.")
 
 
@@ -210,10 +244,47 @@ def up(run: Runner, p: Params, confirm: bool) -> Path:
         cfg = Path(tmp) / "cluster.yaml"
         cfg.write_text(render(p))
         run(create_command(cfg, kc))
+    if not run.dry_run:
+        run(storageclass_command())   # the add-on is installed by the config above; the class that uses it is applied here
     return kc
 
 
+def add_addons(run: Runner, p: Params, confirm: bool) -> None:
+    """Install the add-ons (and make their IAM role) on a cluster that already exists, and apply the gp3 StorageClass."""
+    if not confirm and not run.dry_run:
+        raise NotConfirmed("this installs EKS add-ons and creates an IAM role (and its CloudFormation stack) in the AWS account of the "
+                           "current profile: the EBS CSI driver and the Pod Identity agent, with the AWS-managed AmazonEBSCSIDriverPolicy. "
+                           "Run again with --yes.")
+    with tempfile.TemporaryDirectory(prefix="storm-eks-") as tmp:
+        cfg = Path(tmp) / "cluster.yaml"
+        cfg.write_text(render(p))
+        run(addons_command(cfg))
+    if not run.dry_run:
+        run(storageclass_command())
+
+
+def add_infra(run: Runner, p: Params, confirm: bool) -> None:
+    """Create the infra node group on a cluster that already exists (the one Prometheus runs on). Billable by the hour."""
+    if not p.infra_nodes:
+        raise ValueError("--infra-nodes is 0: there is no infra node group to create")
+    if not confirm and not run.dry_run:
+        raise NotConfirmed(f"this adds {p.infra_nodes} {p.infra_instance_type} node(s) to {p.cluster}, billed by the hour until the cluster is deleted. "
+                           "Run again with --yes.")
+    with tempfile.TemporaryDirectory(prefix="storm-eks-") as tmp:
+        cfg = Path(tmp) / "cluster.yaml"
+        cfg.write_text(render(p))
+        run(infra_command(cfg))
+
+
 def down(run: Runner, p: Params) -> None:
+    # An EBS volume that is still attached when the cluster is deleted is left behind, unattached and billed: the volume of Prometheus's data
+    # is deleted first, by deleting its claim. Best effort: a cluster that cannot be reached is deleted all the same.
+    try:
+        from . import monitoring
+        if not run.dry_run and kubeconfig_path().is_file():
+            monitoring.down(run, "eks", purge=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"bench: could not remove monitoring's volume first ({e}); check the AWS console for volumes tagged kubernetes.io/created-for/pvc/name", file=sys.stderr)
     run(delete_command(p))
     kc = kubeconfig_path()
     # Remove only the file the driver made itself, never one STORM_EKS_KUBECONFIG points at.

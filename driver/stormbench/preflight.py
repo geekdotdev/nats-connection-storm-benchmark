@@ -18,6 +18,7 @@ The local target skips the image check: its images are loaded into kind, not pul
 """
 from __future__ import annotations
 
+import copy
 import json
 import re
 import subprocess
@@ -230,6 +231,103 @@ def placement_checks(objs: list[dict], nodes: list[dict]) -> list[Check]:
     return checks
 
 
+# -- do they fit at once? -------------------------------------------------------------------------------------------
+
+# The workloads a run places itself. Every other pod on a node (the cluster's own, CoreDNS, the CSI driver, the probe...) is load the
+# run has to fit around, and these are not: they are replaced when a run starts, so what is running now does not count against them.
+BENCH_PODS = frozenset({"broker", "callout", "loadgen"})
+
+
+def _requests(spec: dict) -> tuple[float, float]:
+    cs = spec.get("containers", [])
+    return (sum(quantity(c.get("resources", {}).get("requests", {}).get("cpu", 0)) for c in cs),
+            sum(quantity(c.get("resources", {}).get("requests", {}).get("memory", 0)) for c in cs))
+
+
+def other_pods_load(pods: list[dict]) -> dict[str, tuple[float, float]]:
+    """CPU and memory the pods on each node request, not counting the benchmark's own (BENCH_PODS in its namespace) or finished pods:
+    what the scheduler has already given away on that node."""
+    load: dict[str, list[float]] = {}
+    for p in pods:
+        spec, md = p.get("spec", {}), p.get("metadata", {})
+        node = spec.get("nodeName")
+        if not node or p.get("status", {}).get("phase") in ("Succeeded", "Failed"):
+            continue
+        if md.get("namespace") == NAMESPACE and md.get("labels", {}).get("app.kubernetes.io/name") in BENCH_PODS:
+            continue
+        cpu, mem = _requests(spec)
+        acc = load.setdefault(node, [0.0, 0.0])
+        acc[0] += cpu
+        acc[1] += mem
+    return {n: (a, b) for n, (a, b) in load.items()}
+
+
+def with_generator_resources(objs: list[dict], resources: dict) -> list[dict]:
+    """The Jobs among objs with a variant's cpu and memory applied as both requests and limits, as the backend does when it makes a storm's Job."""
+    if not resources:
+        return objs
+    out = copy.deepcopy(objs)
+    for o in out:
+        if o.get("kind") == "Job":
+            res = _podspec(o)["containers"][0].setdefault("resources", {})
+            res.setdefault("requests", {}).update(resources)
+            res.setdefault("limits", {}).update(resources)
+    return out
+
+
+def fit_together(name: str, objs: list[dict], nodes: list[dict], load: dict[str, tuple[float, float]]) -> Check:
+    """Whether every pod of these workloads can be on a node at the same time: each on a node it may run on, the pods of a workload
+    that must be one per node on different nodes, and the sum of what is placed on a node within what is free there after the pods
+    the run does not place. placement_checks asks this of one workload at a time, which cannot see a callout and a generator that
+    each fit the client node and not both."""
+    pods: list[tuple[str, float, float, list[str], str | None]] = []
+    for o in workloads(objs):
+        spec, title = _podspec(o), f"{o['kind'].lower()}/{o['metadata']['name']}"
+        replicas = 1 if o["kind"] == "Job" else o.get("spec", {}).get("replicas", 1)
+        spread = bool(spec.get("affinity", {}).get("podAntiAffinity", {}).get("requiredDuringSchedulingIgnoredDuringExecution"))
+        usable = [n["metadata"]["name"] for n in nodes if _usable(n, spec)]
+        cpu, mem = _requests(spec)
+        pods += [(title, cpu, mem, usable, title if spread else None) for _ in range(replicas)]
+    free = {n["metadata"]["name"]: [quantity(n["status"]["allocatable"]["cpu"]) - load.get(n["metadata"]["name"], (0.0, 0.0))[0],
+                                    quantity(n["status"]["allocatable"]["memory"]) - load.get(n["metadata"]["name"], (0.0, 0.0))[1]] for n in nodes}
+    pods.sort(key=lambda p: -p[1])
+    where: list[str] = []
+    used_groups: dict[str, set[str]] = {}
+
+    def solve(i: int) -> bool:
+        if i == len(pods):
+            return True
+        title, cpu, mem, usable, group = pods[i]
+        for n in usable:
+            if free[n][0] + 1e-9 < cpu or free[n][1] + 1e-9 < mem or (group and n in used_groups.get(group, set())):
+                continue
+            free[n][0] -= cpu
+            free[n][1] -= mem
+            if group:
+                used_groups.setdefault(group, set()).add(n)
+            where.append(n)
+            if solve(i + 1):
+                return True
+            where.pop()
+            free[n][0] += cpu
+            free[n][1] += mem
+            if group:
+                used_groups[group].discard(n)
+        return False
+
+    if solve(0):
+        shared = {n: [p[0] for p, w in zip(pods, where) if w == n] for n in set(where) if where.count(n) > 1}
+        # the nodes with more than one of the run's pods: how much of what is free there they ask for
+        parts = [f"{' + '.join(titles)} ask {sum(p[1] for p, w in zip(pods, where) if w == n):g} of the {free[n][0] + sum(p[1] for p, w in zip(pods, where) if w == n):.2f} "
+                 "CPU free there after the cluster's other pods" for n, titles in shared.items()]
+        return Check(name, True, f"all {len(pods)} pod(s) fit at once" + (": " + "; ".join(parts) if parts else ", each on a node of its own"))
+    asks = ", ".join(f"{t} {c:g} CPU" for t, c, _, _, _ in pods)
+    usable = sorted({n for p in pods for n in p[3]})
+    room = ", ".join(f"{n} {free[n][0] + sum(p[1] for p, w in zip(pods, where) if w == n):.2f}" for n in usable)
+    return Check(name, False, f"these cannot all run at once ({asks}): the nodes they may use have this much CPU free after the cluster's other pods: {room}. "
+                              "Add a node (a bigger or a second client node), or lower the requests")
+
+
 # -- the whole preflight ---------------------------------------------------------------------------------------
 
 def json_stream(text: str) -> list[dict]:
@@ -250,6 +348,43 @@ def _objects(run: Runner, target: str, overlay: str) -> list[dict]:
     rendered = run.output(k8s.kubectl_command("kustomize", overlay, target=target), quiet=True)
     return json_stream(run.output(k8s.kubectl_command("create", "--dry-run=client", "-o", "json", "-f", "-", target=target),
                                   input=rendered, quiet=True))
+
+
+def monitoring_checks(run: Runner, target: str, overlay: str, fetch: Fetch = fetch_manifest) -> list[Check]:
+    """What `bench monitoring up` needs before it applies anything: the overlay renders; the probe can run on every node (a node it
+    cannot run on is a node whose pods it cannot read); Prometheus has a node it fits and a StorageClass its claim can use; and, off
+    kind, the images can be pulled."""
+    try:
+        nodes = json.loads(run.output(k8s.kubectl_command("get", "nodes", "-o", "json", target=target), quiet=True))["items"]
+    except (subprocess.CalledProcessError, ValueError, KeyError):
+        return [Check("cluster", False, f"kubectl cannot read the {target} cluster: is it up, and is the kubeconfig current?")]
+    checks = [Check("cluster", bool(nodes), f"{len(nodes)} node(s)")]
+    try:
+        objs = _objects(run, target, overlay)
+    except (subprocess.CalledProcessError, ValueError, KeyError) as e:
+        return [*checks, Check("monitoring", False, f"cannot render {overlay} (kubectl kustomize): {e}")]
+    checks.append(Check("monitoring", True, f"{overlay} renders: " + ", ".join(sorted({f"{o['kind'].lower()}/{o['metadata']['name']}" for o in workloads(objs)}))))
+    for o in workloads(objs):
+        title = f"{o['kind'].lower()}/{o['metadata']['name']}"
+        if o["kind"] == "DaemonSet":   # one per node by definition: what matters is that no node is left out
+            missed = [n["metadata"]["name"] for n in nodes if not _usable(n, _podspec(o))]
+            checks.append(Check(title, not missed, "runs on all " + f"{len(nodes)} node(s)" if not missed else
+                                f"cannot run on {', '.join(missed)} (a taint it does not tolerate, or a nodeSelector): the pods there would not be measured"))
+        else:
+            checks += placement_checks([o], nodes)
+    for o in objs:
+        for claim in o.get("spec", {}).get("volumeClaimTemplates", []):
+            name = claim["spec"].get("storageClassName")
+            if name:
+                have = run.succeeds(k8s.kubectl_command("get", "storageclass", name, target=target))
+                checks.append(Check(f"storageclass {name}", have, f"exists, for the claim {claim['metadata']['name']}" if have else
+                                    f"missing: the claim {claim['metadata']['name']} would never bind (on eks: `bench cluster addons --target eks`)"))
+    if target == "local":
+        checks.append(Check("images", True, "not checked: local images are loaded into kind (`bench images load-kind`), not pulled"))
+    else:
+        arches = {n["status"]["nodeInfo"]["architecture"] for n in nodes}
+        checks += [check_image(ref, arches, fetch) for ref in images_of(objs)]
+    return checks
 
 
 def preflight(run: Runner, target: str, variants: tuple[Variant, ...], default_stack: str, loadgen: str,
@@ -284,7 +419,21 @@ def preflight(run: Runner, target: str, variants: tuple[Variant, ...], default_s
         checks.append(Check("variants", True, f"{len(variants)} variants render, with the same objects in each"))
     for v in variants:
         checks += [Check(f"{v.label}: {c.name}", c.ok, c.detail) for c in placement_checks(per_variant[v.label], nodes)]
-    checks += placement_checks(loadgen_objs, nodes)
+    if any(v.generator_resources for v in variants):   # the generator's size differs by variant: each is checked with its own
+        for v in variants:
+            checks += [Check(f"{v.label}: {c.name}", c.ok, c.detail)
+                       for c in placement_checks(with_generator_resources(loadgen_objs, v.generator_resources), nodes)]
+    else:
+        checks += placement_checks(loadgen_objs, nodes)
+    try:
+        pods = json.loads(run.output(k8s.kubectl_command("get", "pods", "-A", "-o", "json", target=target), quiet=True))["items"]
+    except (subprocess.CalledProcessError, ValueError, KeyError):
+        checks.append(Check("fit together", True, "not checked: the cluster's pods could not be listed"))
+    else:
+        load = other_pods_load(pods)
+        for v in variants:
+            checks.append(fit_together(f"{v.label}: fit together", per_variant[v.label] + with_generator_resources(loadgen_objs, v.generator_resources),
+                                       nodes, load))
 
     secrets = [secretgen.TLS_NAME]
     have = run.succeeds(k8s.kubectl_command("-n", NAMESPACE, "get", "secret", *secrets, target=target))

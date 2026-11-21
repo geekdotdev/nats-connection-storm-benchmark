@@ -16,6 +16,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# The namespace every component of the stack is in, and where the driver looks for them and keeps the run state. The manifests under
+# deploy/ say the same thing in YAML, which cannot import this: tests/test_state.py checks that they agree.
+NAMESPACE = "storm-bench"
+
 
 @dataclass(frozen=True)
 class Key:

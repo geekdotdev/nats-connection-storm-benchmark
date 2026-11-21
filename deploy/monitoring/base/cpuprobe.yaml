@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: Apache-2.0
+# The CPU probe (components/cpuprobe): on every node, reads the cgroup counters of the benchmark's containers when asked. Prometheus scrapes it
+# every second and the load generator asks it at the start and the end of each burst. The monitoring pods carry the label
+# app.kubernetes.io/part-of: storm-bench-monitoring, not storm-bench: the probe reads the pods that have the second one, never itself.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cpuprobe
+  labels: {app.kubernetes.io/name: cpuprobe, app.kubernetes.io/part-of: storm-bench-monitoring}
+---
+# It lists pods in this namespace (to learn which containers are on its node) and nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cpuprobe
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cpuprobe
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: cpuprobe}
+subjects:
+  - {kind: ServiceAccount, name: cpuprobe}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cpuprobe
+  labels: {app.kubernetes.io/name: cpuprobe, app.kubernetes.io/part-of: storm-bench-monitoring}
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: cpuprobe}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: cpuprobe, app.kubernetes.io/part-of: storm-bench-monitoring}
+    spec:
+      serviceAccountName: cpuprobe
+      tolerations:
+        - operator: Exists           # every node, whatever it is tainted for: the brokers' nodes are tainted
+      containers:
+        - name: cpuprobe
+          image: cpuprobe
+          imagePullPolicy: IfNotPresent
+          args: ["--cgroup-root=/host/sys/fs/cgroup", "--listen=:9100"]
+          env:
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+          ports:
+            - {name: metrics, containerPort: 9100}
+          readinessProbe: {httpGet: {path: /healthz, port: metrics}, periodSeconds: 5}
+          # A request, no CPU limit: a limit could throttle the probe, which reads other containers' throttling.
+          resources:
+            requests: {cpu: 10m, memory: 24Mi}
+            limits: {memory: 64Mi}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+            seccompProfile: {type: RuntimeDefault}
+          volumeMounts:
+            - {name: cgroup, mountPath: /host/sys/fs/cgroup, readOnly: true}
+      volumes:
+        - name: cgroup
+          hostPath: {path: /sys/fs/cgroup, type: Directory}   # the node's cgroup v2 tree, read-only inside the container
+---
+# Headless: its DNS name resolves to the address of every probe pod, which is how Prometheus and the load generator find all of them.
+apiVersion: v1
+kind: Service
+metadata:
+  name: cpuprobe
+  labels: {app.kubernetes.io/name: cpuprobe, app.kubernetes.io/part-of: storm-bench-monitoring}
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: cpuprobe}
+  ports:
+    - {name: metrics, port: 9100, targetPort: metrics}

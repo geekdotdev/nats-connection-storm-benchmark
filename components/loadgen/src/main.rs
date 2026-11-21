@@ -30,6 +30,9 @@
 //   STORM_HOLD_MS       keep an admitted connection open this long before closing it (default 1000)
 //   STORM_THREADS       worker threads (default 4)
 //   STORM_LABEL         names the run in the report and as the `run` label of the metrics (default "run")
+//   STORM_CPUPROBE      host:port of the CPU probe (components/cpuprobe): at the start and the end of every burst the generator asks each probe for its
+//                       containers' CPU counters, and the burst's report says how much CPU the broker, the callout and the generator used and whether
+//                       they were throttled ("probeCpu"). Unset: not asked.
 //   STORM_JSON          write the report to this file, or to stdout as one line starting STORM_REPORT_JSON when set to -; STORM_SAMPLES=1 adds every connection's timings
 //   STORM_METRICS_PORT  serve Prometheus metrics on this port (default 0: off); STORM_METRICS_HOLD_S keeps serving this many seconds after the last run
 //   STORM_CA_FILE       PEM file with the CA that signed the broker's certificate (required for wss://)
@@ -39,11 +42,13 @@ use std::fmt::Write as _;
 mod ticket;
 
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{Value, json};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
@@ -89,6 +94,7 @@ struct Cfg {
     label: String,
     report: String,
     samples: bool,
+    cpuprobe: String,
     metrics_port: u16,
     metrics_hold_s: u64,
     ca_file: String,
@@ -111,6 +117,7 @@ fn cfg() -> Res<Cfg> {
         label: env("STORM_LABEL", "run"),
         report: env("STORM_JSON", ""),
         samples: env("STORM_SAMPLES", "") == "1",
+        cpuprobe: env("STORM_CPUPROBE", ""),
         metrics_port: env_num("STORM_METRICS_PORT", 0),
         metrics_hold_s: env_num("STORM_METRICS_HOLD_S", 0),
         ca_file: env("STORM_CA_FILE", ""),
@@ -258,6 +265,191 @@ struct Rec {
     start_ms: f64,
     sent_ms: Option<f64>,
     done_ms: f64,
+}
+
+/// This container's CPU use and throttling, from its cgroup (v2): the counters in `cpu.stat` and the limit in `cpu.max`. Read at the start
+/// and the end of a burst, their difference says how much CPU the generator used during it and whether the limit held it back: a generator
+/// that is throttled, or close to its limit, delays the very connections it is timing.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct CpuStat {
+    usage_usec: u64,
+    user_usec: u64,
+    system_usec: u64,
+    nr_periods: u64,
+    nr_throttled: u64,
+    throttled_usec: u64,
+}
+
+fn parse_cpu_stat(text: &str) -> Option<CpuStat> {
+    let mut s = CpuStat::default();
+    let mut seen = false;
+    for line in text.lines() {
+        let mut it = line.split_whitespace();
+        let (Some(k), Some(v)) = (it.next(), it.next().and_then(|v| v.parse::<u64>().ok())) else { continue };
+        match k {
+            "usage_usec" => {
+                s.usage_usec = v;
+                seen = true;
+            }
+            "user_usec" => s.user_usec = v,
+            "system_usec" => s.system_usec = v,
+            "nr_periods" => s.nr_periods = v,
+            "nr_throttled" => s.nr_throttled = v,
+            "throttled_usec" => s.throttled_usec = v,
+            _ => {}
+        }
+    }
+    seen.then_some(s)
+}
+
+/// The CPU limit in cores from `cpu.max` ("max 100000" is no limit, "200000 100000" is two cores).
+fn parse_cpu_max(text: &str) -> Option<f64> {
+    let mut it = text.split_whitespace();
+    let (quota, period) = (it.next()?, it.next()?);
+    let (quota, period): (f64, f64) = (quota.parse().ok()?, period.parse().ok()?);
+    (period > 0.0).then_some(quota / period)
+}
+
+fn read_cgroup_cpu() -> Option<(CpuStat, Option<f64>)> {
+    let stat = parse_cpu_stat(&std::fs::read_to_string("/sys/fs/cgroup/cpu.stat").ok()?)?;
+    let limit = std::fs::read_to_string("/sys/fs/cgroup/cpu.max").ok().and_then(|t| parse_cpu_max(&t));
+    Some((stat, limit))
+}
+
+/// The CPU used between two readings, for the report: JSON null when either reading failed (cgroup v1, or not a container).
+fn cpu_delta_json(before: Option<(CpuStat, Option<f64>)>, after: Option<(CpuStat, Option<f64>)>) -> Value {
+    let (Some((b, _)), Some((a, limit))) = (before, after) else { return Value::Null };
+    let d = |x: u64, y: u64| y.saturating_sub(x);
+    json!({"usageUsec": d(b.usage_usec, a.usage_usec), "userUsec": d(b.user_usec, a.user_usec), "systemUsec": d(b.system_usec, a.system_usec),
+           "periods": d(b.nr_periods, a.nr_periods), "throttledPeriods": d(b.nr_throttled, a.nr_throttled),
+           "throttledUsec": d(b.throttled_usec, a.throttled_usec), "limitCores": limit})
+}
+
+// ---- the CPU probe: the broker's and the callout's CPU in a burst -------------------------------------------------------------------------------------------
+
+/// One container's cumulative counters as a probe reported them.
+#[derive(Clone, Debug, PartialEq)]
+struct ProbeReading {
+    component: String,
+    pod: String,
+    container: String,
+    usage_usec: u64,
+    user_usec: u64,
+    system_usec: u64,
+    periods: u64,
+    throttled_periods: u64,
+    throttled_usec: u64,
+    limit_cores: Option<f64>,
+}
+
+/// What every probe answered at one moment. `probes` is how many were asked (one per node); `errors` says why some did not answer.
+#[derive(Clone, Debug, Default)]
+struct ProbeSnapshot {
+    readings: Vec<ProbeReading>,
+    probes: usize,
+    errors: Vec<String>,
+}
+
+/// The body of an HTTP response, or why it is not one: a non-200 status, or no header end.
+fn parse_http_body(buf: &[u8]) -> Result<String, String> {
+    let text = String::from_utf8_lossy(buf);
+    let (head, body) = text.split_once("\r\n\r\n").ok_or("no end of headers")?;
+    let status = head.lines().next().unwrap_or("");
+    if status.split_whitespace().nth(1) != Some("200") {
+        return Err(format!("status: {status}"));
+    }
+    Ok(body.to_string())
+}
+
+/// What `GET /counters` of a probe returns: {"node", "timeMs", "containers": [{namespace, pod, container, component, usageUsec, ...}]}.
+fn parse_probe_doc(body: &str) -> Result<Vec<ProbeReading>, String> {
+    let doc: Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
+    let containers = doc["containers"].as_array().ok_or("no containers array")?;
+    let n = |c: &Value, k: &str| c[k].as_u64().unwrap_or(0);
+    let text = |c: &Value, k: &str| c[k].as_str().unwrap_or("").to_string();
+    Ok(containers
+        .iter()
+        .map(|c| ProbeReading {
+            component: text(c, "component"),
+            pod: text(c, "pod"),
+            container: text(c, "container"),
+            usage_usec: n(c, "usageUsec"),
+            user_usec: n(c, "userUsec"),
+            system_usec: n(c, "systemUsec"),
+            periods: n(c, "periods"),
+            throttled_periods: n(c, "throttledPeriods"),
+            throttled_usec: n(c, "throttledUsec"),
+            limit_cores: c["limitCores"].as_f64(),
+        })
+        .collect())
+}
+
+/// GET a path over HTTP/1.0 (so the server does not chunk the answer) and return the body, within `timeout`.
+async fn http_get(addr: SocketAddr, path: &str, timeout: Duration) -> Result<String, String> {
+    let fetch = async {
+        let mut s = TcpStream::connect(addr).await?;
+        s.write_all(format!("GET {path} HTTP/1.0\r\n\r\n").as_bytes()).await?;
+        let mut buf = Vec::new();
+        s.read_to_end(&mut buf).await?;
+        Ok::<_, std::io::Error>(buf)
+    };
+    let buf = tokio::time::timeout(timeout, fetch).await.map_err(|_| "timed out".to_string())?.map_err(|e| e.to_string())?;
+    parse_http_body(&buf)
+}
+
+/// Ask every probe behind `host_port` (a headless Service name resolves to all of them) for its counters, all at once.
+async fn read_probes(host_port: &str) -> Option<ProbeSnapshot> {
+    if host_port.is_empty() {
+        return None;
+    }
+    let addrs: Vec<SocketAddr> = match tokio::net::lookup_host(host_port).await {
+        Ok(a) => a.collect(),
+        Err(e) => return Some(ProbeSnapshot { errors: vec![format!("resolving {host_port}: {e}")], ..Default::default() }),
+    };
+    let tasks: Vec<_> = addrs.iter().map(|a| {
+        let a = *a;
+        tokio::spawn(async move { (a, http_get(a, "/counters", Duration::from_millis(500)).await) })
+    }).collect();
+    let mut snap = ProbeSnapshot { probes: addrs.len(), ..Default::default() };
+    for t in tasks {
+        match t.await {
+            Ok((a, Ok(body))) => match parse_probe_doc(&body) {
+                Ok(r) => snap.readings.extend(r),
+                Err(e) => snap.errors.push(format!("{a}: {e}")),
+            },
+            Ok((a, Err(e))) => snap.errors.push(format!("{a}: {e}")),
+            Err(e) => snap.errors.push(e.to_string()),
+        }
+    }
+    Some(snap)
+}
+
+/// The CPU the containers used between two snapshots, for the report. A container missing from either snapshot, or whose counters went
+/// backwards (it restarted), is left out. Null when the probe was not asked or nothing answered either time.
+fn probe_delta_json(before: &Option<ProbeSnapshot>, after: &Option<ProbeSnapshot>) -> Value {
+    let (Some(b), Some(a)) = (before, after) else { return Value::Null };
+    if b.readings.is_empty() || a.readings.is_empty() {
+        return json!({"probes": a.probes, "errors": b.errors.iter().chain(a.errors.iter()).collect::<Vec<_>>(), "containers": []});
+    }
+    let mut containers = Vec::new();
+    for x in &a.readings {
+        let Some(y) = b.readings.iter().find(|y| y.pod == x.pod && y.container == x.container) else { continue };
+        if x.usage_usec < y.usage_usec || x.periods < y.periods {
+            continue;
+        }
+        containers.push(json!({
+            "component": x.component, "pod": x.pod, "container": x.container,
+            "usageUsec": x.usage_usec - y.usage_usec, "userUsec": x.user_usec.saturating_sub(y.user_usec),
+            "systemUsec": x.system_usec.saturating_sub(y.system_usec), "periods": x.periods - y.periods,
+            "throttledPeriods": x.throttled_periods.saturating_sub(y.throttled_periods),
+            "throttledUsec": x.throttled_usec.saturating_sub(y.throttled_usec), "limitCores": x.limit_cores,
+        }));
+    }
+    json!({"probes": a.probes, "errors": b.errors.iter().chain(a.errors.iter()).collect::<Vec<_>>(), "containers": containers})
+}
+
+fn epoch_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
 fn ms_since(t: Instant, began: Instant) -> f64 {
@@ -418,6 +610,9 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
         })
     };
 
+    let probe_before = read_probes(&c.cpuprobe).await;   // before the burst's clock starts: asking takes a few milliseconds that are not part of it
+    let cpu_before = read_cgroup_cpu();
+    let started_at_ms = epoch_ms();
     let began = Instant::now();
     let mut tasks = Vec::with_capacity(c.connections);
     for i in 0..c.connections {
@@ -447,6 +642,9 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
         records.push(r);
     }
     let seconds = began.elapsed().as_secs_f64();
+    let cpu = cpu_delta_json(cpu_before, read_cgroup_cpu());   // the burst itself: until the last answer, before the connections are held and closed
+    let ended_at_ms = epoch_ms();
+    let probe_cpu = probe_delta_json(&probe_before, &read_probes(&c.cpuprobe).await);
     ticker.abort();
     for t in tasks {
         let _ = t.await;
@@ -485,6 +683,10 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
         "outcomes": {"admitted": n("admitted"), "refused": n("refused"), "timeout": n("timeout"), "error": n("error")}, "successRate": success,
         "authMs": auth_s, "totalMs": total_s, "generatorSchedulingDelayP99Ms": lag_p99_ms, "failures": reasons,
     });
+    report["cgroupCpu"] = cpu;
+    report["probeCpu"] = probe_cpu;
+    report["startedAtMs"] = json!(started_at_ms);   // wall clock, so the burst can be found in Prometheus's series
+    report["endedAtMs"] = json!(ended_at_ms);
     if c.samples {
         report["samples"] = records.iter().map(sample_json).collect();
     }
@@ -596,6 +798,116 @@ mod tests {
         let later = began + Duration::from_millis(250);
         assert!((ms_since(later, began) - 250.0).abs() < 1e-6);
         assert_eq!(ms_since(began, later), 0.0);
+    }
+
+    const CPU_STAT_V2: &str = "usage_usec 1812754\nuser_usec 1118932\nsystem_usec 693821\ncore_sched.force_idle_usec 0\nnr_periods 40\nnr_throttled 7\nthrottled_usec 350000\nnr_bursts 0\nburst_usec 0\n";
+
+    const PROBE_BODY: &str = r#"{"node":"n1","timeMs":1,"containers":[
+        {"namespace":"storm-bench","pod":"broker-0","container":"broker","component":"broker","usageUsec":5000000,"userUsec":3000000,"systemUsec":2000000,"periods":100,"throttledPeriods":3,"throttledUsec":40000,"limitCores":3},
+        {"namespace":"storm-bench","pod":"callout-x","container":"callout","component":"callout","usageUsec":1000000,"userUsec":600000,"systemUsec":400000,"periods":50,"throttledPeriods":10,"throttledUsec":900000,"limitCores":null}]}"#;
+
+    fn snap(body: &str) -> Option<ProbeSnapshot> {
+        Some(ProbeSnapshot { readings: parse_probe_doc(body).unwrap(), probes: 1, errors: vec![] })
+    }
+
+    #[test]
+    fn a_probes_answer_is_read_with_its_limits() {
+        let r = parse_probe_doc(PROBE_BODY).unwrap();
+        assert_eq!(r.len(), 2);
+        assert_eq!((r[0].component.as_str(), r[0].pod.as_str(), r[0].usage_usec, r[0].throttled_periods), ("broker", "broker-0", 5_000_000, 3));
+        assert_eq!(r[0].limit_cores, Some(3.0));
+        assert_eq!(r[1].limit_cores, None, "a null limit is no limit");
+        assert!(parse_probe_doc("not json").is_err() && parse_probe_doc("{}").is_err());
+    }
+
+    #[test]
+    fn an_http_body_is_taken_only_from_a_200() {
+        assert_eq!(parse_http_body(b"HTTP/1.0 200 OK\r\nContent-Type: x\r\n\r\n{\"a\":1}").unwrap(), "{\"a\":1}");
+        assert!(parse_http_body(b"HTTP/1.0 503 Service Unavailable\r\n\r\nno").unwrap_err().contains("503"));
+        assert!(parse_http_body(b"garbage").is_err());
+    }
+
+    #[test]
+    fn the_cpu_in_a_burst_is_the_difference_between_the_two_snapshots() {
+        let after = PROBE_BODY.replace("5000000", "8200000").replace("\"periods\":100", "\"periods\":130").replace("\"throttledPeriods\":10", "\"throttledPeriods\":19");
+        let j = probe_delta_json(&snap(PROBE_BODY), &snap(&after));
+        let c = j["containers"].as_array().unwrap();
+        assert_eq!(c.len(), 2);
+        assert_eq!((c[0]["pod"].as_str(), c[0]["usageUsec"].as_u64(), c[0]["periods"].as_u64()), (Some("broker-0"), Some(3_200_000), Some(30)));
+        assert_eq!((c[1]["component"].as_str(), c[1]["throttledPeriods"].as_u64(), c[1]["limitCores"].is_null()), (Some("callout"), Some(9), true));
+        assert_eq!(j["probes"], 1);
+    }
+
+    #[test]
+    fn a_restarted_or_missing_container_is_left_out_and_no_probe_is_null() {
+        let restarted = PROBE_BODY.replace("5000000", "100");                         // the broker's counters went backwards
+        let j = probe_delta_json(&snap(PROBE_BODY), &snap(&restarted));
+        assert_eq!(j["containers"].as_array().unwrap().len(), 1);
+        let only_broker = r#"{"containers":[{"pod":"broker-0","container":"broker","component":"broker","usageUsec":9000000,"periods":120}]}"#;
+        assert_eq!(probe_delta_json(&snap(PROBE_BODY), &snap(only_broker))["containers"].as_array().unwrap().len(), 1);
+        assert!(probe_delta_json(&None, &None).is_null() && probe_delta_json(&snap(PROBE_BODY), &None).is_null());
+        let empty = Some(ProbeSnapshot { probes: 2, errors: vec!["x: timed out".into()], ..Default::default() });
+        let j = probe_delta_json(&snap(PROBE_BODY), &empty);
+        assert_eq!(j["containers"].as_array().unwrap().len(), 0);
+        assert_eq!(j["errors"][0], "x: timed out");                                  // said, so a missing reading is not mistaken for no CPU use
+    }
+
+    /// A real TCP server on loopback answering with a canned HTTP/1.0 response, asked through the same code the generator uses.
+    fn serve_once(response: &'static str) -> SocketAddr {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = l.local_addr().unwrap();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            for s in l.incoming().take(2) {
+                let mut s = s.unwrap();
+                let mut buf = [0u8; 256];
+                let n = s.read(&mut buf).unwrap();
+                assert!(String::from_utf8_lossy(&buf[..n]).starts_with("GET /counters HTTP/1.0"));
+                s.write_all(response.as_bytes()).unwrap();
+            }
+        });
+        addr
+    }
+
+    #[test]
+    fn the_generator_reads_a_probe_over_http_and_a_dead_one_is_an_error_not_a_hang() {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let body: &'static str = Box::leak(format!("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n\r\n{PROBE_BODY}").into_boxed_str());
+        let addr = serve_once(body);
+        let snap = rt.block_on(read_probes(&addr.to_string())).unwrap();
+        assert_eq!((snap.probes, snap.readings.len(), snap.errors.len()), (1, 2, 0));
+        let dead = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();   // nothing listens there any more
+        let snap = rt.block_on(read_probes(&dead.to_string())).unwrap();
+        assert_eq!((snap.probes, snap.readings.len(), snap.errors.len()), (1, 0, 1));
+        assert!(rt.block_on(read_probes("")).is_none(), "unset: not asked");
+    }
+
+    #[test]
+    fn the_cgroup_cpu_counters_are_read_from_cpu_stat() {
+        let s = parse_cpu_stat(CPU_STAT_V2).unwrap();
+        assert_eq!(s, CpuStat { usage_usec: 1812754, user_usec: 1118932, system_usec: 693821, nr_periods: 40, nr_throttled: 7, throttled_usec: 350000 });
+        assert!(parse_cpu_stat("usage_usec not-a-number\n").is_none() && parse_cpu_stat("").is_none());
+        assert!(parse_cpu_stat("nr_periods 3\n").is_none(), "a file without usage_usec is not a cpu.stat");
+    }
+
+    #[test]
+    fn the_cpu_limit_is_quota_over_period_and_max_is_no_limit() {
+        assert_eq!(parse_cpu_max("200000 100000\n"), Some(2.0));
+        assert_eq!(parse_cpu_max("50000 100000"), Some(0.5));
+        assert_eq!(parse_cpu_max("max 100000\n"), None);
+        assert_eq!(parse_cpu_max(""), None);
+    }
+
+    #[test]
+    fn the_burst_report_carries_the_difference_and_null_when_a_reading_failed() {
+        let b = CpuStat { usage_usec: 1_000_000, nr_periods: 10, nr_throttled: 1, throttled_usec: 20_000, ..Default::default() };
+        let a = CpuStat { usage_usec: 1_900_000, user_usec: 5, system_usec: 3, nr_periods: 16, nr_throttled: 4, throttled_usec: 120_000 };
+        let j = cpu_delta_json(Some((b, Some(2.0))), Some((a, Some(2.0))));
+        assert_eq!(j["usageUsec"], 900_000);
+        assert_eq!((j["periods"].as_u64(), j["throttledPeriods"].as_u64(), j["throttledUsec"].as_u64()), (Some(6), Some(3), Some(100_000)));
+        assert_eq!(j["limitCores"], 2.0);
+        assert!(cpu_delta_json(None, Some((a, None))).is_null() && cpu_delta_json(Some((b, None)), None).is_null());
+        assert!(cpu_delta_json(Some((a, None)), Some((b, None)))["usageUsec"] == 0, "a counter that went backwards is 0, not a huge number");
     }
 
     #[test]

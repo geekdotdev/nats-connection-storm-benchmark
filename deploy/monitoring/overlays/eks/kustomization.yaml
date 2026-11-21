@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# EKS: the probe image is pinned by digest (cpuprobe:src-bf62150bbb28 pushed on 2026-11-21, amd64 and arm64; rebuild, push and replace it
+# when components/cpuprobe changes). EDIT `newName` to your registry account. Prometheus's claim is an EBS gp3 volume (the CSI driver and the
+# StorageClass come from `bench cluster addons`), and the pod runs on the `infra` node group (`bench cluster infra`), which only it uses:
+# a volume attaches to one node, in one zone, and the benchmark's brokers and clients should not share a node with its disk writes.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: cpuprobe
+    newName: ghcr.io/cfedersp/cpuprobe
+    digest: sha256:f448f153d27e1348144ba03a7a5ebb4c267645dde490ed64c25dec3a1de98a4d   # cpuprobe:src-bf62150bbb28, amd64 and arm64
+patches:
+  - target: {kind: StatefulSet, name: prometheus}
+    patch: |-
+      - {op: add, path: /spec/volumeClaimTemplates/0/spec/storageClassName, value: gp3}
+      - {op: add, path: /spec/template/spec/nodeSelector, value: {role: infra}}
+      - {op: add, path: /spec/template/spec/tolerations, value: [{key: dedicated, operator: Equal, value: infra, effect: NoSchedule}]}

@@ -1,7 +1,12 @@
+AWS_PROFILE=AwsProfileName-AccountNum uv run bench cluster up --target eks --region us-east-1 --yes
 uv run bench --target eks preflight --variants cluster-variants.toml
 uv run bench --target eks run --variants cluster-variants.toml --name eks-800-1600 --sizes 800,1600
 uv run bench --target eks cluster down
 eksctl get cluster --name storm-bench --region us-east-1
+
+Restart:
+restart auto-discovers the run by inspecting a configmap, so the driver itself is idempotent:
+AWS_PROFILE=AwsProfileName-AccountNum AWS_REGION=us-east-1 uv run bench --target eks run --resume
 
 post:
 uv run bench report results/<<output dir>>

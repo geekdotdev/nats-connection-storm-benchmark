@@ -28,6 +28,16 @@ uv run bench cluster down --target eks
 - The cluster and its node groups are tagged `project=storm-bench`, which is how to find leftovers in the console or in Cost Explorer.
 - A single-broker run only needs `--broker-nodes 1`; the cluster variants need at least 3. A broker that cannot be placed stays Pending (one per node is enforced).
 
+## Storage: the EBS CSI driver and its IAM role
+
+The cluster is made with two add-ons beyond eksctl's defaults (`ADDONS` in `driver/stormbench/eks.py`): `eks-pod-identity-agent` and `aws-ebs-csi-driver`. The driver provisions EBS volumes for PersistentVolumeClaims. It needs an IAM role to call the EC2 API, and eksctl makes it (the AWS-managed `AmazonEBSCSIDriverPolicy`, in its own CloudFormation stack) and ties it to the driver's service account through **EKS Pod Identity**. Pod Identity, not IRSA, because IRSA needs an IAM OIDC provider, an account-wide resource that outlives the cluster; this account has none. The cluster's own `gp2` StorageClass uses the in-tree `kubernetes.io/aws-ebs` provisioner, which current Kubernetes has removed, so a claim on it cannot bind: `infra/eks/storageclass-gp3.yaml` is the class to use (`ebs.csi.aws.com`, `gp3`, `WaitForFirstConsumer`, `Delete`), and `cluster up` applies it.
+
+```sh
+uv run bench cluster addons --target eks --yes    # an existing cluster: install the add-ons (and make the role), apply the gp3 class
+```
+
+An EBS volume belongs to one availability zone, so a pod with a claim can only run in the zone its volume is in (all nodes here are in one zone). A `gp3` volume, which is what the `gp3` class makes, attaches to one node at a time (`ReadWriteOnce`). EBS can attach one volume to several nodes at once (Multi-Attach, up to 16 Nitro instances in the same zone), but only `io1`/`io2` volumes support it, and the CSI driver supports it only as a raw block volume (`volumeMode: Block`, `ReadWriteMany`), never with a filesystem: ext4 and xfs assume one mounter, so whatever sits on the shared device must coordinate its own writes. Neither helps a Prometheus database, which has one writer and needs a filesystem. Volumes cost by the hour like any other resource: **delete the claims before `cluster down`**, because a volume that is still attached when the cluster is deleted is left behind, unattached and billed.
+
 ## Kubeconfig
 
 eksctl writes `.kube/storm-bench-eks` (gitignored) and nothing else: the driver passes `--kubeconfig`, so `~/.kube/config` is not modified. `up` refuses a `STORM_EKS_KUBECONFIG` that points at `~/.kube/config`, and `down` deletes only the file it made. The eks cluster has its own variable, `STORM_EKS_KUBECONFIG`, and the local one keeps `STORM_KUBECONFIG`, so neither target can act on the other's cluster.

@@ -10,6 +10,9 @@
 #   conf_file     a file with it, relative to this file
 #   broker_env, callout_env       environment variables for those containers (quoted strings; not the ones the manifests wire)
 #   broker_resources              cpu and memory, as both requests and limits (so the pod is Guaranteed)
+#   callout_resources             the same for the callout; what it leaves out stays as the overlay has it
+#   generator_resources           the same for the load generator's Job (set per storm). Preflight checks that the callout and the generator
+#                                 fit the client node at once, with what the cluster already uses there: a bigger pair may need a second client node
 #   callout_args  the callout's whole argument list, replacing the overlay's (so give `--url` too)
 #   storm         generator STORM_* settings, on top of the run's (not the phase variables STORM_CONNECTIONS and the like, nor the
 #                 key wiring STORM_SCOPED_SEED, STORM_AUTH_ACCOUNT and their _FILE forms; STORM_ROLES, STORM_TICKET_TTL_S and
@@ -40,3 +43,13 @@ GOGC = "50"
 [variant.broker_resources]
 cpu = "2"
 memory = "4Gi"
+
+# A bigger callout and generator, to see whether their CPU limits are what holds the burst back (they need a second client node:
+# 2 + 4 CPU do not fit one c6i.xlarge beside the cluster's own pods).
+# [[variant]]
+# label = "bigger_callout"
+# commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+# [variant.callout_resources]
+# cpu = "2"
+# [variant.generator_resources]
+# cpu = "3"

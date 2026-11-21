@@ -101,10 +101,53 @@ def test_the_chart_is_well_formed_svg_with_a_legend_and_direct_labels():
     root = ET.fromstring(svg)                             # parses: no stray markup
     text = " ".join(root.itertext())
     assert text.count("single (2 bursts, 8 blocks)") == 1 and "cluster (2 bursts, 8 blocks)" in text   # the legend
-    assert svg.count(">single</text>") == 2 and svg.count(">cluster</text>") == 2                     # a label at the end of each line, in each panel
+    assert 1 <= svg.count(">single</text>") <= 2 and 1 <= svg.count(">cluster</text>") <= 2           # direct labels, where there is room for them
     assert "connections waiting for an answer" in text and "share of the burst admitted" in text
     assert "prefers-color-scheme:dark" in svg and "fill=\"var(--bg)\"" in svg                        # a dark theme and its own surface
     assert svg.count("<polyline") == 4 and svg.count("<polygon") == 4                               # a line and a band per variant per panel
+
+
+def test_the_chart_is_stamped_with_the_run_date_and_the_time_it_was_drawn():
+    svg = queue.chart("n800", curves_for("single", "cluster"), {"single": 8, "cluster": 8}, "2026-11-21T09:18:15-08:00", "2026-11-21T11:50:02-08:00")
+    ET.fromstring(svg)
+    assert "run started 2026-11-21T09:18:15-08:00" in svg and "chart generated 2026-11-21T11:50:02-08:00" in svg
+    bare = queue.chart("n800", curves_for("single", "cluster"), {"single": 8, "cluster": 8})
+    assert "chart generated" not in bare and "run started" not in bare              # nothing is invented when no stamp is given
+
+
+def test_the_legend_wraps_instead_of_running_off_the_chart_and_the_chart_grows_to_fit():
+    labels = ["main", "nolock", "mux_main", "mux_nolock"]
+    four = queue.chart("n800", curves_for(*labels), {l: 8 for l in labels})
+    two = queue.chart("n800", curves_for("main", "nolock"), {"main": 8, "nolock": 8})
+    text = " ".join(ET.fromstring(four).itertext())
+    assert all(f"{l} (2 bursts, 8 blocks)" in text for l in labels)                    # none is cut off at the right edge
+    height = lambda svg: int(svg.split('height="')[1].split('"')[0])
+    assert height(four) > height(two)                                                  # a second legend row made room for itself
+
+
+def test_a_label_with_no_room_inside_the_panel_is_left_to_the_legend():
+    labels = ["main", "nolock", "mux_main", "mux_nolock"]
+    svg = queue.chart("n800", curves_for(*labels), {l: 8 for l in labels})
+    for l in labels:
+        assert svg.count(f">{l}<") <= 2 + 1 and f"{l} (2 bursts" in svg                # never more than a label per panel and the legend
+
+
+def test_one_stalled_burst_does_not_squeeze_every_curve_into_the_left_of_the_chart(tmp_path):
+    normal = [fifo_burst(100, 10.0) for _ in range(19)]                               # each ends at 1000 ms
+    stalled = [fifo_burst(100, 30.0)]                                                  # ends at 3000 ms
+    by_phase = {"n800": {"a": {1: normal + stalled}, "b": {1: [fifo_burst(100, 12.0) for _ in range(20)]}}}
+    queue.write_charts(tmp_path, by_phase, ["a", "b"], "2026-11-21T09:00:00-08:00")
+    svg = (tmp_path / "queue-n800.svg").read_text()
+    text = " ".join(ET.fromstring(svg).itertext())
+    assert "1 of 40 bursts ran longer and are cut off" in text
+    end = float(text.split("the axis ends at ")[1].split(" ms")[0])
+    assert 1000 < end < 3000                                                           # it runs past the usual burst, not to the stall
+
+
+def test_when_no_burst_is_cut_off_the_chart_does_not_mention_it(tmp_path):
+    by_phase = {"n800": {"a": {1: [fifo_burst(100, 10.0) for _ in range(5)]}, "b": {1: [fifo_burst(100, 12.0) for _ in range(5)]}}}
+    queue.write_charts(tmp_path, by_phase, ["a", "b"])
+    assert "cut off" not in (tmp_path / "queue-n800.svg").read_text()
 
 
 def test_variant_labels_cannot_inject_markup_into_the_chart():
@@ -131,7 +174,7 @@ def write_run(tmp_path, with_samples=True):
     raw = tmp_path / "raw"
     raw.mkdir()
     (tmp_path / "environment.json").write_text(json.dumps({"variants": [{"label": "single", "commit": "a" * 40, "image": "x"}, {"label": "cluster", "commit": "b" * 40, "image": "y"}],
-                                                         "design": {"phases": ["warm", "idle", "n800"]}}))
+                                                         "date": "2026-11-21T09:00:00-08:00", "design": {"phases": ["warm", "idle", "n800"]}}))
     for blk in (1, 2):
         for label, service in (("single", 10.0), ("cluster", 6.0)):
             (raw / f"{label}-b{blk}.meta.json").write_text("{}")
@@ -154,6 +197,8 @@ def test_the_report_adds_the_queue_and_writes_the_chart(tmp_path):
     svg = tmp_path / "queue-n800.svg"
     ET.fromstring(svg.read_text())
     assert not (tmp_path / "queue-idle.svg").exists()                         # one connection at a time is not a queue
+    stamped = svg.read_text()
+    assert "run started 2026-11-21T09:00:00-08:00" in stamped and "chart generated 20" in stamped
 
 
 def test_results_without_samples_still_report_and_say_why(tmp_path):

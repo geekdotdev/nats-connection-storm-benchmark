@@ -16,7 +16,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-NAMESPACE = "storm-bench"
+from .config import NAMESPACE
+
 TLS_NAME = "storm-tls"
 # Operator mode: made by the provision init container of the callout pod (components/provision), not by `bench secrets create`.
 # The names must equal the constants in components/provision/provision.go (a test checks).

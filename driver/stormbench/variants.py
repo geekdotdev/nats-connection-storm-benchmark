@@ -32,14 +32,15 @@ MAX_CONF_BYTES = 64 * 1024
 # Set by the plan or by the manifests' wiring, so a variant cannot override them: the phase variables (every variant runs the
 # same phases), the log label and report format, and where the generator finds the broker and its credentials.
 RESERVED_STORM = frozenset({"STORM_CONNECTIONS", "STORM_RUNS", "STORM_PAUSE_MS", "STORM_HOLD_MS", "STORM_LABEL", "STORM_JSON", "STORM_SAMPLES",
-                            "STORM_URL", "STORM_CA_FILE",
+                            "STORM_URL", "STORM_CA_FILE", "STORM_CPUPROBE",
                             # Where the generator finds its keys (the Secret the provision init container makes). STORM_ROLES,
                             # STORM_TICKET_TTL_S and STORM_TIMEOUT_MS are not reserved: a variant may vary them.
                             "STORM_SCOPED_SEED", "STORM_SCOPED_SEED_FILE", "STORM_AUTH_ACCOUNT", "STORM_AUTH_ACCOUNT_FILE"})
 # Variables the manifests fill from Secrets or the pod itself: a plain value on top of one would be an invalid container.
 PROTECTED_BROKER_ENV = frozenset({"POD_NAME"})
 PROTECTED_CALLOUT_ENV = frozenset({"CALLOUT_CREDS", "CALLOUT_AUTH_SIGNING_SEED", "CALLOUT_TENANT_SIGNING_SEED", "CALLOUT_TENANT_PUBLIC"})
-_KEYS = {"label", "commit", "image", "stack", "conf", "conf_file", "callout_args", "broker_env", "broker_resources", "callout_env", "storm"}
+_KEYS = {"label", "commit", "image", "stack", "conf", "conf_file", "callout_args", "broker_env", "broker_resources", "callout_resources",
+         "generator_resources", "callout_env", "storm"}
 
 
 def from_commits(a: str, b: str, a_label: str, b_label: str, image_prefix: str) -> tuple[Variant, Variant]:
@@ -116,10 +117,7 @@ def _one(n: int, item: object, image_prefix: str, base_dir: Path) -> Variant:
     if not isinstance(conf, str) or len(conf.encode()) > MAX_CONF_BYTES:
         raise ValueError(f"{where}: conf must be text of at most {MAX_CONF_BYTES} bytes")
 
-    resources = _text_map(f"{where}.broker_resources", item.get("broker_resources", {}), lambda k: k in ("cpu", "memory"))
-    for k, v in resources.items():
-        if not _QUANTITY.match(v):
-            raise ValueError(f"{where}.broker_resources.{k}: {v!r} is not a Kubernetes quantity (3, 500m, 4Gi)")
+    resources = _resources(where, "broker_resources", item)
     args = item.get("callout_args", [])
     if not isinstance(args, list) or not all(isinstance(a, str) and a for a in args):
         raise ValueError(f"{where}: callout_args must be a list of non-empty strings (it replaces the whole argument list)")
@@ -130,9 +128,19 @@ def _one(n: int, item: object, image_prefix: str, base_dir: Path) -> Variant:
     return Variant(
         label=label, commit=commit, image=image, stack=stack, conf=conf,
         broker_env=_text_map(f"{where}.broker_env", item.get("broker_env", {}), lambda k: bool(_ENV_NAME.match(k)), PROTECTED_BROKER_ENV),
-        broker_resources=resources,
+        broker_resources=resources, callout_resources=_resources(where, "callout_resources", item),
+        generator_resources=_resources(where, "generator_resources", item),
         callout_env=_text_map(f"{where}.callout_env", item.get("callout_env", {}), lambda k: bool(_ENV_NAME.match(k)), PROTECTED_CALLOUT_ENV),
         callout_args=tuple(args), storm=storm)
+
+
+def _resources(where: str, key: str, item: dict) -> dict[str, str]:
+    """A variant's cpu and memory for one component: Kubernetes quantities, applied as both requests and limits."""
+    res = _text_map(f"{where}.{key}", item.get(key, {}), lambda k: k in ("cpu", "memory"))
+    for k, v in res.items():
+        if not _QUANTITY.match(v):
+            raise ValueError(f"{where}.{key}.{k}: {v!r} is not a Kubernetes quantity (3, 500m, 4Gi)")
+    return res
 
 
 def _stack(where: str, value: object) -> str:
@@ -176,6 +184,8 @@ def kustomization(v: Variant, overlay: Path, directory: Path, stamp: str = "") -
         callout["env"] = [{"name": k, "value": val} for k, val in v.callout_env.items()]
     if v.callout_args:
         callout["args"] = list(v.callout_args)
+    if v.callout_resources:
+        callout["resources"] = {"requests": dict(v.callout_resources), "limits": dict(v.callout_resources)}  # equal, like the broker's
     if len(callout) > 1 or stamp:
         patches.append(_patch("Deployment", "apps/v1", "callout",
                               {"spec": {"template": {**template, **({"spec": {"containers": [callout]}} if len(callout) > 1 else {})}}}))

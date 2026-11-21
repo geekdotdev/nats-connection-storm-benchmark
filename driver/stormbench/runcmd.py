@@ -2,18 +2,26 @@
 """bench run: build the plan, optionally just print it, otherwise run the A/B blocks and summarise."""
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import hashlib
 import json
 import os
 import platform
+import shutil
+import signal
+import sys
+import time
+import tomllib
 from pathlib import Path
 
-from . import __version__, config, preflight, report, variants as variants_mod
-from .ab import Plan, Variant, run_blocks, schedule
+from . import __version__, config, k8s, monitoring, preflight, qualify, report, state as state_mod, variants as variants_mod
+from .ab import Plan, Variant, run_blocks, schedule, units
 from .config import REPO_ROOT
 from .images import broker_tag
 from .kube import LOADGEN_OVERLAYS, STACK_OVERLAYS, KubeBackend
 from .runner import Runner
+from .state import plan_from_document
 
 
 def image_prefix_for(target: str, given: str | None) -> str:
@@ -52,14 +60,20 @@ AUTH = {"mode": "operator", "resolver": "memory", "tenant_accounts": 1, "ticket"
         "callout": "role-name mapper, user JWT valid 1 hour"}
 
 
+def design(plan: Plan, settle_s: float) -> dict:
+    """The measurement design: what every run of this plan does. Kept in the run state so a resumed run can check that the code on disk
+    still does the same (a change of pauses or phases half way through a run would make its units incomparable)."""
+    return {"blocks": plan.blocks, "order": plan.order, "phases": [p.name for p in plan.phases],
+            "sizes": list(plan.sizes), "threads": plan.threads, "settle_s": settle_s,
+            "per_phase": {p.name: {"connections": p.connections, "runs": p.runs, "pause_ms": p.pause_ms, "hold_ms": p.hold_ms}
+                          for p in plan.phases}}
+
+
 def environment(plan: Plan, cluster: dict, settle_s: float, target: str = "local") -> dict:
-    return {"target": target, "auth": AUTH,
+    return {"target": target, "cluster_kind": qualify.cluster_kind(target), "namespace": config.NAMESPACE, "auth": AUTH,
             "date": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             "variants": [v.describe() for v in plan.variants],
-            "design": {"blocks": plan.blocks, "order": plan.order, "phases": [p.name for p in plan.phases],
-                       "sizes": list(plan.sizes), "threads": plan.threads, "settle_s": settle_s,
-                       "per_phase": {p.name: {"connections": p.connections, "runs": p.runs, "pause_ms": p.pause_ms, "hold_ms": p.hold_ms}
-                                     for p in plan.phases}},
+            "design": design(plan, settle_s),
             "cluster": cluster,
             # Deliberately no host name, user name or machine model: results are meant to be published.
             "driver_host": {"system": platform.system(), "machine": platform.machine(), "cpus": os.cpu_count()},
@@ -82,9 +96,125 @@ def execute_preflight(run: Runner, args) -> int:
     return 0 if check_before_run(run, args.target, variants, args.stack_overlay, args.loadgen_overlay) else 1
 
 
-def execute(run: Runner, args) -> int:
-    plan = make_plan(variants_from_args(args), blocks=args.blocks, sizes=args.sizes, threads=args.threads)
-    out = Path(args.out) if args.out else REPO_ROOT / "results" / f"{args.name}-{dt.date.today().isoformat()}"
+DEFAULT_BLOCKS, DEFAULT_SIZES, DEFAULT_THREADS, DEFAULT_SETTLE_S, DEFAULT_NAME = 8, "800,1600", 4, 8.0, "ab"
+# The options that describe a run's plan. They have no default on the command line (the defaults above are applied here), so that
+# `--resume`, which takes the plan from the run state, can refuse any of them being given.
+PLAN_OPTIONS = ("a", "b", "variants", "blocks", "sizes", "threads", "settle_s", "image_prefix", "stack_overlay", "loadgen_overlay", "name")
+
+
+def _terminate(signum, frame):  # noqa: ARG001
+    raise SystemExit(128 + signum)
+
+
+def use_monitoring(run: Runner, args) -> bool:
+    """Whether this run reads CPU from the probes and has Prometheus keep the series: when they are installed, unless --no-monitoring.
+    Said either way, so a run's CPU source is never a surprise (and is recorded in environment.json)."""
+    if args.no_monitoring:
+        print("monitoring: not used (--no-monitoring); CPU of the broker and callout is read by the driver, whole storms only", flush=True)
+        return False
+    if monitoring.installed(run, args.target):
+        print("monitoring: the CPU probes and Prometheus are installed: the generator reads CPU from the probes at every burst and Prometheus "
+              "keeps the series", flush=True)
+        return True
+    print(f"monitoring: not installed (`bench --target {args.target} monitoring up` adds it); CPU of the broker and callout is read by the "
+          "driver, whole storms only", flush=True)
+    return False
+
+
+def note_probe_fallback(out: Path) -> None:
+    """The generator's image did not report the probes' readings, so the driver read the cgroups itself from the second storm on: the
+    environment says what the CPU numbers are, instead of claiming the probes."""
+    path = out / "environment.json"
+    env = json.loads(path.read_text())
+    env["cpu_source"] = "exec (the load generator's image predates the CPU probe, so its bursts have no probe readings; the first storm has no CPU for the broker and callout)"
+    path.write_text(json.dumps(env, indent=1) + "\n")
+
+
+def export_monitoring(run: Runner, target: str, out: Path, env: dict) -> None:
+    """Take the run's series out of Prometheus into out/prometheus. Best effort: the run's own results are on disk already, and what
+    Prometheus holds stays there, so a failure is said and the series can be exported later (`bench monitoring export`)."""
+    try:
+        start = dt.datetime.fromisoformat(env["date"]).timestamp() - 15
+        monitoring.export(run, target, out, start, time.time() + 2)
+    except Exception as e:  # noqa: BLE001
+        print(f"bench: could not export Prometheus's series ({e}); `bench --target {target} monitoring export {out}` tries again", file=sys.stderr, flush=True)
+
+
+def save_variants_file(src: Path, out: Path) -> dict:
+    """Keep a copy of the variants file that made a run in its results directory, as `variants.toml`, with the `conf_file`s it names
+    (under the same relative paths, so the copy loads by itself). It is provenance only: the driver reads the parsed variants in
+    environment.json and the run state, never this copy. Returns what environment.json records about it: where it came from (the path
+    inside the repository, else just the file name, so no home directory leaks) and its SHA-256."""
+    data = src.read_bytes()
+    (out / "variants.toml").write_bytes(data)
+    copied, notes = [], []
+    for v in tomllib.loads(data.decode()).get("variant", []):
+        cf = v.get("conf_file")
+        if not cf:
+            continue
+        rel = Path(cf)
+        if rel.is_absolute() or ".." in rel.parts or not (src.parent / rel).is_file():
+            notes.append(f"conf_file {cf} was not copied (absolute, outside the variants file's directory, or missing): its text is in the variants above")
+            continue
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src.parent / rel, out / rel)
+        copied.append(rel.as_posix())
+    try:
+        shown = src.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        shown = src.name
+    return {"path": shown, "sha256": hashlib.sha256(data).hexdigest(), **({"conf_files": copied} if copied else {}),
+            **({"notes": notes} if notes else {})}
+
+
+@contextlib.contextmanager
+def holding(rs: state_mod.RunState, takeover: bool):
+    """Hold the run's lease while the block loop runs, and give it back however the loop ends, SIGTERM included (the default action
+    of SIGTERM skips `finally`, so it is turned into an exit)."""
+    rs.acquire(takeover)
+    previous = None
+    try:
+        previous = signal.signal(signal.SIGTERM, _terminate)
+    except ValueError:  # not the main thread
+        pass
+    try:
+        yield
+    except BaseException:
+        # Whatever ended the loop (a failed storm, a network that stayed down, Ctrl-C, SIGTERM), the run is still recorded.
+        print(f"bench: the run is recorded in the cluster: `bench --target {rs.plan['target']} run --resume` continues it "
+              "(add --takeover if this driver is killed rather than stopped)", file=sys.stderr, flush=True)
+        raise
+    finally:
+        if previous is not None:
+            signal.signal(signal.SIGTERM, previous)
+        rs.release()
+
+
+def execute(run: Runner, args, *, make_store=None, backend_factory=None) -> int:
+    """bench run. `make_store(target)` and `backend_factory` are for tests; they default to the cluster's. The backend is looked up when
+    this runs, not when the module loads, so that a test which replaces runcmd.KubeBackend is obeyed (a default argument would have
+    kept the real class, and the test would have run against a real cluster)."""
+    make_store = make_store or (lambda target: state_mod.KubeStore(run, target))
+    backend_factory = backend_factory or KubeBackend
+    if args.resume and args.discard_state:
+        raise ValueError("--resume continues the recorded run and --discard-state throws it away: give one")
+    if args.resume:
+        given = [o for o in PLAN_OPTIONS if getattr(args, o, None) is not None]
+        if given:
+            raise ValueError("--resume takes the plan from the run's state in the cluster; drop " + ", ".join("--" + g.replace("_", "-") for g in given))
+        if run.dry_run:
+            print("bench run --resume reads the recorded run from the cluster: skipped in a dry run")
+            return 0
+        return _resume(run, args, make_store, backend_factory)
+    return _start(run, args, make_store, backend_factory)
+
+
+def _start(run: Runner, args, make_store, backend_factory) -> int:
+    settle_s = DEFAULT_SETTLE_S if args.settle_s is None else args.settle_s
+    plan = make_plan(variants_from_args(args), blocks=DEFAULT_BLOCKS if args.blocks is None else args.blocks,
+                     sizes=args.sizes or DEFAULT_SIZES, threads=DEFAULT_THREADS if args.threads is None else args.threads)
+    name = args.name or DEFAULT_NAME
+    out = Path(args.out) if args.out else REPO_ROOT / "results" / f"{name}-{dt.date.today().isoformat()}"
     if run.dry_run:
         steps = list(schedule(plan))
         print(f"would write {out}: {plan.blocks} blocks x {len(plan.variants)} variants, {len(steps)} storms")
@@ -96,15 +226,238 @@ def execute(run: Runner, args) -> int:
     if out.exists():
         print(f"bench: {out} already exists; pick another --name or --out", flush=True)
         return 1
+    store = make_store(args.target)
+    existing = state_mod.RunState.load(store)
+    if existing and not existing.is_complete:
+        if not args.discard_state:
+            print(f"bench: a run is recorded in this cluster and is not finished:\n{state_mod.format_status(existing)}\n"
+                  "bench: `bench run --resume` continues it; `bench run --discard-state ...` forgets it and starts this run "
+                  "(its measurements stay where they are)", flush=True)
+            return 1
+        existing.check_lease(args.takeover)  # never discard the state under a driver that is still running
     if not args.no_preflight and not check_before_run(run, args.target, plan.variants, args.stack_overlay, args.loadgen_overlay):
         print("bench: preflight failed: nothing was applied. Fix the lines marked FAIL, or pass --no-preflight to go ahead anyway.", flush=True)
         return 1
-    with KubeBackend(run, target=args.target, stack=args.stack_overlay, loadgen=args.loadgen_overlay,
-                     settle_s=args.settle_s) as backend:
+    probes = use_monitoring(run, args)
+    with backend_factory(run, target=args.target, stack=args.stack_overlay, loadgen=args.loadgen_overlay, settle_s=settle_s,
+                         read_cpu=not args.no_cpu and not probes, cpuprobe=probes) as backend:
         backend.prepare(plan.variants)
+        if hasattr(backend, "delete_storm_jobs"):
+            backend.delete_storm_jobs()  # the storms of an earlier run, and the single Job older drivers made: a new run starts with none
         out.mkdir(parents=True)
-        (out / "environment.json").write_text(json.dumps(environment(plan, backend.describe(), args.settle_s, args.target), indent=1) + "\n")
-        run_blocks(plan, backend, out / "raw")
+        run_id, revision = state_mod.new_run_id(), state_mod.driver_revision()
+        env = {**environment(plan, backend.describe(), settle_s, args.target), "run_id": run_id, "driver_revision": revision,
+               "cpu_source": "probe" if probes else ("exec" if not args.no_cpu else "none"),
+               **({"monitoring": {"probe": True, "prometheus": True, "scrape_interval_s": monitoring.STEP_S}} if probes else {})}
+        if args.variants:
+            env["variants_file"] = save_variants_file(Path(args.variants), out)
+        (out / "environment.json").write_text(json.dumps(env, indent=1) + "\n")
+        if existing:
+            store.delete()  # a finished run's state, or the one being discarded
+        rs = state_mod.RunState.create(store, state_mod.plan_document(
+            plan, name=name, out=out.name, target=args.target, stack_overlay=args.stack_overlay or STACK_OVERLAYS[args.target],
+            loadgen_overlay=args.loadgen_overlay or LOADGEN_OVERLAYS[args.target], settle_s=settle_s, design=env["design"],
+            revision=revision, now=time.time(), run_id=run_id, started=env["date"]))
+        with holding(rs, args.takeover):
+            run_blocks(plan, backend, out / "raw", progress=rs)
+            rs.complete()
+            if hasattr(backend, "cleanup_jobs"):
+                backend.cleanup_jobs(rs.run_id)   # the measurements are on disk now: the storms' Jobs and logs are not needed
+    if getattr(backend, "probe_fallback", False):
+        note_probe_fallback(out)
+    if probes:
+        export_monitoring(run, args.target, out, json.loads((out / "environment.json").read_text()))
     text = report.write(out)
     print("\n" + text)
+    return 0
+
+
+def _resume(run: Runner, args, make_store, backend_factory) -> int:
+    rs = state_mod.RunState.load(make_store(args.target))
+    if rs is None:
+        raise state_mod.StateError("no run is recorded in this cluster: nothing to resume. Start one with `bench run ...`")
+    if rs.is_complete:
+        print(f"bench: the recorded run {rs.plan['name']!r} finished; start a new one with `bench run ...`", flush=True)
+        return 1
+    doc = rs.plan
+    if doc["target"] != args.target:
+        raise ValueError(f"the recorded run is for --target {doc['target']}, this is --target {args.target}")
+    if doc.get("namespace") and doc["namespace"] != config.NAMESPACE:  # (a state from before it was recorded has none: it was always this one)
+        raise ValueError(f"the recorded run's components are in namespace {doc['namespace']!r}, but this driver looks in {config.NAMESPACE!r}: "
+                         "it would be resuming a run it cannot find")
+    plan = plan_from_document(doc)
+    out = Path(args.out) if args.out else REPO_ROOT / "results" / doc["out"]
+    if not (out / "environment.json").is_file():
+        print(f"bench: {out}/environment.json not found: the measurements are kept on the machine that ran them. Pass --out DIR "
+              "to point at the results directory, or `bench run --discard-state ...` to start over.", flush=True)
+        return 1
+    recorded_id = json.loads((out / "environment.json").read_text()).get("run_id")
+    if recorded_id and recorded_id != rs.run_id:
+        print(f"bench: {out} belongs to a different run (its run id is {recorded_id}, the run recorded in the cluster is {rs.run_id}): "
+              "that is not where this run's measurements are. Pass --out DIR for the right directory.", flush=True)
+        return 1
+    changed = design(plan, doc["settle_s"]) != doc["design"]
+    if changed and not args.accept_design_change:
+        now = design(plan, doc["settle_s"])
+        differs = sorted(k for k in set(now) | set(doc["design"]) if now.get(k) != doc["design"].get(k))
+        print(f"bench: this driver would run the plan differently from the way the run started (differs: {', '.join(differs)}), so the "
+              "units would not be comparable. Pass --accept-design-change to go on anyway, and it is recorded.", flush=True)
+        return 1
+    if not args.no_preflight and not check_before_run(run, args.target, plan.variants, doc["stack_overlay"], doc["loadgen_overlay"]):
+        print("bench: preflight failed: nothing was applied. Fix the lines marked FAIL, or pass --no-preflight to go ahead anyway.", flush=True)
+        return 1
+    rs.check_lease(args.takeover)  # before anything is applied: a restart of the brokers would pull the rug from a live driver
+    print(f"resuming run {doc['name']!r}: {rs.done_units()} of {rs.total_units()} units done; revision {rs.revision} "
+          f"(started by {doc['driver_revision']})", flush=True)
+    probes = use_monitoring(run, args)
+    with backend_factory(run, target=args.target, stack=doc["stack_overlay"], loadgen=doc["loadgen_overlay"],
+                         settle_s=doc["settle_s"], read_cpu=not args.no_cpu and not probes, cpuprobe=probes) as backend:
+        backend.prepare(plan.variants, apply=False)  # nothing is changed on the cluster until a unit needs a fresh broker (see KubeBackend.prepare)
+        env_path = out / "environment.json"
+        env = json.loads(env_path.read_text())
+        if not env.get("run_id"):  # made by a driver from before run ids: it is recorded now, so the two are tied from here on
+            env["run_id"] = rs.run_id
+            print(f"bench: {out} had no run id (an older driver made it): recording {rs.run_id}", flush=True)
+        env.setdefault("resumes", []).append({"time": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+                                              "driver_revision": rs.revision, "units_done": rs.done_units(),
+                                              **({"design_changed": True} if changed else {})})
+        env_path.write_text(json.dumps(env, indent=1) + "\n")
+        rs.note_resume(rs.done_units())
+        with holding(rs, args.takeover):
+            run_blocks(plan, backend, out / "raw", progress=rs)
+            rs.complete()
+            if hasattr(backend, "cleanup_jobs"):
+                backend.cleanup_jobs(rs.run_id)   # the measurements are on disk now: the storms' Jobs and logs are not needed
+    if getattr(backend, "probe_fallback", False):
+        note_probe_fallback(out)
+    if probes:
+        export_monitoring(run, args.target, out, json.loads((out / "environment.json").read_text()))
+    text = report.write(out)
+    print("\n" + text)
+    return 0
+
+
+def execute_status(run: Runner, args, *, make_store=None) -> int:
+    """bench status: the progress of the run recorded in the cluster. Read-only."""
+    if run.dry_run:
+        print("bench status reads the cluster: skipped in a dry run")
+        return 0
+    rs = state_mod.RunState.load((make_store or (lambda target: state_mod.KubeStore(run, target)))(args.target))
+    print(state_mod.format_status(rs) if rs else f"no run is recorded in the {args.target} cluster")
+    return 0
+
+
+def execute_adopt(run: Runner, args, *, make_store=None) -> int:
+    """bench adopt DIR: record a results directory that has no state (a run made before the state existed, or by a driver that was
+    killed) as a run that `bench run --resume` can continue. Every unit whose files are all there counts as done, except the ones
+    named with --redo (or, with --redo-failed, those with a burst in which not every connection was admitted): their files are
+    moved to DIR/discarded/ and the unit will be run again, from a fresh broker, by --resume."""
+    out = Path(args.dir)
+    env_path, raw = out / "environment.json", out / "raw"
+    if not env_path.is_file():
+        print(f"bench: {env_path} not found: DIR is a results directory made by `bench run`", flush=True)
+        return 1
+    env = json.loads(env_path.read_text())
+    if env.get("target") != args.target:
+        raise ValueError(f"the results are for --target {env.get('target')}, this is --target {args.target}")
+    if not (raw / "DONE").is_file() and not args.force:
+        print(f"bench: {raw}/DONE does not exist: the run may still be going, and a second driver on one run would delete the first one's "
+              "Jobs. Wait for it to end. If its driver was killed, pass --force.", flush=True)
+        return 1
+    d = env["design"]
+    plan = Plan(variants=tuple(Variant.from_dict(v) for v in env["variants"]), blocks=d["blocks"], sizes=tuple(d["sizes"]), threads=d["threads"])
+    every = list(units(plan))
+    keys = {u.key for u in every}
+    unknown = sorted(set(args.redo or []) - keys)
+    if unknown:
+        raise ValueError(f"no such unit: {', '.join(unknown)}. The units are <variant>-b<block>, e.g. {every[0].key}")
+    complete = [u for u in every if state_mod.unit_complete(raw, u)]
+    problems = {u.key: state_mod.unit_problems(raw, u) for u in complete}
+    redo = set(args.redo or []) | ({k for k, p in problems.items() if p} if args.redo_failed else set())
+    print(f"{out.name}: {len(complete)} of {len(every)} units have all their files")
+    for u in every:
+        if u not in complete:
+            print(f"  {u.key}: incomplete (it will be run again)")
+    for k, p in problems.items():
+        for line in p:
+            print(f"  {k}: {line}" + ("" if k in redo else "   <- not every connection was admitted; name the unit with --redo to run it again"))
+    keep = [u for u in complete if u.key not in redo]
+    print(f"recording {len(keep)} units as done; {len(every) - len(keep)} will be run by --resume: {', '.join(u.key for u in every if u not in keep)}")
+    if run.dry_run:
+        print("dry run: nothing recorded or moved")
+        return 0
+    store = (make_store or (lambda target: state_mod.KubeStore(run, target)))(args.target)
+    existing = state_mod.RunState.load(store)
+    if existing and not existing.is_complete and not args.discard_state:
+        print(f"bench: a run is already recorded in this cluster and is not finished:\n{state_mod.format_status(existing)}\n"
+              "bench: `bench run --resume` continues it; `bench adopt --discard-state ...` forgets it and records this one", flush=True)
+        return 1
+    if existing:
+        existing.check_lease(args.takeover)
+    if args.variants_file and (out / "variants.toml").exists():
+        raise ValueError(f"{out} already has a variants.toml: not overwriting it")
+    stamp = time.strftime("%Y%m%dT%H%M%S")
+    moved = {u.key: state_mod.move_unit_files(raw, u, out / "discarded" / f"{u.key}-{stamp}") for u in every if u.key in redo or u not in complete}
+    if moved:
+        (raw / "DONE").unlink(missing_ok=True)  # the run is not done any more: --resume writes it again
+    rev = state_mod.driver_revision()
+    run_id = env.get("run_id") or state_mod.new_run_id()  # a directory that already has one keeps it
+    if existing:
+        store.delete()
+    state_mod.RunState.create(
+        store, state_mod.plan_document(plan, name=out.name, out=out.name, target=args.target,
+                                        stack_overlay=args.stack_overlay or STACK_OVERLAYS[args.target],
+                                        loadgen_overlay=args.loadgen_overlay or LOADGEN_OVERLAYS[args.target],
+                                        settle_s=d["settle_s"], design=d, revision=rev, now=time.time(), run_id=run_id,
+                                        started=env.get("date")),
+        units={u.key: {"status": "done", "adopted": True, "driver_revision": "adopted"} for u in keep})
+    env["run_id"] = run_id
+    added = [k for k in ("cluster_kind", "namespace") if k not in env]   # a run from before they were recorded: said, so it is not mistaken for a fact the old driver wrote
+    env.setdefault("cluster_kind", qualify.cluster_kind(args.target))
+    env.setdefault("namespace", config.NAMESPACE)
+    if args.variants_file:
+        env["variants_file"] = save_variants_file(Path(args.variants_file), out)
+    env["adopted"] = {"time": dt.datetime.now().astimezone().isoformat(timespec="seconds"), "driver_revision": rev,
+                      **({"qualifiers_added": added} if added else {}),
+                      "units_done": [u.key for u in keep],
+                      "redo": [{"unit": k, "files_moved_to": f"discarded/{k}-{stamp}", "files": moved[k], "problems": problems.get(k, []),
+                                **({"reason": args.reason} if args.reason else {})} for k in sorted(moved)]}
+    env_path.write_text(json.dumps(env, indent=1) + "\n")
+    print(f"recorded. Continue with: bench --target {args.target} run --resume")
+    return 0
+
+
+def execute_monitoring(run: Runner, args) -> int:
+    """bench monitoring up | down | status | export DIR."""
+    target = args.target
+    if args.action == "up":
+        if not args.no_preflight:
+            checks = preflight.monitoring_checks(run, target, monitoring.overlay_for(target))
+            print(f"preflight ({target}):\n{preflight.format_checks(checks)}", flush=True)
+            if preflight.failed(checks):
+                print("monitoring was not installed: fix what failed, or --no-preflight to try anyway", file=sys.stderr)
+                return 1
+        monitoring.up(run, target)
+        print(f"monitoring is up: the probes on every node, Prometheus scraping them every {monitoring.STEP_S} s")
+    elif args.action == "down":
+        monitoring.down(run, target, purge=args.purge)
+        print("monitoring is down" + (" and its volume deleted" if args.purge else f"; its volume claim {monitoring.PROMETHEUS_PVC} (and the data) stays: --purge deletes it"))
+    elif args.action == "status":
+        if run.dry_run:
+            print("bench monitoring status reads the cluster: skipped in a dry run")
+            return 0
+        there = monitoring.installed(run, target)
+        print(f"monitoring on {target}: " + ("installed" if there else "not installed"))
+        if there:
+            run(k8s.kubectl_command("-n", config.NAMESPACE, "get", "pods,pvc", "-l", "app.kubernetes.io/part-of=storm-bench-monitoring", target=target))
+    else:
+        if not args.dir:
+            raise ValueError("bench monitoring export needs the results directory")
+        out = Path(args.dir)
+        env = json.loads((out / "environment.json").read_text())
+        done = out / "raw" / "DONE"
+        end = time.time() + 2 if not done.is_file() else dt.datetime.strptime(done.read_text().strip(), "%Y-%m-%dT%H:%M:%S%z").timestamp() + 5
+        monitoring.export(run, target, out, dt.datetime.fromisoformat(env["date"]).timestamp() - 15, end)
+        text = report.write(out)
+        print("\n" + text)
     return 0

@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# The same Namespace the stack makes: applying it twice changes nothing, and this kustomization then does not depend on the order.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: storm-bench
+  labels: {app.kubernetes.io/part-of: storm-bench}

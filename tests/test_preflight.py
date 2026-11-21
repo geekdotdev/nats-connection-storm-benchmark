@@ -5,7 +5,7 @@ import types
 
 import pytest
 
-from stormbench import cli, preflight as pf, runcmd
+from stormbench import cli, preflight as pf, runcmd, state
 from stormbench.ab import Variant
 from stormbench.preflight import Check, Manifest
 from stormbench.runner import Runner
@@ -160,9 +160,9 @@ def test_json_stream_reads_one_object_a_list_or_several_in_a_row():
 
 # -- the whole preflight ------------------------------------------------------------------------------------------
 class ClusterRunner(Runner):
-    def __init__(self, nodes, stack_objs, loadgen_objs, secrets=True, down=False):
+    def __init__(self, nodes, stack_objs, loadgen_objs, secrets=True, down=False, pods=None):
         super().__init__()
-        self.nodes, self.secrets, self.down, self.ran = nodes, secrets, down, []
+        self.nodes, self.secrets, self.down, self.ran, self.pods = nodes, secrets, down, [], pods or []
         self.rendered = {"deploy/stack": stack_objs, "deploy/loadgen": loadgen_objs}
         self.last = None
 
@@ -172,6 +172,8 @@ class ClusterRunner(Runner):
             if self.down:
                 raise subprocess.CalledProcessError(1, cmd)
             return json.dumps({"items": self.nodes})
+        if "pods" in cmd:
+            return json.dumps({"items": self.pods})
         if "kustomize" in cmd:
             self.last = self.rendered["deploy/loadgen"] if cmd[-1].startswith("deploy/loadgen") else self.rendered["deploy/stack"]
             return "rendered"
@@ -243,6 +245,7 @@ def test_every_command_uses_the_targets_kubeconfig(kubeconfigs, tmp_path):
 
 # -- the commands -------------------------------------------------------------------------------------------------
 def test_run_stops_before_applying_anything_when_preflight_fails(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(runcmd.state_mod, "KubeStore", lambda run, target: state.MemoryStore())   # no run recorded, and no cluster to ask
     monkeypatch.setenv("REGISTRY", "ghcr.io/o")
     monkeypatch.setattr(runcmd.preflight, "preflight", lambda *a, **k: [Check("secrets", False, "missing")])
 
@@ -258,6 +261,7 @@ def test_run_stops_before_applying_anything_when_preflight_fails(monkeypatch, tm
 
 
 def test_no_preflight_skips_the_checks(monkeypatch, tmp_path):
+    monkeypatch.setattr(runcmd.state_mod, "KubeStore", lambda run, target: state.MemoryStore())   # no run recorded, and no cluster to ask
     monkeypatch.setenv("REGISTRY", "ghcr.io/o")
     monkeypatch.setattr(runcmd.preflight, "preflight", lambda *a, **k: pytest.fail("checks were skipped"))
     reached = []
@@ -352,3 +356,101 @@ def test_every_dockerfile_base_image_is_pinned_by_digest():
                 continue
             resolved = re.sub(r"\$\{(\w+)\}", lambda m: args[m.group(1)], ref)
             assert re.search(r"@sha256:[0-9a-f]{64}$", resolved), f"{df}: base image {ref} -> {resolved} is not pinned by digest"
+
+
+# -- monitoring: the probe and Prometheus ---------------------------------------------------------------------------
+INFRA_TAINT = {"key": "dedicated", "value": "infra", "effect": "NoSchedule"}
+
+
+def probe(tolerate_all=True):
+    spec = {"containers": [{"name": "cpuprobe", "image": "ghcr.io/o/cpuprobe@sha256:" + "4" * 64, "resources": {"requests": {"cpu": "50m", "memory": "32Mi"}}}]}
+    if tolerate_all:
+        spec["tolerations"] = [{"operator": "Exists"}]
+    return {"kind": "DaemonSet", "metadata": {"name": "cpuprobe"}, "spec": {"template": {"spec": spec}}}
+
+
+def prometheus(selector=None, storage_class="gp3", cpu="250m"):
+    spec = {"containers": [{"name": "prometheus", "image": "prom/prometheus@sha256:" + "5" * 64, "resources": {"requests": {"cpu": cpu, "memory": "256Mi"}}}]}
+    if selector:
+        spec["nodeSelector"] = selector
+        spec["tolerations"] = [{"key": "dedicated", "operator": "Equal", "value": "infra", "effect": "NoSchedule"}]
+    claim = {"metadata": {"name": "data"}, "spec": {"storageClassName": storage_class}}
+    return {"kind": "StatefulSet", "metadata": {"name": "prometheus"}, "spec": {"replicas": 1, "template": {"spec": spec}, "volumeClaimTemplates": [claim]}}
+
+
+WITH_INFRA = [*THREE_BROKERS, node("i0", "infra", cpu="2", mem="4Gi", taints=[INFRA_TAINT])]
+OVERLAY = "deploy/monitoring/overlays/eks"
+
+
+def mon(run, target="eks", fetch=None):
+    return pf.monitoring_checks(run, target, OVERLAY, fetch or (lambda *a: Manifest(200, ("linux/amd64", "linux/arm64"))))
+
+
+def test_good_monitoring_passes_with_the_probe_on_every_node_and_prometheus_on_the_infra_node(kubeconfigs):
+    checks = mon(ClusterRunner(WITH_INFRA, [probe(), prometheus({"role": "infra"})], []))
+    assert not pf.failed(checks), pf.format_checks(checks)
+    names = [c.name for c in checks]
+    assert "daemonset/cpuprobe" in names and "statefulset/prometheus" in names and "storageclass gp3" in names
+    assert len([n for n in names if n.startswith("image ")]) == 2
+    assert "all 5 node(s)" in next(c.detail for c in checks if c.name == "daemonset/cpuprobe")
+
+
+def test_a_probe_that_does_not_tolerate_the_brokers_taint_would_leave_their_pods_unmeasured(kubeconfigs):
+    checks = mon(ClusterRunner(WITH_INFRA, [probe(tolerate_all=False), prometheus({"role": "infra"})], []))
+    bad = next(c for c in checks if c.name == "daemonset/cpuprobe")
+    assert not bad.ok and "b0" in bad.detail and "would not be measured" in bad.detail
+
+
+def test_prometheus_asking_for_a_node_that_is_not_there_fails_naming_the_selector(kubeconfigs):
+    checks = mon(ClusterRunner(THREE_BROKERS, [probe(), prometheus({"role": "infra"})], []))
+    bad = next(c for c in checks if c.name == "statefulset/prometheus")
+    assert not bad.ok and "role=infra" in bad.detail
+
+
+def test_a_storage_class_the_cluster_lacks_fails_because_the_claim_would_never_bind(kubeconfigs):
+    checks = mon(ClusterRunner(WITH_INFRA, [probe(), prometheus({"role": "infra"})], [], secrets=False))
+    bad = next(c for c in checks if c.name == "storageclass gp3")
+    assert not bad.ok and "never bind" in bad.detail
+
+
+def test_on_kind_the_images_are_loaded_not_pulled_and_a_missing_image_elsewhere_fails(kubeconfigs):
+    local = mon(ClusterRunner([node("k0")], [probe(), prometheus(storage_class="standard")], []), "local", lambda *a: pytest.fail("kind does not pull"))
+    assert not pf.failed(local) and any(c.name == "images" for c in local)
+    missing = mon(ClusterRunner(WITH_INFRA, [probe(), prometheus({"role": "infra"})], []), fetch=lambda *a: Manifest(401))
+    assert pf.failed(missing) and all(not c.ok for c in missing if c.name.startswith("image "))
+
+
+def test_monitoring_that_cannot_be_rendered_or_read_says_so(kubeconfigs):
+    assert [c.name for c in mon(ClusterRunner([], [], [], down=True))] == ["cluster"]
+
+    class Broken(ClusterRunner):
+        def output(self, cmd, **k):
+            if "kustomize" in cmd:
+                raise subprocess.CalledProcessError(1, cmd)
+            return super().output(cmd, **k)
+    checks = mon(Broken(WITH_INFRA, [], []))
+    assert checks[-1].name == "monitoring" and not checks[-1].ok
+
+
+def test_monitoring_up_stops_before_applying_when_the_checks_fail(monkeypatch, capsys):
+    from stormbench import monitoring
+    monkeypatch.setattr(runcmd.preflight, "monitoring_checks", lambda *a, **k: [Check("storageclass gp3", False, "missing")])
+    monkeypatch.setattr(monitoring, "up", lambda *a, **k: pytest.fail("nothing is applied after a failed check"))
+    assert cli.main(["monitoring", "up", "--target", "local"]) == 1
+    assert "monitoring was not installed" in capsys.readouterr().err
+    applied = []
+    monkeypatch.setattr(monitoring, "up", lambda run, target: applied.append(target))
+    assert cli.main(["monitoring", "up", "--target", "local", "--no-preflight"]) == 0 and applied == ["local"]
+
+
+def test_the_eks_monitoring_overlay_pins_every_image_and_fits_the_default_cluster_with_its_infra_node():
+    objs = render_overlay("deploy/monitoring/overlays/eks")
+    assert pf.images_of(objs) and all("@sha256:" in i for i in pf.images_of(objs)), pf.images_of(objs)
+    nodes = [*THREE_BROKERS, node("i0", "infra", cpu="1930m", mem="3Gi", taints=[INFRA_TAINT])]   # roughly a c6i.large after the kubelet's reservation
+    checks = pf.placement_checks(objs, nodes)
+    assert checks and not pf.failed(checks), pf.format_checks(checks)
+    prom = next(o for o in objs if o["kind"] == "StatefulSet")
+    assert prom["spec"]["volumeClaimTemplates"][0]["spec"]["storageClassName"] == "gp3"
+    assert pf._podspec(prom)["nodeSelector"] == {"role": "infra"}                                      # only the infra nodes match it
+    daemon = next(o for o in objs if o["kind"] == "DaemonSet")
+    assert all(pf._usable(n, pf._podspec(daemon)) for n in nodes)                                      # the probe runs on every node, tainted or not

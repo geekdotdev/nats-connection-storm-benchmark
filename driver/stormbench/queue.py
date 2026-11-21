@@ -25,6 +25,7 @@ nothing for them instead of guessing.
 from __future__ import annotations
 
 import bisect
+import datetime as dt
 import html
 import math
 import statistics as st
@@ -186,14 +187,28 @@ def _fmt(v: float) -> str:
     return f"{v:g}"
 
 
-def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int]) -> str:
+def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int], run_date: str = "", generated: str = "",
+          clipped: tuple[int, int] | None = None, run_id: str = "", cluster: str = "", namespace: str = "") -> str:
     """One SVG for a phase: the queue depth above and the admitted share below, one line per variant with its band. curves maps a
-    variant label to pooled_curves(); blocks says how many blocks each variant ran."""
+    variant label to pooled_curves(); blocks says how many blocks each variant ran. The footer carries run_date (when the run
+    was made, from its environment.json) and generated (when this chart was drawn: the same data can be drawn again later).
+    `clipped` is (bursts that ran past the end of the axis, bursts): the axis is cut short of the slowest bursts so that one stall does
+    not squeeze every curve into the left of the chart, and the chart says so."""
     labels = list(curves)[:MAX_SERIES]
     xmax = max(c["times"][-1] for c in curves.values())
     ymax_depth = max(c["depth"]["high"][i] for c in curves.values() for i in range(GRID_POINTS)) or 1
-    W, ML, MR, PH, GAP, TOP = 780, 62, 24, 190, 54, 112
-    H = TOP + 2 * PH + GAP + 44
+    W, ML, MR, PH, GAP = 780, 62, 24, 190, 54
+    # the legend, in as many rows as it takes to stay inside the chart
+    legend, lx, row = [], ML, 0
+    for i, label in enumerate(labels):
+        text = f"{label} ({curves[label]['bursts']} bursts, {blocks.get(label, '?')} blocks)"
+        width = 28 + 7 * len(text) + 18
+        if lx + width > W - MR and lx > ML:
+            lx, row = ML, row + 1
+        legend.append((i, text, lx, row))
+        lx += width
+    TOP = 112 + 18 * row
+    H = TOP + 2 * PH + GAP + 66 + (16 if cluster or namespace else 0)
     xstep = _nice_step(xmax, 8)
     xend = math.ceil(xmax / xstep) * xstep
 
@@ -213,13 +228,10 @@ def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int]) -> str:
          f'<text class="t2" x="{ML}" y="44">Median over bursts; the band is the 10th to 90th percentile across bursts. Time is since the burst began.</text>',
          f'<text class="t2" x="{ML}" y="60">The queue is the client\'s view: CONNECT sent, no answer yet (the broker\'s authorization and the callout together).</text>']
     # legend: always present for two or more series
-    lx = ML
-    for i, label in enumerate(labels):
-        c = curves[label]
-        text = f"{label} ({c['bursts']} bursts, {blocks.get(label, '?')} blocks)"
-        o.append(f'<line x1="{lx}" y1="77" x2="{lx + 22}" y2="77" stroke="var(--s{i})" stroke-width="2"' + (f' stroke-dasharray="{DASH[i]}"' if DASH[i] else "") + "/>")
-        o.append(f'<text class="t2" x="{lx + 28}" y="81">{html.escape(text)}</text>')
-        lx += 28 + 7 * len(text) + 18
+    for i, text, lx, row_ in legend:
+        y = 77 + 18 * row_
+        o.append(f'<line x1="{lx}" y1="{y}" x2="{lx + 22}" y2="{y}" stroke="var(--s{i})" stroke-width="2"' + (f' stroke-dasharray="{DASH[i]}"' if DASH[i] else "") + "/>")
+        o.append(f'<text class="t2" x="{lx + 28}" y="{y + 4}">{html.escape(text)}</text>')
 
     def panel(top: int, key: str, ymax: float, ytitle: str, pct: bool) -> None:
         ystep = _nice_step(ymax, 4)
@@ -265,27 +277,43 @@ def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int]) -> str:
             x0, x1 = span(x, anchor, label)
             while any(x0 < b1 and b0 < x1 and abs(y - py) < 14 for b0, b1, py in placed):
                 y -= 14                                  # nudge a label up until it clears the ones already placed
+            if y < top:
+                continue                                 # no room inside the panel: the legend names the line instead
             placed.append((x0, x1, y))
             o.append(f'<text class="t" x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}" font-weight="600">{html.escape(label)}</text>')
 
     panel(TOP, "depth", float(ymax_depth), "connections waiting for an answer", False)
     panel(TOP + PH + GAP, "share", 1.0, "share of the burst admitted", True)
-    o.append(f'<text class="t2" x="{(ML + W - MR) / 2:.0f}" y="{H - 8}" text-anchor="middle">milliseconds since the burst began</text>')
+    cut = f" (the axis ends at {_fmt(xend)} ms; {clipped[0]} of {clipped[1]} bursts ran longer and are cut off)" if clipped and clipped[0] else ""
+    o.append(f'<text class="t2" x="{(ML + W - MR) / 2:.0f}" y="{H - (46 if cluster or namespace else 30)}" text-anchor="middle">milliseconds since the burst began{html.escape(cut)}</text>')
+    where = [f"cluster {cluster}" if cluster else "", f"namespace {namespace}" if namespace else "", f"run id {run_id}" if run_id else ""]
+    stamps = [f"run started {run_date}" if run_date else "", f"chart generated {generated}" if generated else ""]
+    if any(where):
+        o.append(f'<text class="t2" x="{ML}" y="{H - 24}" font-size="11">{html.escape("  ·  ".join(x for x in where if x))}</text>')
+    if any(stamps):
+        o.append(f'<text class="t2" x="{ML}" y="{H - 8}" font-size="11">{html.escape("  ·  ".join(x for x in stamps if x))}</text>')
     o.append("</svg>")
     return "\n".join(o) + "\n"
 
 
-def write_charts(run_dir: Path, raw_bursts: dict[str, dict[str, dict[int, list[dict]]]], labels: list[str]) -> list[Path]:
-    """queue-<phase>.svg for every phase whose bursts have samples. raw_bursts[phase][label][block] is a list of bursts."""
+def write_charts(run_dir: Path, raw_bursts: dict[str, dict[str, dict[int, list[dict]]]], labels: list[str], run_date: str = "",
+                 now: dt.datetime | None = None, run_id: str = "", cluster: str = "", namespace: str = "") -> list[Path]:
+    """queue-<phase>.svg for every phase whose bursts have samples. raw_bursts[phase][label][block] is a list of bursts. Each chart
+    is stamped with the run's date and the time it was drawn (`now`, in the local time zone, unless given)."""
+    generated = (now or dt.datetime.now().astimezone()).isoformat(timespec="seconds")
     written = []
     for phase, by_label in raw_bursts.items():
         curves, blocks = {}, {}
-        every = [b for label in labels for blk in by_label[label].values() for b in blk]
-        xmax = end_of(every)
-        if xmax <= 0:
+        every = [b for label in labels for blk in by_label[label].values() for b in blk if has_samples(b)]
+        ends = sorted(max(s["doneMs"] for s in b["samples"]) for b in every)
+        if not ends or ends[-1] <= 0:
             continue
+        # The axis runs a little past the 90th percentile of the bursts' end times, not to the slowest: one stalled burst (a whole
+        # second or more behind the rest) would otherwise squeeze every curve into the left of the chart. The chart says how many it cut off.
+        xmax = 1.15 * _pct(ends, 90)
         step = _nice_step(xmax, 8)
-        xmax = math.ceil(xmax / step) * step  # the axis ends on a tick, so the curves run to the labels at its end
+        xmax = math.ceil(xmax / step) * step  # the axis ends on a tick
+        clipped = (sum(1 for e in ends if e > xmax), len(ends))
         for label in labels:
             c = pooled_curves([b for blk in by_label[label].values() for b in blk], xmax)
             if c:
@@ -293,6 +321,6 @@ def write_charts(run_dir: Path, raw_bursts: dict[str, dict[str, dict[int, list[d
                 blocks[label] = sum(1 for blk in by_label[label].values() if any(has_samples(b) for b in blk))
         if curves:
             path = run_dir / f"queue-{phase}.svg"
-            path.write_text(chart(phase, curves, blocks))
+            path.write_text(chart(phase, curves, blocks, run_date, generated, clipped, run_id, cluster, namespace))
             written.append(path)
     return written

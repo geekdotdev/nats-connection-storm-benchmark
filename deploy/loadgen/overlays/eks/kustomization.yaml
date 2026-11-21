@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # EKS: the load generator runs on the clients node group, away from the brokers. The image is pinned by digest (the list pushed on
-# 2026-11-21 for loadgen:src-d4e091f900ab, amd64 and arm64); rebuild, push and replace it when the source changes. EDIT `newName` to your
+# 2026-11-21 for loadgen:src-a3d7265ebd6e, amd64 and arm64: it records every connection's timings, each burst's own CPU use and throttling, and asks the CPU probes (STORM_CPUPROBE) at each burst's start and end); rebuild, push and replace it when the source changes. EDIT `newName` to your
 # registry account.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -9,7 +9,7 @@ resources:
 images:
   - name: loadgen
     newName: ghcr.io/cfedersp/loadgen
-    digest: sha256:a6df6c387d57833c83f79c029422b7beee3b074cda2329dbdad11d8c63f9fda4   # loadgen:src-d4e091f900ab, amd64 and arm64
+    digest: sha256:c82321826578f33bddd790c1ad2e297b2a8381398e884b544305ffabba3a6099   # loadgen:src-a3d7265ebd6e, amd64 and arm64
 patches:
   - target: {kind: Job, name: loadgen}
     patch: |-
