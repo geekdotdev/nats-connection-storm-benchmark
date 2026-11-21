@@ -30,7 +30,20 @@ uv run bench images push nats-server:<first 12 of the sha>           # needs REG
 
 Tag the broker image with the commit it was built from, and use the image digest, not the tag, when deploying, so a tag can never change under a run. The `nats-server`, `callout` and `loadgen` Dockerfiles were built with podman for both platforms before operator mode, and the broker image started (`nats-server --version`, and the commit it reports in `/REVISION`). The callout and load generator were rebuilt after operator mode replaced the password callout, and the `provision` image was built for the first time, on 2026-11-21 with podman for arm64 only (one platform, with the `:dev` tags); all three then ran on a kind cluster against the broker image (`deploy/README.md`). The amd64 and arm64 builds that were pushed have not been run.
 
-`callout`, `loadgen` and `provision` are tagged `<name>:src-<12 hex>`, a hash of their source files and Dockerfile (not of a commit, since the source may be uncommitted); a single-platform build also gets `<name>:dev` for the local flow. `bench images build --only callout,loadgen,provision` builds just those, with no commit needed. The `callout` (`src-faac5bdfebd5`) and `loadgen` (`src-9a52195fe7db`) images published to GHCR on 2026-11-18 hold the earlier password callout and plain generator: **they are superseded**. The images built from the operator-mode source were pushed as amd64 and arm64 lists on 2026-11-21 and the EKS overlays pin them: `ghcr.io/cfedersp/callout@sha256:21ca37a0…` (`src-3cff67e67dd2`), `ghcr.io/cfedersp/loadgen@sha256:a6df6c38…` (`src-d4e091f900ab`) and `ghcr.io/cfedersp/provision@sha256:b01b5bc5…` (`src-c1a3acc650f6`); the `provision` package is new and private until made public.
+`callout`, `loadgen` and `provision` are tagged `<name>:src-<12 hex>`, a hash of their source files and Dockerfile (not of a commit, since the source may be uncommitted); a single-platform build also gets `<name>:dev` for the local flow. `bench images build --only callout,loadgen,provision` builds just those, with no commit needed. The `callout` (`src-faac5bdfebd5`) and `loadgen` (`src-9a52195fe7db`) images published to GHCR on 2026-11-18 hold the earlier password callout and plain generator: **they are superseded**. The images built from the operator-mode source were pushed as amd64 and arm64 lists on 2026-11-21 and the EKS overlays pin them: `ghcr.io/cfedersp/callout@sha256:21ca37a0…` (`src-3cff67e67dd2`), `ghcr.io/cfedersp/loadgen@sha256:a6df6c38…` (`src-d4e091f900ab`) and `ghcr.io/cfedersp/provision@sha256:b01b5bc5…` (`src-c1a3acc650f6`); the `provision` package was new and private, and was made public the same day.
+
+## Broker images for the lock and multiplexing comparison
+
+Published to `ghcr.io/cfedersp/nats-server` on 2026-11-21 as amd64 and arm64 lists (tagged by commit and by branch name, pinned by digest in `lock-variants.toml`, which names each digest's source). All were built with `bench images build <sha> --only nats-server --repo https://github.com/cfedersp/nats-server.git --platform linux/amd64,linux/arm64 --ref-name <branch>`; the repository is given because the commits are on that fork, not on nats-io:
+
+| Variant | Branch | Commit | Digest |
+|---|---|---|---|
+| `main` | upstream main (read lock, #8905) | `582fb8e939a7` | `sha256:7e89e5a9ad5a…` |
+| `nolock` | `feature/lockfree-acc-conns-update` | `37260075e531` | `sha256:4214ee07b2bb…` |
+| `mux_main` | `feature/auth-callout-mux-on-main` | `ec9244c3444d` | `sha256:0676f13113d5…` |
+| `mux_nolock` | `feature/auth-callout-mux-on-lockfree` | `7ea787e2b5ee` | `sha256:d35b480b8d13…` |
+
+Each resolves anonymously with both platforms. The `mux` change is an experiment set aside on 2026-11-16 (auth callout reply multiplexing: one shared reply subscription per account instead of one per connection) and applied to the two bases; it was checked with `go test -race -run TestAuthCallout` and not with the full nats-server suite. None of these images has been run in the benchmark yet.
 
 ## Base images are pinned by digest
 

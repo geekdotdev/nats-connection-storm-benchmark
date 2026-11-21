@@ -118,6 +118,20 @@ def test_the_example_file_in_docs_parses():
     assert len(variants.load(path, "localhost/")) >= 3
 
 
+def test_the_lock_variants_file_pins_every_broker_image_by_digest():
+    import re
+    path = REPO_ROOT / "lock-variants.toml"
+    vs = variants.load(path, "ghcr.io/cfedersp/")
+    assert [v.label for v in vs] == ["main", "nolock", "mux_main", "mux_nolock"]        # the first is the baseline
+    text = path.read_text()
+    for v in vs:
+        assert re.fullmatch(r"ghcr\.io/cfedersp/nats-server@sha256:[0-9a-f]{64}", v.image), v.image
+        assert len(v.commit) == 40
+        assert f"nats-server:{v.commit[:12]}" in text, f"{v.label}: the comment must name the tag the digest was pushed as"
+        assert v.settings() == {}                          # they differ in the broker's source only
+    assert len({v.image for v in vs}) == len(vs) and len({v.commit for v in vs}) == len(vs)
+
+
 # -- the plan -----------------------------------------------------------------------------------------------------
 def test_a_plan_needs_two_variants_with_different_labels():
     one = ab.Variant("a", A, "x")
