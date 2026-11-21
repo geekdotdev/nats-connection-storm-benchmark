@@ -28,7 +28,7 @@ label = "tuned"
 commit = "{B}"
 stack = "deploy/stack/overlays/eks-cluster"
 conf = "max_payload: 2MB\\n"
-callout_args = ["serve", "--url", "nats://broker:4222", "--accounts", "16", "--workers", "8"]
+callout_args = ["serve", "--url", "nats://broker:4222", "--workers", "8"]
 [variant.broker_env]
 GOGC = "50"
 [variant.broker_resources]
@@ -92,8 +92,9 @@ def v2(extra: str) -> str:
     (v2("[variant.broker_env]\nGOGC = 50"), "quoted string"),
     (v2('[variant.broker_env]\n"bad name" = "x"'), "not a valid name"),
     (v2('[variant.broker_env]\nPOD_NAME = "x"'), "cannot be overridden"),
-    (v2('[variant.callout_env]\nCALLOUT_ISSUER_SEED = "x"'), "cannot be overridden"),
+    (v2('[variant.callout_env]\nCALLOUT_CREDS = "x"'), "cannot be overridden"),
     (v2('[variant.storm]\nSTORM_CONNECTIONS = "5"'), "cannot be overridden"),
+    (v2('[variant.storm]\nSTORM_SAMPLES = "0"'), "cannot be overridden"),   # the queue curves need every run's samples
     (v2('[variant.storm]\nthreads = "5"'), "not a valid name"),
     (v2('[variant.broker_resources]\ncpu = "lots"'), "quantity"),
     (v2('[variant.broker_resources]\ngpu = "1"'), "not a valid name"),
@@ -156,9 +157,9 @@ def test_a_variants_own_generator_settings_go_on_top_of_the_plans():
     phase = plan.phases[2]
     base = plan.storm_env(phase, "x")
     assert base["STORM_THREADS"] == "4"
-    v = ab.Variant("t", B, "i", storm={"STORM_THREADS": "8", "STORM_ACCOUNTS": "32"})
+    v = ab.Variant("t", B, "i", storm={"STORM_THREADS": "8", "STORM_ROLES": "app-feed-publish-a"})
     env = plan.storm_env(phase, "x", v)
-    assert env["STORM_THREADS"] == "8" and env["STORM_ACCOUNTS"] == "32" and env["STORM_CONNECTIONS"] == base["STORM_CONNECTIONS"]
+    assert env["STORM_THREADS"] == "8" and env["STORM_ROLES"] == "app-feed-publish-a" and env["STORM_CONNECTIONS"] == base["STORM_CONNECTIONS"]
 
 
 class FakeBackend:
@@ -191,6 +192,8 @@ def test_the_environment_records_every_variants_settings_and_the_order():
     assert [v["label"] for v in env["variants"]] == ["main", "tuned", "other"]
     assert env["variants"][1]["broker_env"] == {"GOGC": "50"} and env["design"]["order"] == "rotating by block"
     assert "arms" not in env
+    assert env["auth"]["mode"] == "operator" and env["auth"]["resolver"] == "memory" and env["auth"]["tenant_accounts"] == 1
+    json.dumps(env)  # it is written to environment.json
 
 
 # -- the report with several variants ----------------------------------------------------------------------------

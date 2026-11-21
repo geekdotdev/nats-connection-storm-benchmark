@@ -1,27 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command callout is a minimal NATS auth-callout responder for benchmarking nats-server.
+// Command callout is a minimal NATS auth-callout responder for benchmarking nats-server in operator mode.
 //
-//	callout keygen --seed-file PATH   create the issuer account key; print its public key
-//	callout keygen --json             the same, printing {"seed","public"} on stdout for a program to capture
-//	callout serve                     answer authorization requests
+//	callout serve   answer authorization requests
 //
-// Secrets are read from the environment or, for each NAME, from the file named by NAME_FILE
-// (a mounted Kubernetes Secret); they are never taken from flags, which show up in process
-// listings:
+// A client presents a ticket: a user JWT signed by the AUTH account's scoped signing key, with the role names it asks for as
+// tags. The broker has verified it and hands it to this responder, which maps the roles to subjects and answers with a user JWT
+// for the tenant account. The keys come from components/provision (an init container of the callout pod makes them). Secrets
+// are read from the environment or, for each NAME, from the file named by NAME_FILE (a mounted Kubernetes Secret); they are
+// never taken from flags, which show up in process listings:
 //
-//	CALLOUT_SERVICE_USER, CALLOUT_SERVICE_PASSWORD  the callout's own login to the broker (AUTH account)
-//	CALLOUT_ISSUER_SEED                             account seed whose public key is auth_callout.issuer
-//	CALLOUT_USER_PASSWORD                           the password every benchmark user presents
+//	CALLOUT_CREDS                the callout's own login: a user JWT and seed in .creds format
+//	CALLOUT_AUTH_SIGNING_SEED    the AUTH account's signing key, which signs the response claim
+//	CALLOUT_TENANT_SIGNING_SEED  the tenant account's signing key, which signs the user JWT it mints
+//	CALLOUT_TENANT_PUBLIC        the tenant account's public key (not secret)
 package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -31,76 +30,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nkeys"
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 2 || os.Args[1] != "serve" {
 		usage()
 	}
-	var err error
-	switch os.Args[1] {
-	case "keygen":
-		err = keygen(os.Args[2:], os.Stdout)
-	case "serve":
-		err = serve(os.Args[2:])
-	default:
-		usage()
-	}
-	if err != nil {
+	if err := serve(os.Args[2:]); err != nil {
 		fmt.Fprintln(os.Stderr, "callout:", err)
 		os.Exit(1)
 	}
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: callout keygen --seed-file PATH | callout serve [flags]")
+	fmt.Fprintln(os.Stderr, "usage: callout serve [--url URL] [--workers N] [--ttl DURATION] [--health-addr ADDR]")
 	os.Exit(2)
-}
-
-// keygen creates the issuer account key. With --seed-file it writes the seed to a file (mode 0600, never
-// overwriting) and prints only the public key, so no secret reaches the terminal or a log. With --json it prints
-// {"seed": ..., "public": ...} to out, for a program that captures it (the benchmark driver, which puts the seed
-// straight into a Kubernetes Secret); do not use --json on a terminal.
-func keygen(args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("keygen", flag.ContinueOnError)
-	path := fs.String("seed-file", "", "where to write the new seed (must not exist)")
-	asJSON := fs.Bool("json", false, "print the seed and the public key as JSON on stdout, for a program to capture")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if (*path == "") == !*asJSON {
-		return errors.New("give exactly one of --seed-file and --json")
-	}
-	kp, err := nkeys.CreateAccount()
-	if err != nil {
-		return err
-	}
-	seed, err := kp.Seed()
-	if err != nil {
-		return err
-	}
-	pub, err := kp.PublicKey()
-	if err != nil {
-		return err
-	}
-	if *asJSON {
-		return json.NewEncoder(out).Encode(map[string]string{"seed": string(seed), "public": pub})
-	}
-	f, err := os.OpenFile(*path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(append(seed, '\n')); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	fmt.Fprintln(out, pub)
-	return nil
 }
 
 // secret returns the value of NAME, or the contents of the file named by NAME_FILE.
@@ -119,14 +65,14 @@ func secret(name string) (string, error) {
 }
 
 type config struct {
-	url             string
-	serviceUser     string
-	servicePassword string
-	issuerSeed      string
-	userPassword    string
-	workers         int
-	accounts        int
-	healthAddr      string
+	url               string
+	workers           int
+	healthAddr        string
+	creds             string // CALLOUT_CREDS
+	authSigningSeed   string // CALLOUT_AUTH_SIGNING_SEED
+	tenantSigningSeed string // CALLOUT_TENANT_SIGNING_SEED
+	tenantPublic      string // CALLOUT_TENANT_PUBLIC
+	ttl               time.Duration
 
 	// ready, if set, is closed once the subscriptions are in place (used by tests).
 	ready chan<- struct{}
@@ -137,8 +83,8 @@ func serve(args []string) error {
 	cfg := config{}
 	fs.StringVar(&cfg.url, "url", envOr("NATS_URL", "nats://127.0.0.1:4222"), "broker URL (env NATS_URL)")
 	fs.IntVar(&cfg.workers, "workers", 16, "queue subscribers on the callout subject")
-	fs.IntVar(&cfg.accounts, "accounts", 16, "number of accounts A0..A<n-1> the broker has; user u<i> goes to account A<i>")
 	fs.StringVar(&cfg.healthAddr, "health-addr", ":8080", "address for GET /healthz, empty to disable")
+	fs.DurationVar(&cfg.ttl, "ttl", DefaultTTL, "how long a minted user JWT is valid; the broker then disconnects the client")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -146,10 +92,10 @@ func serve(args []string) error {
 		dst  *string
 		name string
 	}{
-		{&cfg.serviceUser, "CALLOUT_SERVICE_USER"},
-		{&cfg.servicePassword, "CALLOUT_SERVICE_PASSWORD"},
-		{&cfg.issuerSeed, "CALLOUT_ISSUER_SEED"},
-		{&cfg.userPassword, "CALLOUT_USER_PASSWORD"},
+		{&cfg.creds, "CALLOUT_CREDS"},
+		{&cfg.authSigningSeed, "CALLOUT_AUTH_SIGNING_SEED"},
+		{&cfg.tenantSigningSeed, "CALLOUT_TENANT_SIGNING_SEED"},
+		{&cfg.tenantPublic, "CALLOUT_TENANT_PUBLIC"},
 	} {
 		v, err := secret(s.name)
 		if err != nil {
@@ -171,16 +117,23 @@ func envOr(name, fallback string) string {
 
 // run connects to the broker, answers requests until ctx is cancelled, then drains.
 func run(ctx context.Context, cfg config) error {
-	az, err := NewAuthorizer([]byte(cfg.issuerSeed), cfg.userPassword, cfg.accounts)
+	az, err := NewOperatorAuthorizer([]byte(cfg.authSigningSeed), []byte(cfg.tenantSigningSeed), cfg.tenantPublic, cfg.ttl)
 	if err != nil {
 		return err
+	}
+	// The creds are parsed here, so a malformed value fails at startup, not at the first connect attempt.
+	if _, err := jwt.ParseDecoratedJWT([]byte(cfg.creds)); err != nil {
+		return fmt.Errorf("CALLOUT_CREDS: %w", err)
+	}
+	if _, err := jwt.ParseDecoratedNKey([]byte(cfg.creds)); err != nil {
+		return fmt.Errorf("CALLOUT_CREDS: %w", err)
 	}
 	if cfg.workers < 1 {
 		return errors.New("workers must be at least 1")
 	}
 	// Retry so the callout can start before the broker does.
 	nc, err := nats.Connect(cfg.url,
-		nats.UserInfo(cfg.serviceUser, cfg.servicePassword),
+		nats.UserCredentialBytes([]byte(cfg.creds)),
 		nats.Name("storm-callout"),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(-1),
@@ -236,9 +189,7 @@ func run(ctx context.Context, cfg config) error {
 		}()
 	}
 
-	slog.Info("answering authorization requests",
-		"subject", AuthCalloutSubject, "workers", cfg.workers, "accounts", cfg.accounts,
-		"issuer", az.IssuerPublicKey())
+	slog.Info("answering authorization requests", "subject", AuthCalloutSubject, "workers", cfg.workers, "tenant", cfg.tenantPublic, "ttl", cfg.ttl.String())
 	<-ctx.Done()
 
 	if health != nil {
@@ -247,6 +198,7 @@ func run(ctx context.Context, cfg config) error {
 		cancel()
 	}
 	_ = nc.Drain()
-	slog.Info("stopped", "accepted", az.Accepted.Load(), "rejected", az.Rejected.Load(), "dropped", az.Dropped.Load())
+	accepted, rejected, dropped := az.Counts()
+	slog.Info("stopped", "accepted", accepted, "rejected", rejected, "dropped", dropped)
 	return nil
 }

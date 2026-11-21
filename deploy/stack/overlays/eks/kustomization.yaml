@@ -1,14 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-# EKS (cluster from infra/eks, made by `bench cluster up --target eks`). One broker; the cluster and leaf variants are
-# the sibling overlays eks-cluster and eks-cluster-leaf.
+# EKS (cluster from infra/eks, made by `bench cluster up --target eks`). One broker; the cluster variant is the sibling overlay eks-cluster.
 #
 # Placement: brokers run on the tainted `brokers` node group, one per node, with requests equal to limits (so the
-# kubelet gives them dedicated CPU). The callout and leaf servers run on the `clients` node group.
+# kubelet gives them dedicated CPU). The callout runs on the `clients` node group.
 # Sizes assume the default 4 vCPU / 8 GiB node (c6i.xlarge): change them together with --instance-type.
 #
 # Images come from GHCR and are pulled without credentials, so the packages must be public. The broker is pinned by
-# digest, not tag (the digest is the list pushed for nats-server 582fb8e93, amd64 and arm64). EDIT `newName` to your
-# registry account. The callout is pinned the same way (its tag names the source hash).
+# digest, not tag (the digest is the list pushed for nats-server 582fb8e93, amd64 and arm64): it has no benchmark code in it.
+# The callout and provision images are pinned by digest too (the lists pushed on 2026-11-21 for callout:src-3cff67e67dd2 and
+# provision:src-c1a3acc650f6, amd64 and arm64). The tag in the comment names the source, because the digest does not: rebuild and push
+# (`bench images build --only callout,loadgen,provision --platform linux/amd64,linux/arm64`, `bench images push ...`) and replace the
+# digests when the source changes. EDIT `newName` to your registry account.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -19,7 +21,10 @@ images:
     digest: sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
   - name: callout
     newName: ghcr.io/cfedersp/callout
-    digest: sha256:a1024b9b0c8fe7c6f78a6a626630fdf6e6be4c575a3555dd095dd780de4064a6   # callout:src-faac5bdfebd5, amd64 and arm64
+    digest: sha256:21ca37a09635ed93f8ef7ef55c841e003dea3795ebdddfcfdf20b99a1f49ed23   # callout:src-3cff67e67dd2, amd64 and arm64
+  - name: provision
+    newName: ghcr.io/cfedersp/provision
+    digest: sha256:b01b5bc532eac54cd7b0e97f9fd60266527f8e54158138628d3e2f0122ae81f1   # provision:src-c1a3acc650f6, amd64 and arm64
 patches:
   - target: {kind: StatefulSet, name: broker}
     patch: |-
@@ -53,20 +58,6 @@ patches:
             nodeSelector: {role: client}
             containers:
               - name: callout
-                resources:
-                  requests: {cpu: 500m, memory: 256Mi}
-                  limits: {cpu: 500m, memory: 256Mi}
-  - target: {kind: Deployment, name: leaf}
-    patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata: {name: leaf}
-      spec:
-        template:
-          spec:
-            nodeSelector: {role: client}
-            containers:
-              - name: leaf
                 resources:
                   requests: {cpu: 500m, memory: 256Mi}
                   limits: {cpu: 500m, memory: 256Mi}

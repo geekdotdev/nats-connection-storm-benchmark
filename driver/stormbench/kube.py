@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -22,6 +24,53 @@ NAMESPACE = "storm-bench"
 # variant can name its own.
 STACK_OVERLAYS = {"local": "deploy/stack/overlays/local", "eks": "deploy/stack/overlays/eks"}
 LOADGEN_OVERLAYS = {"local": "deploy/loadgen/overlays/local", "eks": "deploy/loadgen/overlays/eks"}
+
+
+# What the broker and generator pods wait for in operator mode, made by the callout pod's provision init container.
+PROVISION_OBJECTS = ("storm-operator", "storm-callout-auth", "storm-generator-auth")
+PROVISION_HINT = ("the broker and generator pods wait for objects (the ConfigMap storm-operator, the Secrets storm-callout-auth and "
+                  "storm-generator-auth) that the callout pod's init container `provision` creates: look at "
+                  "`kubectl -n storm-bench logs deployment/callout -c provision` and `kubectl -n storm-bench describe pod -l app.kubernetes.io/name=callout`")
+
+
+def waiting_report(pods: list[dict], events: list[dict]) -> list[str]:
+    """Why each pod that is not ready is not: the reason each container waits or failed, and the latest warning event about it.
+    Pure, so it can be tested with canned kubectl output. Ends with a hint when a pod waits for what the provision init container makes."""
+    lines: list[str] = []
+    for pod in pods:
+        name = pod["metadata"]["name"]
+        status = pod.get("status", {})
+        # A finished pod (the previous storm Job's) and a terminating one (the pod this rollout is replacing) are not what is stuck.
+        if status.get("phase") == "Succeeded" or "deletionTimestamp" in pod["metadata"]:
+            continue
+        if any(c.get("type") == "Ready" and c.get("status") == "True" for c in status.get("conditions", [])):
+            continue
+        facts: list[str] = []
+        for kind, key in (("init container", "initContainerStatuses"), ("container", "containerStatuses")):
+            for cs in status.get(key, []):
+                state = cs.get("state", {})
+                if "waiting" in state:
+                    w = state["waiting"]
+                    facts.append(f"{kind} {cs['name']} waiting: {w.get('reason', '?')}" + (f" ({w['message']})" if w.get("message") else ""))
+                elif "terminated" in state and state["terminated"].get("exitCode", 0) != 0:
+                    t = state["terminated"]
+                    facts.append(f"{kind} {cs['name']} exited {t.get('exitCode')}: {t.get('reason', '?')}" + (f" ({t['message']})" if t.get("message") else ""))
+                last = cs.get("lastState", {}).get("terminated")
+                if last and last.get("exitCode", 0) != 0 and "waiting" in state:  # a container that keeps failing is waiting to restart: say why it failed
+                    facts.append(f"{kind} {cs['name']} last exited {last.get('exitCode')}" + (f": {last['message'].strip()[:300]}" if last.get("message") else ""))
+        mine = [e for e in events if e.get("involvedObject", {}).get("name") == name and e.get("type") == "Warning"]
+        mine.sort(key=lambda e: e.get("lastTimestamp") or e.get("eventTime") or "")
+        seen: set[str] = set()
+        for e in reversed(mine):  # the latest of each reason
+            if e.get("reason") not in seen:
+                seen.add(e.get("reason"))
+                facts.append(f"event {e.get('reason')}: {e.get('message', '')}")
+            if len(seen) >= 3:
+                break
+        lines.append(f"  pod {name} ({status.get('phase', '?')}): " + ("; ".join(facts) if facts else "not ready, no reason reported"))
+    if any(o in line for line in lines for o in PROVISION_OBJECTS):
+        lines.append("  hint: " + PROVISION_HINT)
+    return lines
 
 
 class KubeBackend:
@@ -69,7 +118,7 @@ class KubeBackend:
         runs a placeholder image the cluster may not have."""
         self._apply_variant(variants[0], time.strftime("%Y-%m-%dT%H:%M:%S%z"))
         for d in ("statefulset/broker", "deployment/callout"):
-            self.run(self._kc("rollout", "status", d, "--timeout=180s"))
+            self._wait_rollout(d)
         rendered = self.run.output(self._k("kustomize", self.loadgen))
         as_json = self.run.output(self._k("create", "--dry-run=client", "-o", "json", "-f", "-"), input=rendered)
         self._job = json.loads(as_json)
@@ -80,9 +129,26 @@ class KubeBackend:
         # setting an earlier variant made is removed, not left behind.
         self._apply_variant(variant, time.strftime("%Y-%m-%dT%H:%M:%S%z"))
         for d in ("statefulset/broker", "deployment/callout"):
-            self.run(self._kc("rollout", "status", d, "--timeout=180s"))
+            self._wait_rollout(d)
         self.sleep(self.settle_s)  # let the callout connect and the broker settle before the first storm
         return self._broker_facts()
+
+    def _wait_rollout(self, what: str) -> None:
+        """Wait for a rollout. When it does not finish, say which pods are not ready and why before the error, because a broker pod
+        that waits for a ConfigMap the callout's init container has not made looks like a broker that will not start."""
+        try:
+            self.run(self._kc("rollout", "status", what, "--timeout=180s"))
+        except subprocess.CalledProcessError:
+            print(f"bench: {what} did not become ready; pods that are not ready:\n{self._not_ready()}", file=sys.stderr)
+            raise
+
+    def _not_ready(self) -> str:
+        try:
+            pods = json.loads(self.run.output(self._kc("get", "pods", "-o", "json"), quiet=True))["items"]
+            events = json.loads(self.run.output(self._kc("get", "events", "--field-selector", "type=Warning", "-o", "json"), quiet=True))["items"]
+        except (subprocess.CalledProcessError, ValueError, KeyError) as e:
+            return f"  (could not read the pods: {e})"
+        return "\n".join(waiting_report(pods, events)) or "  (none: every pod is ready)"
 
     def _broker_facts(self) -> dict:
         pods = json.loads(self.run.output(self._kc("get", "pods", "-l", "app.kubernetes.io/name=broker", "-o", "json"), quiet=True))

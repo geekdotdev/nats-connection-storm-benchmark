@@ -2,3 +2,6 @@ uv run bench --target eks preflight --variants cluster-variants.toml
 uv run bench --target eks run --variants cluster-variants.toml --name eks-800-1600 --sizes 800,1600
 uv run bench --target eks cluster down
 eksctl get cluster --name storm-bench --region us-east-1
+
+post:
+uv run bench report results/<<output dir>>

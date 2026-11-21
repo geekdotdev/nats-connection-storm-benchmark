@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+# What the provision init container of the callout pod may do: create the three objects it makes and look for the ConfigMap that
+# marks a finished run. Nothing else: no update, patch, list or delete, and no read of any Secret. `create` cannot be limited to
+# names, so it can create other Secrets and ConfigMaps in this namespace, but it can never replace or read one that exists.
+# The names must match components/provision (a test checks this).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: storm-provision
+  namespace: storm-bench
+  labels: {app.kubernetes.io/name: provision, app.kubernetes.io/part-of: storm-bench}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: storm-provision
+  namespace: storm-bench
+  labels: {app.kubernetes.io/name: provision, app.kubernetes.io/part-of: storm-bench}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["storm-operator"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: storm-provision
+  namespace: storm-bench
+  labels: {app.kubernetes.io/name: provision, app.kubernetes.io/part-of: storm-bench}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: storm-provision}
+subjects:
+  - {kind: ServiceAccount, name: storm-provision, namespace: storm-bench}

@@ -10,8 +10,10 @@
 #   conf_file     a file with it, relative to this file
 #   broker_env, callout_env       environment variables for those containers (quoted strings; not the ones the manifests wire)
 #   broker_resources              cpu and memory, as both requests and limits (so the pod is Guaranteed)
-#   callout_args  the callout's whole argument list, replacing the overlay's
-#   storm         generator STORM_* settings, on top of the run's (not the phase variables STORM_CONNECTIONS and the like)
+#   callout_args  the callout's whole argument list, replacing the overlay's (so give `--url` too)
+#   storm         generator STORM_* settings, on top of the run's (not the phase variables STORM_CONNECTIONS and the like, nor the
+#                 key wiring STORM_SCOPED_SEED, STORM_AUTH_ACCOUNT and their _FILE forms; STORM_ROLES, STORM_TICKET_TTL_S and
+#                 STORM_TIMEOUT_MS may be varied)
 #
 # All variants of a run must have the same Kubernetes objects (preflight checks it): they differ in settings, not in what exists.
 
@@ -32,7 +34,7 @@ commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
 conf = """
 max_payload: 2MB
 """
-callout_args = ["serve", "--url", "nats://broker:4222", "--accounts", "16", "--workers", "8"]
+callout_args = ["serve", "--url", "nats://broker:4222", "--workers", "8"]
 [variant.broker_env]
 GOGC = "50"
 [variant.broker_resources]

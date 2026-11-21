@@ -46,8 +46,14 @@ def variants_from_args(args) -> tuple[Variant, ...]:
     return variants_mod.from_commits(args.a, args.b, args.a_label, args.b_label, prefix)
 
 
+# How clients are authenticated in every run made from this code (deploy/stack/base). Recorded so that results are never confused with
+# those of the earlier password-callout configuration, whose environment.json has no such key.
+AUTH = {"mode": "operator", "resolver": "memory", "tenant_accounts": 1, "ticket": "signed by the AUTH account's scoped key, pre-signed before each run",
+        "callout": "role-name mapper, user JWT valid 1 hour"}
+
+
 def environment(plan: Plan, cluster: dict, settle_s: float, target: str = "local") -> dict:
-    return {"target": target,
+    return {"target": target, "auth": AUTH,
             "date": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             "variants": [v.describe() for v in plan.variants],
             "design": {"blocks": plan.blocks, "order": plan.order, "phases": [p.name for p in plan.phases],
@@ -99,7 +105,6 @@ def execute(run: Runner, args) -> int:
         out.mkdir(parents=True)
         (out / "environment.json").write_text(json.dumps(environment(plan, backend.describe(), args.settle_s, args.target), indent=1) + "\n")
         run_blocks(plan, backend, out / "raw")
-    text = report.summarize(out)
-    (out / "summary.txt").write_text(text + "\n")
+    text = report.write(out)
     print("\n" + text)
     return 0

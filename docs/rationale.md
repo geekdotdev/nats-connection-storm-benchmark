@@ -1,6 +1,6 @@
 # Why this benchmark runs the components as separate processes
 
-> Draft. The "What we observed" figures come from measurements on the private stack before this repository existed; they are not reproduced here yet and must be re-measured on this stack before they are cited.
+> Draft. The "What we observed" figures come from measurements on the private stack before this repository existed, with that stack's own authentication; they are not reproduced here yet and must be re-measured on this stack (which authenticates in operator mode with a minimal callout) before they are cited.
 
 nats-server's own Go benchmarks run the server, the auth-callout responder and the load generator inside one `go test` process. `BenchmarkAuthCalloutWebSocketBurst` is an example: the server is started with `RunServerWithConfig`, the callout is an in-process client with 16 queue subscriptions, and each client connection is a goroutine. That is the right tool for regression and race testing, and this repository does not replace it. For contention-sensitive changes it has limits, because the components are not independent:
 
@@ -29,8 +29,8 @@ That the shared runtime is the reason for the difference. Other things changed a
 
 ## How the evidence is produced
 
-- A minimal callout that makes no external calls, so the benchmark measures the server and not the callout.
+- A minimal callout that makes no external calls, so the benchmark measures the server and the callout round trip and not what a fuller callout would do: it maps role names to subjects and signs a user JWT, and does not verify tokens, seal responses or look grants up (see the README, "What it measures").
 - A standalone Rust load generator.
 - Pinned toolchains and base images, and the environment recorded with every run.
-- Interleaved A/B blocks, exact permutation tests on block medians, and raw data published.
+- Interleaved blocks of the variants (alternating for two, rotating for more), exact permutation tests on block medians, and raw data published.
 - Within-run comparisons only. Absolute numbers from different machines are not comparable.

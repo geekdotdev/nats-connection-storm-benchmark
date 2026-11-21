@@ -3,7 +3,7 @@ kind: Kustomization
 namespace: storm-bench
 resources:
   - namespace.yaml
+  - rbac.yaml
   - broker-config.yaml
   - broker.yaml
   - callout.yaml
-  - leaf.yaml

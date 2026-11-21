@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Make the benchmark's secrets, in memory.
+"""Make the benchmark's TLS Secret, in memory. (The operator, account and user keys are not made here: the provision init container of
+the callout pod makes them, see components/provision.)
 
-Nothing here touches the disk: passwords come from `secrets`, the throwaway CA and the broker certificate from
-`cryptography`, and the manifests are handed to kubectl on stdin. The CA's private key is discarded as soon as it
+Nothing here touches the disk: the throwaway CA and the broker certificate come from `cryptography`, and the manifest is handed to
+kubectl on stdin. The CA's private key is discarded as soon as it
 has signed the broker certificate; the cluster only ever holds the CA certificate and the broker's key pair.
 """
 from __future__ import annotations
 
 import datetime as dt
 import ipaddress
-import secrets as _secrets
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -17,15 +17,14 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 NAMESPACE = "storm-bench"
-SECRETS_NAME = "storm-secrets"
 TLS_NAME = "storm-tls"
+# Operator mode: made by the provision init container of the callout pod (components/provision), not by `bench secrets create`.
+# The names must equal the constants in components/provision/provision.go (a test checks).
+PROVISION_SECRETS = ("storm-callout-auth", "storm-generator-auth")
+PROVISION_CONFIGMAP = "storm-operator"
 
 # The names the generator and the callout use for the broker, in the namespace's DNS.
 BROKER_NAMES = ("broker", f"broker.{NAMESPACE}", f"broker.{NAMESPACE}.svc", f"broker.{NAMESPACE}.svc.cluster.local", "localhost")
-
-
-def password() -> str:
-    return _secrets.token_hex(16)
 
 
 def _pem_key(key: ec.EllipticCurvePrivateKey) -> str:
@@ -78,11 +77,6 @@ def namespace_manifest() -> dict:
     return {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": NAMESPACE}}
 
 
-def manifests(issuer_seed: str, issuer_public: str, tls: dict[str, str] | None = None) -> list[dict]:
-    """The two Secrets the stack expects (see deploy/README.md), with fresh passwords."""
-    return [
-        secret_manifest(SECRETS_NAME, {"service-password": password(), "user-password": password(),
-                                       "leaf-password": password(),
-                                       "issuer-seed": issuer_seed, "issuer-public": issuer_public}),
-        secret_manifest(TLS_NAME, tls or make_tls()),
-    ]
+def manifests(tls: dict[str, str] | None = None) -> list[dict]:
+    """The Secret the stack expects from `bench secrets create` (see deploy/README.md): the TLS key pair and its CA."""
+    return [secret_manifest(TLS_NAME, tls or make_tls())]

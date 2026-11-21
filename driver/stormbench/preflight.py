@@ -8,7 +8,8 @@ What is checked (nothing is changed; every check is read-only):
 - the nodes each variant's stack asks for exist: each workload's nodeSelector matches enough usable nodes (a node
   the workload cannot tolerate does not count; a required anti-affinity needs one node per replica), and each
   pod's resource requests fit on one of them (the requests alone: pods already running are not counted);
-- the Secrets `bench secrets create` makes exist;
+- the Secret `bench secrets create` makes exists (the operator keys are made by the callout pod's init container, so they cannot be checked
+  before the stack is up);
 - eks only: every image the run will use (each variant's broker, and what the overlays name) is in its registry,
   can be pulled WITHOUT credentials, which is what the nodes will do, and has a build for every node architecture.
   A private GHCR package and a missing tag both look like ImagePullBackOff otherwise.
@@ -285,9 +286,9 @@ def preflight(run: Runner, target: str, variants: tuple[Variant, ...], default_s
         checks += [Check(f"{v.label}: {c.name}", c.ok, c.detail) for c in placement_checks(per_variant[v.label], nodes)]
     checks += placement_checks(loadgen_objs, nodes)
 
-    secrets = [secretgen.SECRETS_NAME, secretgen.TLS_NAME]
+    secrets = [secretgen.TLS_NAME]
     have = run.succeeds(k8s.kubectl_command("-n", NAMESPACE, "get", "secret", *secrets, target=target))
-    checks.append(Check("secrets", have, ", ".join(secrets) + (" exist" if have else f" missing in {NAMESPACE}: run `bench secrets create --target {target}`")))
+    checks.append(Check("secrets", have, ", ".join(secrets) + (" exists" if have else f" missing in {NAMESPACE}: run `bench secrets create --target {target}`")))
 
     if target == "local":
         checks.append(Check("images", True, "not checked: local images are loaded into kind (`bench images load-kind`), not pulled"))

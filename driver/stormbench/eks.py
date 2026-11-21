@@ -8,7 +8,7 @@ from parameters (region, zone, instance type, node counts) instead of keeping a 
 Layout: no NAT gateway (the nodes are in public subnets), and two managed node groups in one availability zone each, one instance type for both.
 - `brokers`: label role=broker and the taint dedicated=broker:NoSchedule, so only the brokers run there.
 - `clients`: label role=client, no taint. It carries CoreDNS and the other add-ons (with every node tainted,
-  CoreDNS would have nowhere to run), and the callout, the leaf servers and the load generator, which the
+  CoreDNS would have nowhere to run), and the callout and the load generator, which the
   overlays pin to it with a nodeSelector.
 The control plane needs subnets in two zones, so the cluster lists two; the node groups use only the first.
 

@@ -1,6 +1,6 @@
 # infra/eks
 
-The EKS cluster for runs that need real nodes. **Not yet created against AWS. The rendered config was accepted by `eksctl create cluster --dry-run` (eksctl 0.231.0, 2026-11-18), which resolved it with that eksctl's default Kubernetes version, 1.34 (the driver now pins 1.37 instead, 2026-11-20; the manifests have been run on 1.34 only); no cluster has been created from it.** The dry run itself calls AWS read-only (it needs credentials) and rejects `--kubeconfig`, so check a config with `eksctl create cluster --config-file F --dry-run`.
+The EKS cluster for runs that need real nodes. It was created once from this config and used for two runs (`results/eks-smoke-2026-11-18`, `results/eks-800-1600-2026-11-18`, Kubernetes 1.34, eksctl 0.231.0), both in the earlier password-callout configuration; **it has not been used since operator mode replaced that**. The driver now pins Kubernetes 1.37 (2026-11-20; the manifests have been run on 1.34 only). The dry run calls AWS read-only (it needs credentials) and rejects `--kubeconfig`, so check a config with `eksctl create cluster --config-file F --dry-run`.
 
 There is no cluster file to edit. eksctl does not expand environment variables in its config, so the driver renders the ClusterConfig from parameters (`driver/stormbench/eks.py`) and hands it to eksctl:
 
@@ -20,7 +20,7 @@ uv run bench cluster down --target eks
 | Node group | Label | Taint | Runs |
 |---|---|---|---|
 | `brokers` | `role=broker` | `dedicated=broker:NoSchedule` | the brokers, one per node |
-| `clients` | `role=client` | none | CoreDNS and the other add-ons, the callout, the leaf servers, the load generator |
+| `clients` | `role=client` | none | CoreDNS and the other add-ons, the callout, the load generator |
 
 - No NAT gateway (`vpc.nat.gateway: Disable`, accepted by the dry run): the nodes are in public subnets and pull images over the internet gateway, so the default NAT gateway would only add an hourly charge.
 - Both groups are fixed-size, one instance type, one availability zone (the control plane needs subnets in two, so the cluster lists two and the nodes use the first).
@@ -35,7 +35,7 @@ eksctl writes `.kube/storm-bench-eks` (gitignored) and nothing else: the driver 
 `--target` picks the cluster for `cluster`, `secrets` and `run`, before or after the subcommand (default `local`). After `up`:
 
 ```sh
-uv run bench --target eks secrets create          # keygen runs in a local callout image; the Secrets go to the EKS cluster
+uv run bench --target eks secrets create          # the TLS Secret goes to the EKS cluster (the operator keys are made by the callout pod's init container)
 uv run bench --target eks run --a <sha> --b <sha> --name eks-smoke
 uv run bench --target eks run ... --stack-overlay deploy/stack/overlays/eks-cluster    # the 3-broker variant
 ```
@@ -47,6 +47,6 @@ uv run bench --target eks run ... --stack-overlay deploy/stack/overlays/eks-clus
 ## Before the first real run
 
 - Use a sandbox AWS account, or at least pick `AWS_PROFILE` deliberately: nothing here checks which account you are in.
-- The images must be pullable without credentials: `nats-server`, `callout` and `loadgen` are pushed to `ghcr.io/<account>/` and pinned by digest in the overlays. All three packages start private: make each public in the GitHub package settings before EKS can pull it (done 2026-11-18; an anonymous manifest check of the pinned digests then passed).
+- The images must be pullable without credentials: `nats-server`, `callout`, `provision` and `loadgen` are pushed to `ghcr.io/<account>/` and pinned by digest in the overlays. All four are pinned now (callout, provision and loadgen pushed as amd64 and arm64 lists on 2026-11-21; each pin's comment names its source tag; rebuild and re-pin when a component's source changes). Each package starts private: make it public in the GitHub package settings before EKS can pull it (done 2026-11-18 for `nats-server`, `callout` and `loadgen`, whose anonymous manifest check then passed; **`provision` is new on 2026-11-21 and must be made public before the first run**: `bench preflight --target eks` fails on it until then).
 - The overlays' CPU and memory sizes assume `c6i.xlarge` (4 vCPU, 8 GiB). Change them together with `--instance-type`.
 - Always tear down, including after a failed run. `down` waits for the deletion to finish; check the CloudFormation console if it reports an error.

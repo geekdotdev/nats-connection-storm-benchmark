@@ -1,4 +1,6 @@
-# One storm run: the generator opens STORM_CONNECTIONS connections at once, STORM_RUNS times, and prints its report to
+# One storm run: the generator opens STORM_CONNECTIONS connections at once, STORM_RUNS times, each presenting its own ticket (a user JWT
+# signed by the scoped signing key in the Secret storm-generator-auth, which the callout pod's init container makes: components/provision),
+# and prints its report to
 # stdout (the last line starts STORM_REPORT_JSON). A Job is immutable and runs once, so it is not part of the stack: the
 # driver deletes the previous one and applies a new one per block, with STORM_LABEL set.
 apiVersion: batch/v1
@@ -27,8 +29,8 @@ spec:
           env:
             - {name: STORM_URL, value: "wss://broker:8443"}
             - {name: STORM_CA_FILE, value: /etc/storm/tls/ca.pem}
-            - {name: STORM_PASSWORD_FILE, value: /etc/storm/secrets/user-password}
-            - {name: STORM_ACCOUNTS, value: "16"}
+            - {name: STORM_SCOPED_SEED_FILE, value: /etc/storm/generator/scoped.seed}
+            - {name: STORM_AUTH_ACCOUNT_FILE, value: /etc/storm/generator/auth.pub}
             - {name: STORM_CONNECTIONS, value: "800"}
             - {name: STORM_RUNS, value: "8"}
             - {name: STORM_PAUSE_MS, value: "1500"}
@@ -42,13 +44,13 @@ spec:
             capabilities: {drop: ["ALL"]}
           volumeMounts:
             - {name: tls, mountPath: /etc/storm/tls, readOnly: true}
-            - {name: secrets, mountPath: /etc/storm/secrets, readOnly: true}
+            - {name: generator-auth, mountPath: /etc/storm/generator, readOnly: true}
       volumes:
         - name: tls
           secret:
             secretName: storm-tls
             items: [{key: ca.pem, path: ca.pem}]
-        - name: secrets
+        - name: generator-auth
           secret:
-            secretName: storm-secrets
-            items: [{key: user-password, path: user-password}]
+            secretName: storm-generator-auth
+            items: [{key: scoped.seed, path: scoped.seed}, {key: auth.pub, path: auth.pub}]

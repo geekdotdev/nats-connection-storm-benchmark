@@ -45,10 +45,6 @@ spec:
           env:
             - name: POD_NAME
               valueFrom: {fieldRef: {fieldPath: metadata.name}}
-            - name: CALLOUT_SERVICE_PASSWORD
-              valueFrom: {secretKeyRef: {name: storm-secrets, key: service-password}}
-            - name: CALLOUT_ISSUER_PUBLIC
-              valueFrom: {secretKeyRef: {name: storm-secrets, key: issuer-public}}
           ports:
             - {name: client, containerPort: 4222}
             - {name: ws, containerPort: 8443}
@@ -63,8 +59,12 @@ spec:
           volumeMounts:
             - {name: config, mountPath: /etc/nats, readOnly: true}
             - {name: tls, mountPath: /etc/storm/tls, readOnly: true}
+            # Made by the provision init container of the callout pod: the broker pod waits in ContainerCreating until it exists.
+            - {name: operator, mountPath: /etc/storm/operator, readOnly: true}
       volumes:
         - name: config
           configMap: {name: storm-broker-config}
         - name: tls
           secret: {secretName: storm-tls, defaultMode: 0440}
+        - name: operator
+          configMap: {name: storm-operator}

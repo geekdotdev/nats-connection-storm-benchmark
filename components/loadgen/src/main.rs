@@ -6,24 +6,27 @@
 // It is a separate process on purpose: it runs the connections on a pool of worker threads and reports its own scheduling delay (how late the
 // runtime wakes a timer that asked for 10 ms), so a limit in the generator is visible instead of being counted as the broker's time.
 //
-// Authentication modes (STORM_AUTH):
-//   plain  (default) connection i presents the user "u<i mod STORM_ACCOUNTS>" and the password STORM_PASSWORD. The broker's auth callout (components/callout)
-//          answers by placing "u<N>" in account "A<N>".
-//   none   no credentials, for a broker with no authentication; measures the generator itself.
+// Authentication: the broker is in operator mode (components/provision, components/callout). Connection i presents its own ticket, a user JWT
+// signed by the AUTH account's scoped signing key (STORM_SCOPED_SEED) with the roles STORM_ROLES as tags, and signs the broker's nonce with its
+// own user key. The tickets are made before each run's clock starts, so signing a JWT is not part of what is measured; the nonce signature
+// cannot be made early (the nonce comes in each connection's INFO) and is made before CONNECT is sent, so it is inside "total" and outside "auth".
 //
 //   cargo build --release     then run  target/release/auth-storm
-//   STORM_URL=wss://broker:8443 STORM_CA_FILE=ca.pem STORM_PASSWORD_FILE=pw STORM_CONNECTIONS=800 STORM_RUNS=5 target/release/auth-storm
+//   STORM_URL=wss://broker:8443 STORM_CA_FILE=ca.pem STORM_SCOPED_SEED_FILE=scoped.seed STORM_AUTH_ACCOUNT_FILE=auth.pub \
+//     STORM_CONNECTIONS=800 STORM_RUNS=5 target/release/auth-storm
 //
 // Settings (environment):
 //   STORM_URL           the broker's WebSocket URL, ws:// or wss:// (required)
-//   STORM_AUTH          "plain" (default) or "none"
-//   STORM_PASSWORD      the password every user presents; or STORM_PASSWORD_FILE, a file holding it (a mounted Secret). Never a command line argument.
-//   STORM_ACCOUNTS      how many accounts the broker has: connection i is user u<i mod this> (default 16)
+//   STORM_SCOPED_SEED   the scoped signing seed (SA...), or STORM_SCOPED_SEED_FILE, a file holding it (a mounted Secret). Never a command line argument.
+//   STORM_AUTH_ACCOUNT  the AUTH account's public key (A...), or STORM_AUTH_ACCOUNT_FILE
+//   STORM_ROLES         the role names every ticket asks for, comma separated (default app-feed-publish-orders,app-feed-subscribe-alarms)
+//   STORM_TICKET_TTL_S  how long a ticket is valid for, in seconds (default 3600)
 //   STORM_CONNECTIONS   how many connections per run (default 200)
 //   STORM_RUNS          how many bursts (default 1)
 //   STORM_PAUSE_MS      between runs, so each starts from a quiet broker (default 1500)
 //   STORM_RAMP_MS       spread the starts evenly over this long; 0 starts them all at once (default 0)
-//   STORM_TIMEOUT_MS    give up on a connection after this long (default 10000)
+//   STORM_TIMEOUT_MS    give up on a connection after this long (default 15000: the broker takes up to its authorization timeout, 10 s in
+//                       these manifests, to refuse a ticket it cannot hand to the callout)
 //   STORM_HOLD_MS       keep an admitted connection open this long before closing it (default 1000)
 //   STORM_THREADS       worker threads (default 4)
 //   STORM_LABEL         names the run in the report and as the `run` label of the metrics (default "run")
@@ -33,6 +36,8 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
+mod ticket;
+
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -44,6 +49,8 @@ use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::{Connector, client_async_tls_with_config};
+
+use ticket::{Issuer, Ticket};
 
 /// The line that starts the JSON report when STORM_JSON=- (stdout).
 const REPORT_PREFIX: &str = "STORM_REPORT_JSON ";
@@ -85,23 +92,20 @@ struct Cfg {
     metrics_port: u16,
     metrics_hold_s: u64,
     ca_file: String,
-    auth_none: bool,
     url: String,
-    accounts: usize,
-    password: String,
+    scoped_seed: String,
+    auth_account: String,
+    roles: Vec<String>,
+    ticket_ttl_s: u64,
 }
 
 fn cfg() -> Res<Cfg> {
-    let auth = env("STORM_AUTH", "plain");
-    if auth != "plain" && auth != "none" {
-        return Err("STORM_AUTH must be \"plain\" or \"none\"".into());
-    }
     let c = Cfg {
         connections: env_num("STORM_CONNECTIONS", 200),
         runs: env_num("STORM_RUNS", 1),
         pause_ms: env_num("STORM_PAUSE_MS", 1500),
         ramp_ms: env_num("STORM_RAMP_MS", 0),
-        timeout_ms: env_num("STORM_TIMEOUT_MS", 10_000),
+        timeout_ms: env_num("STORM_TIMEOUT_MS", 15_000),
         hold_ms: env_num("STORM_HOLD_MS", 1000),
         threads: env_num("STORM_THREADS", 4),
         label: env("STORM_LABEL", "run"),
@@ -110,19 +114,17 @@ fn cfg() -> Res<Cfg> {
         metrics_port: env_num("STORM_METRICS_PORT", 0),
         metrics_hold_s: env_num("STORM_METRICS_HOLD_S", 0),
         ca_file: env("STORM_CA_FILE", ""),
-        auth_none: auth == "none",
         url: env("STORM_URL", ""),
-        accounts: env_num("STORM_ACCOUNTS", 16),
-        password: secret("STORM_PASSWORD")?,
+        scoped_seed: secret("STORM_SCOPED_SEED")?,
+        auth_account: secret("STORM_AUTH_ACCOUNT")?,
+        roles: env("STORM_ROLES", "app-feed-publish-orders,app-feed-subscribe-alarms").split(',').map(|r| r.trim().to_string()).filter(|r| !r.is_empty()).collect(),
+        ticket_ttl_s: env_num("STORM_TICKET_TTL_S", 3600),
     };
     if c.url.is_empty() {
         return Err("set STORM_URL, the broker's WebSocket URL (ws:// or wss://)".into());
     }
-    if !c.auth_none && c.password.is_empty() {
-        return Err("set STORM_PASSWORD or STORM_PASSWORD_FILE (or STORM_AUTH=none)".into());
-    }
-    if c.accounts < 1 {
-        return Err("STORM_ACCOUNTS must be at least 1".into());
+    if c.scoped_seed.is_empty() || c.auth_account.is_empty() {
+        return Err("set STORM_SCOPED_SEED (or STORM_SCOPED_SEED_FILE) and STORM_AUTH_ACCOUNT (or STORM_AUTH_ACCOUNT_FILE): the AUTH account's scoped signing seed and public key (components/provision makes them)".into());
     }
     Ok(c)
 }
@@ -238,8 +240,8 @@ async fn serve_metrics(port: u16, m: Arc<Metrics>) -> Res<()> {
 // ---- one connection ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 struct Ctx {
     url: String,
-    /// The password every user presents; None means no credentials.
-    password: Option<String>,
+    /// Makes each connection's ticket.
+    issuer: Issuer,
     connector: Connector,
     timeout: Duration,
     metrics: Arc<Metrics>,
@@ -251,21 +253,37 @@ struct Rec {
     auth_ms: Option<f64>,
     total_ms: Option<f64>,
     open_ms: Option<f64>,
+    /// When the connection started, when its CONNECT went out (None if it never did) and when its answer came, all in ms since the run began.
+    /// With these a run's queue can be drawn: CONNECTs sent and not yet answered, over time.
+    start_ms: f64,
+    sent_ms: Option<f64>,
+    done_ms: f64,
+}
+
+fn ms_since(t: Instant, began: Instant) -> f64 {
+    t.saturating_duration_since(began).as_secs_f64() * 1000.0
+}
+
+/// One connection's timings for the report, to a tenth of a millisecond (a run of 1600 connections x 8 is then about 2 MB, not 3).
+fn sample_json(r: &Rec) -> Value {
+    let t = |v: Option<f64>| v.map(|x| (x * 10.0).round() / 10.0);
+    let mut o = json!({"outcome": r.outcome, "startMs": t(Some(r.start_ms)), "sentMs": t(r.sent_ms), "doneMs": t(Some(r.done_ms)),
+                       "authMs": t(r.auth_ms), "totalMs": t(r.total_ms), "openMs": t(r.open_ms)});
+    if !r.detail.is_empty() {
+        o["detail"] = json!(r.detail);
+    }
+    o
 }
 
 type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>;
 
-/// The CONNECT line for one connection: the user and password in plain mode, nothing extra with no credentials.
-fn connect_frame(user: &str, password: Option<&str>) -> String {
-    let mut c = json!({"verbose": false, "pedantic": false, "protocol": 1, "lang": "storm", "version": "0"});
-    if let Some(p) = password {
-        c["user"] = Value::String(user.to_string());
-        c["pass"] = Value::String(p.to_string());
-    }
+/// The CONNECT line for one connection: the ticket JWT and the broker's nonce signed with the ticket's user key.
+fn connect_frame(jwt: &str, sig: &str) -> String {
+    let c = json!({"verbose": false, "pedantic": false, "protocol": 1, "lang": "storm", "version": "0", "jwt": jwt, "sig": sig});
     format!("CONNECT {c}\r\nPING\r\n")
 }
 
-async fn attempt(ctx: &Ctx, user: &str, start: Instant, sent_at: &Mutex<Option<Instant>>, open_ms: &Mutex<Option<f64>>) -> Res<(&'static str, String, Option<Ws>)> {
+async fn attempt(ctx: &Ctx, ticket: &Ticket, start: Instant, sent_at: &Mutex<Option<Instant>>, open_ms: &Mutex<Option<f64>>) -> Res<(&'static str, String, Option<Ws>)> {
     let req = ctx.url.as_str().into_client_request()?;
     let uri = req.uri().clone();
     let host = uri.host().ok_or("no host in the broker URL")?.to_string();
@@ -290,8 +308,12 @@ async fn attempt(ctx: &Ctx, user: &str, start: Instant, sent_at: &Mutex<Option<I
             if !buf.starts_with("INFO ") {
                 continue;
             }
+            // The nonce is read, and in operator mode signed, before CONNECT is built, so the signature is outside the "auth" interval that starts below.
+            let Some(nonce) = serde_json::from_str::<Value>(&buf[5..nl]).ok().and_then(|v| v["nonce"].as_str().map(String::from)) else {
+                return Ok(("error", "the broker sent no nonce: is it in operator mode?".into(), None));
+            };
             buf.drain(..nl + 2);
-            let frame = connect_frame(user, ctx.password.as_deref());
+            let frame = connect_frame(&ticket.jwt, &ticket.sign_nonce(&nonce));
             *sent_at.lock().unwrap() = Some(Instant::now());
             sent = true;
             ws.send(Message::text(frame)).await?;
@@ -308,15 +330,16 @@ async fn attempt(ctx: &Ctx, user: &str, start: Instant, sent_at: &Mutex<Option<I
     Ok(("error", "closed before the broker answered".into(), None))
 }
 
-async fn connect_once(ctx: Arc<Ctx>, user: String, start: Instant) -> (Rec, Option<Ws>) {
+async fn connect_once(ctx: Arc<Ctx>, ticket: Ticket, start: Instant, began: Instant) -> (Rec, Option<Ws>) {
     let m = &ctx.metrics;
     m.in_flight.fetch_add(1, Ordering::Relaxed);
     let sent_at = Mutex::new(None);
     let open_ms = Mutex::new(None);
-    let result = tokio::time::timeout(ctx.timeout, attempt(&ctx, &user, start, &sent_at, &open_ms)).await;
+    let result = tokio::time::timeout(ctx.timeout, attempt(&ctx, &ticket, start, &sent_at, &open_ms)).await;
     let now = Instant::now();
     let sent = *sent_at.lock().unwrap();
-    let mut rec = Rec { outcome: "error", detail: String::new(), auth_ms: None, total_ms: Some(now.duration_since(start).as_secs_f64() * 1000.0), open_ms: *open_ms.lock().unwrap() };
+    let mut rec = Rec { outcome: "error", detail: String::new(), auth_ms: None, total_ms: Some(now.duration_since(start).as_secs_f64() * 1000.0), open_ms: *open_ms.lock().unwrap(),
+                       start_ms: ms_since(start, began), sent_ms: sent.map(|s| ms_since(s, began)), done_ms: ms_since(now, began) };
     let mut ws = None;
     match result {
         Ok(Ok((outcome, detail, w))) => {
@@ -366,6 +389,21 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
     ctx.metrics.target.store(c.connections as u64, Ordering::Relaxed);
     let hold = Duration::from_millis(c.hold_ms);
 
+    // Every ticket is made now, before the clock starts and before the scheduling-delay ticker, so signing a JWT is neither in the
+    // measured interval nor in the generator's own delay.
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let mut tickets = Vec::with_capacity(c.connections);
+    for i in 0..c.connections {
+        match ctx.issuer.ticket(&format!("storm-{i}"), now) {
+            Ok(t) => tickets.push(t),
+            Err(e) => {
+                eprintln!("cannot make a ticket: {e}");
+                std::process::exit(2);
+            }
+        }
+    }
+    let mut tickets = tickets.into_iter();
+
     // How late the runtime wakes a timer that asked for 10 ms: when this is large, the generator is the limit.
     let lags = Arc::new(Mutex::new(Vec::<u64>::new()));
     let ticker = {
@@ -384,7 +422,7 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
     let mut tasks = Vec::with_capacity(c.connections);
     for i in 0..c.connections {
         let (ctx, tx) = (ctx.clone(), tx.clone());
-        let user = format!("u{}", i % c.accounts);
+        let ticket = tickets.next().expect("one ticket per connection");
         let delay = if c.ramp_ms > 0 { Duration::from_millis(i as u64 * c.ramp_ms / c.connections as u64) } else { Duration::ZERO };
         let start_hint = Instant::now();
         tasks.push(tokio::spawn(async move {
@@ -394,7 +432,7 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
                 tokio::time::sleep(delay).await;
                 Instant::now()
             };
-            let (rec, ws) = connect_once(ctx, user, start).await;
+            let (rec, ws) = connect_once(ctx, ticket, start, began).await;
             let _ = tx.send(rec);
             drop(tx); // the run's clock stops when the last answer is in, not when the last connection has been held and closed
             if let Some(mut ws) = ws {
@@ -448,7 +486,7 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
         "authMs": auth_s, "totalMs": total_s, "generatorSchedulingDelayP99Ms": lag_p99_ms, "failures": reasons,
     });
     if c.samples {
-        report["samples"] = records.iter().map(|r| json!({"outcome": r.outcome, "detail": r.detail, "authMs": r.auth_ms, "totalMs": r.total_ms, "openMs": r.open_ms})).collect();
+        report["samples"] = records.iter().map(sample_json).collect();
     }
     report
 }
@@ -471,11 +509,11 @@ async fn real_main(c: Cfg) -> Res<i32> {
         roots.add(cert?)?;
     }
     let tls = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
-    let password = if c.auth_none { None } else { Some(c.password.clone()) };
-    let ctx = Arc::new(Ctx { url: c.url.clone(), password, connector: Connector::Rustls(Arc::new(tls)), timeout: Duration::from_millis(c.timeout_ms), metrics: metrics.clone() });
+    let issuer = Issuer::new(&c.scoped_seed, &c.auth_account, &c.roles, c.ticket_ttl_s)?;
+    println!("tickets signed by scoped key {} for roles {:?}, valid {} s", issuer.public(), c.roles, c.ticket_ttl_s);
+    let ctx = Arc::new(Ctx { url: c.url.clone(), issuer, connector: Connector::Rustls(Arc::new(tls)), timeout: Duration::from_millis(c.timeout_ms), metrics: metrics.clone() });
 
-    let who = if c.auth_none { "no credentials".to_string() } else { format!("users u0..u{} with a shared password", c.accounts - 1) };
-    println!("run \"{}\": {} connections x {} run(s) to {} ({}), {}, {} worker thread(s)", c.label, c.connections, c.runs, c.url, who, if c.ramp_ms > 0 { format!("ramped over {} ms", c.ramp_ms) } else { "all at once".into() }, c.threads);
+    println!("run \"{}\": {} connections x {} run(s) to {}, {}, {} worker thread(s)", c.label, c.connections, c.runs, c.url, if c.ramp_ms > 0 { format!("ramped over {} ms", c.ramp_ms) } else { "all at once".into() }, c.threads);
 
     let mut reports = Vec::new();
     let mut admitted = 0;
@@ -536,6 +574,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_sample_carries_run_relative_times_to_a_tenth_of_a_millisecond() {
+        let r = Rec { outcome: "admitted", detail: String::new(), auth_ms: Some(123.456), total_ms: Some(300.04), open_ms: Some(10.0),
+                      start_ms: 0.04, sent_ms: Some(180.55), done_ms: 304.0 };
+        let j = sample_json(&r);
+        assert_eq!(j["startMs"], 0.0);
+        assert_eq!(j["sentMs"], 180.6);
+        assert_eq!(j["doneMs"], 304.0);
+        assert_eq!(j["authMs"], 123.5);
+        assert!(j.get("detail").is_none(), "an empty detail is left out");
+        let never_sent = Rec { outcome: "error", detail: "closed before the broker answered".into(), auth_ms: None, total_ms: Some(5.0), open_ms: None,
+                               start_ms: 1.0, sent_ms: None, done_ms: 6.0 };
+        let j = sample_json(&never_sent);
+        assert!(j["sentMs"].is_null() && j["authMs"].is_null());
+        assert_eq!(j["detail"], "closed before the broker answered");
+    }
+
+    #[test]
+    fn offsets_from_the_run_start_never_go_negative() {
+        let began = Instant::now();
+        let later = began + Duration::from_millis(250);
+        assert!((ms_since(later, began) - 250.0).abs() < 1e-6);
+        assert_eq!(ms_since(began, later), 0.0);
+    }
+
+    #[test]
     fn percentiles_use_the_nearest_rank() {
         let v: Vec<f64> = (1..=100).map(f64::from).collect();
         assert_eq!(pct(&v, 50.0), Some(50.0));
@@ -554,14 +617,14 @@ mod tests {
     }
 
     #[test]
-    fn connect_frame_carries_the_user_and_password_only_in_plain_mode() {
-        let plain = connect_frame("u3", Some("pw"));
-        assert!(plain.starts_with("CONNECT ") && plain.ends_with("\r\nPING\r\n"));
-        let body: Value = serde_json::from_str(plain.trim_start_matches("CONNECT ").split("\r\n").next().unwrap()).unwrap();
-        assert_eq!(body["user"], "u3");
-        assert_eq!(body["pass"], "pw");
-        let none = connect_frame("u3", None);
-        assert!(!none.contains("\"user\"") && !none.contains("\"pass\""));
+    fn connect_frame_carries_the_ticket_and_the_signature_and_no_user_or_password() {
+        let f = connect_frame("h.p.s", "sig");
+        assert!(f.starts_with("CONNECT ") && f.ends_with("\r\nPING\r\n"));
+        let body: Value = serde_json::from_str(f.trim_start_matches("CONNECT ").split("\r\n").next().unwrap()).unwrap();
+        assert_eq!(body["jwt"], "h.p.s");
+        assert_eq!(body["sig"], "sig");
+        assert!(body.get("user").is_none() && body.get("pass").is_none());
+        assert_eq!(body["protocol"], 1);
     }
 
     #[test]
@@ -577,8 +640,8 @@ mod tests {
     }
 
     #[test]
-    fn metrics_render_never_includes_the_password() {
+    fn metrics_render_never_includes_a_seed() {
         let m = Metrics::new("run".into());
-        assert!(!m.render().contains("pw"));
+        assert!(!m.render().contains("SA"));
     }
 }

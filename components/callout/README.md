@@ -6,49 +6,43 @@ A minimal NATS auth-callout responder, a Go module. It does what the in-tree nat
 
 ## Behaviour
 
-- Subscribes with `--workers` (default 16) queue subscribers, group `auth`, on `$SYS.REQ.USER.AUTH`, as the earlier measurements did.
-- A client authenticating as `u<N>` with the shared password is placed in account `A<N>` (the user JWT's audience, which is how a callout places a user when the broker is not in operator mode). `N` must be below `--accounts` (default 16). Anything else gets an error response, so the client is refused at once instead of waiting for the broker's timeout.
+- Subscribes with `--workers` (default 16) queue subscribers, group `auth`, on `$SYS.REQ.USER.AUTH`.
 - A request that cannot be decoded, or has no user nkey, gets no answer and is counted as dropped.
 - `GET /healthz` on `--health-addr` (default `:8080`) is 200 once the subscriptions are in place and the broker connection is up.
 - Starts before the broker if it has to: the connection retries.
 
-## Commands and secrets
+## What it does
 
-```sh
-callout keygen --seed-file PATH   # new issuer account seed (mode 0600, never overwrites); prints the public key only
-callout keygen --json             # prints {"seed","public"} on stdout, for a program to capture (the benchmark driver); not for a terminal
-callout serve [--url URL] [--workers N] [--accounts N] [--health-addr ADDR]
-```
+The callout answers for a broker that trusts an operator (see `components/provision` for where the keys come from, and `docs/operator-mode-plan.md`). It is the only mode: the earlier password mode (users `u<N>` and one shared password, accounts written in the broker's configuration, `callout keygen`) was removed.
 
-Secrets are never flags (they show in process listings). Each is read from the environment, or from the file named by `<NAME>_FILE` (a mounted Kubernetes Secret):
+- A client presents a **ticket**: a user JWT signed by the AUTH account's scoped signing key, with no permissions of its own and its role names as tags. The broker has already verified it and hands it to the callout in the authorization request.
+- The callout maps the role names to subjects (the role-name mapper, `rolenames.go`) and answers with a user JWT for the tenant account, signed by the tenant signing key (`issuer_account` is the tenant account) and valid for `--ttl` (default 1 hour; the broker disconnects the client when it expires), inside a response claim signed by the AUTH signing key. No `nbf` is set.
+- **Role names** carry the whole decision: `app-feed-publish-<stem>` grants publish on `app.<stem>` and `app-feed-subscribe-<stem>` grants subscribe, each dash in the stem becoming a dot (`app-feed-subscribe-alarms-high` is `app.alarms.high`). A stem may only be lowercase letters and digits between dashes, so no role can grant a wildcard or more than one exact subject. Anything else is ignored. A direction with no subjects is denied outright (`deny: ">"`), because an empty allow list restricts nothing in NATS. This is a generic re-implementation of the application-feed family of such a naming convention; it has no sensor or form families and no realm-role table.
+- **Not checked:** that the ticket's roles were granted by anyone. Whoever holds the scoped key chooses them. A ticket that cannot be decoded gets an error response, so the client is refused at once. A request that cannot be decoded at all gets no answer and is counted as dropped.
+- It does less per connection than a callout that verifies tokens, seals responses or looks grants up, so numbers from it describe the broker and the callout round trip, not such a callout.
+
+Secrets, each read from the environment or from the file named by `<NAME>_FILE`:
 
 | Name | Meaning |
 |---|---|
-| `CALLOUT_SERVICE_USER`, `CALLOUT_SERVICE_PASSWORD` | the callout's own login to the broker, in the `AUTH` account |
-| `CALLOUT_ISSUER_SEED` | the account seed whose public key is the broker's `auth_callout.issuer` |
-| `CALLOUT_USER_PASSWORD` | the password every benchmark user presents |
+| `CALLOUT_CREDS` | the callout's own login: a user JWT and seed in `.creds` format |
+| `CALLOUT_AUTH_SIGNING_SEED` | the AUTH account's signing key, which signs the response claim |
+| `CALLOUT_TENANT_SIGNING_SEED` | the tenant account's signing key, which signs the user JWT it mints |
+| `CALLOUT_TENANT_PUBLIC` | the tenant account's public key (not secret) |
 
-The issuer key and passwords are generated at deploy time and kept in a Secret. None is committed.
+All four are checked at startup, so a bad value fails at once instead of at the first connection attempt.
+
+## Commands
+
+```sh
+callout serve [--url URL] [--workers N] [--ttl DURATION] [--health-addr ADDR]
+```
+
+Secrets are never flags (they show in process listings): the four above are read from the environment or from `<NAME>_FILE`. They are made by `components/provision` at deploy time and kept in the Secret `storm-callout-auth`. None is committed.
 
 ## The broker it expects
 
-```
-accounts {
-  SYS {}
-  AUTH { users [ {user: "<CALLOUT_SERVICE_USER>", password: "<...>"} ] }
-  A0 {}
-  A1 {}            # ... up to A<accounts-1>
-}
-system_account: SYS
-authorization {
-  timeout: 10s
-  auth_callout {
-    issuer: "<public key printed by keygen>"
-    account: AUTH
-    auth_users: [ "<CALLOUT_SERVICE_USER>" ]
-  }
-}
-```
+A broker in operator mode: `operator`, `system_account` and an account resolver with the SYS, AUTH and tenant account JWTs, all written by `components/provision` (`deploy/stack/base/broker-config.yaml` includes them). The AUTH account's JWT turns the callout on: its `auth_users` is the callout's own user, its `allowed_accounts` is the tenant account, and its scoped signing key is the one tickets are signed with.
 
 ## Tests
 
@@ -56,4 +50,4 @@ authorization {
 cd components/callout && go test -race ./...
 ```
 
-The unit tests decode and check the signed responses; the end-to-end test starts a real nats-server (the library, test only) configured as above and checks who is admitted, into which account, and that a refusal is an error response and not a timeout.
+The unit tests check the role-name mapper (no stem can widen a grant) and the signed responses (issuer, audience, expiry, permissions, a direction with no subjects denied outright, refusals as error responses). The end-to-end tests build `components/provision` and run it, start a real nats-server (the library, test only) from its files and this callout against it, and check the account, what each role allows and refuses, that the broker closes the connection when the minted JWT expires, and startup validation of the secrets. `loadgen_e2e_test.go` also builds `components/loadgen` (offline; skipped without `cargo`) and runs it against that broker and this callout.

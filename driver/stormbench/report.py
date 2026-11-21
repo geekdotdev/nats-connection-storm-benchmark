@@ -14,6 +14,7 @@ import re
 import statistics as st
 from pathlib import Path
 
+from . import queue
 from .ab import runs_of
 
 
@@ -37,7 +38,7 @@ def _bursts(raw: Path, label: str, block: int, phase: str) -> list[dict]:
     return runs_of(json.loads(p.read_text())) if p.exists() else []
 
 
-def summarize(run_dir: Path) -> str:
+def _load(run_dir: Path) -> tuple[dict, list[dict], list[str], Path, list[int], list[str]]:
     env = json.loads((run_dir / "environment.json").read_text())
     described = env.get("variants") or env["arms"]  # runs before 2026-11-18 call them arms
     labels = [a["label"] for a in described]
@@ -45,6 +46,29 @@ def summarize(run_dir: Path) -> str:
     raw = run_dir / "raw"
     blocks = sorted({int(m.group(1)) for p in raw.glob("*.meta.json") if (m := re.search(r"-b(\d+)\.meta\.json$", p.name))})
     phases = [p for p in env["design"]["phases"] if p not in ("warm",)]
+    return env, described, labels, raw, blocks, phases
+
+
+def bursts_by_phase(run_dir: Path) -> tuple[list[str], dict[str, dict[str, dict[int, list[dict]]]]]:
+    """Every burst of the run: phase -> variant label -> block -> the bursts, in order."""
+    _, _, labels, raw, blocks, phases = _load(run_dir)
+    return labels, {phase: {label: {b: _bursts(raw, label, b, phase) for b in blocks} for label in labels} for phase in phases}
+
+
+def write(run_dir: Path) -> str:
+    """The summary text, written to summary.txt, and the queue charts (queue-<phase>.svg) next to it; returns the text."""
+    text = summarize(run_dir)
+    (run_dir / "summary.txt").write_text(text + "\n")
+    labels, by_phase = bursts_by_phase(run_dir)
+    for stale in run_dir.glob("queue-*.svg"):
+        stale.unlink()  # a chart from an earlier report of the same directory must not outlive its data
+    queue.write_charts(run_dir, by_phase, labels)
+    return text
+
+
+def summarize(run_dir: Path) -> str:
+    env, described, labels, raw, blocks, phases = _load(run_dir)
+    base = labels[0]
     out = [f"blocks found: {blocks}"]
     for a in described:
         extras = {k: v for k, v in a.items() if k not in ("label", "commit", "image")}
@@ -80,5 +104,7 @@ def summarize(run_dir: Path) -> str:
             out.append(f"  change {label} vs {base} in the mean of block medians: {100 * (mb - ma) / ma:+.1f}%   exact permutation p={perm_p(am, bm):.5f}  (n={len(am)} v {len(bm)} blocks)")
             if phase != "idle":
                 out.append(f"  burst length (throughput proxy) change {label} vs {base}: {100 * (st.median(bsecs) - st.median(asecs)) / st.median(asecs):+.1f}%")
+        q = queue.summarize({label: {b: _bursts(raw, label, b, phase) for b in blocks} for label in labels}, labels, perm_p)
+        out.extend(q if q else (["  (no per-connection samples in this phase, so no queue curve; runs before the samples were recorded have none)"] if phase != "idle" else []))
         out.append("")
     return "\n".join(out)

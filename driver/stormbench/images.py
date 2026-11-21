@@ -3,7 +3,8 @@
 
 The broker image is built from any repository and commit (build arguments REPO and REF),
 tagged nats-server:<first 12 characters of the commit>. The callout and loadgen images are
-built from this repository's own source, and only when that source exists. They are tagged
+built from this repository's own source, and only when that source exists (so is the provision image, the init container of the
+callout pod that makes the operator-mode keys). They are tagged
 <name>:src-<first 12 hex of a hash of their source files and Dockerfile>, so the tag names the
 source even while it is uncommitted. A single-platform build also gets <name>:dev, which the
 local (kind) flow uses. Deploy by digest: the hash does not cover the base images.
@@ -107,13 +108,13 @@ def _build(tool: str, dockerfile: str, tag: str, context: str, platforms: tuple[
     return [cmd + [context]] + after
 
 
-IMAGE_NAMES = ("nats-server", "callout", "loadgen")
+IMAGE_NAMES = ("nats-server", "callout", "loadgen", "provision")
 
 
 def build_commands(ref: str | None, repo: str = DEFAULT_REPO, tool: str | None = None,
                    root: Path = REPO_ROOT, platforms: tuple[str, ...] = (),
                    ref_name: str | None = None, only: tuple[str, ...] = ()) -> list[list[str]]:
-    """The build commands. `only` limits them to the named images (nats-server, callout, loadgen); the
+    """The build commands. `only` limits them to the named images (nats-server, callout, loadgen, provision); the
     commit is needed only when nats-server is among them. The broker image is always tagged with the commit (the identity). With
     ref_name (a branch or tag name) it also gets that name as a label, org.opencontainers.image.ref.name,
     and as a second tag. The name is where the branch pointed when the image was built, nothing more."""
@@ -140,6 +141,9 @@ def build_commands(ref: str | None, repo: str = DEFAULT_REPO, tool: str | None =
     if want("loadgen") and (root / "components/loadgen/Cargo.toml").is_file():
         cmds += _build(tool, "images/loadgen/Dockerfile", component_tag("loadgen", root), ".", platforms,
                        extra_tags=dev("loadgen"))
+    if want("provision") and (root / "components/provision/go.mod").is_file():
+        cmds += _build(tool, "images/provision/Dockerfile", component_tag("provision", root), ".", platforms,
+                       extra_tags=dev("provision"))
     return cmds
 
 

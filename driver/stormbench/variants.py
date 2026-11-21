@@ -31,11 +31,14 @@ _QUANTITY = re.compile(r"^[0-9]+(\.[0-9]+)?(m|Ki|Mi|Gi|Ti|k|M|G|T)?$")
 MAX_CONF_BYTES = 64 * 1024
 # Set by the plan or by the manifests' wiring, so a variant cannot override them: the phase variables (every variant runs the
 # same phases), the log label and report format, and where the generator finds the broker and its credentials.
-RESERVED_STORM = frozenset({"STORM_CONNECTIONS", "STORM_RUNS", "STORM_PAUSE_MS", "STORM_HOLD_MS", "STORM_LABEL", "STORM_JSON",
-                            "STORM_URL", "STORM_CA_FILE", "STORM_PASSWORD_FILE"})
+RESERVED_STORM = frozenset({"STORM_CONNECTIONS", "STORM_RUNS", "STORM_PAUSE_MS", "STORM_HOLD_MS", "STORM_LABEL", "STORM_JSON", "STORM_SAMPLES",
+                            "STORM_URL", "STORM_CA_FILE",
+                            # Where the generator finds its keys (the Secret the provision init container makes). STORM_ROLES,
+                            # STORM_TICKET_TTL_S and STORM_TIMEOUT_MS are not reserved: a variant may vary them.
+                            "STORM_SCOPED_SEED", "STORM_SCOPED_SEED_FILE", "STORM_AUTH_ACCOUNT", "STORM_AUTH_ACCOUNT_FILE"})
 # Variables the manifests fill from Secrets or the pod itself: a plain value on top of one would be an invalid container.
-PROTECTED_BROKER_ENV = frozenset({"POD_NAME", "CALLOUT_SERVICE_PASSWORD", "CALLOUT_ISSUER_PUBLIC", "LEAF_PASSWORD"})
-PROTECTED_CALLOUT_ENV = frozenset({"CALLOUT_SERVICE_USER", "CALLOUT_SERVICE_PASSWORD", "CALLOUT_ISSUER_SEED", "CALLOUT_USER_PASSWORD"})
+PROTECTED_BROKER_ENV = frozenset({"POD_NAME"})
+PROTECTED_CALLOUT_ENV = frozenset({"CALLOUT_CREDS", "CALLOUT_AUTH_SIGNING_SEED", "CALLOUT_TENANT_SIGNING_SEED", "CALLOUT_TENANT_PUBLIC"})
 _KEYS = {"label", "commit", "image", "stack", "conf", "conf_file", "callout_args", "broker_env", "broker_resources", "callout_env", "storm"}
 
 

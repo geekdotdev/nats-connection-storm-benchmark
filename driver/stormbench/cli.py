@@ -33,8 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     im = sub.add_parser("images", help="build, load into kind, or push images")
     isub = im.add_subparsers(dest="action", required=True)
     b = isub.add_parser("build", help="build the broker image for a commit, and the other images")
-    b.add_argument("ref", nargs="?", help="full 40 character commit sha of nats-server (not needed with --only callout,loadgen)")
-    b.add_argument("--only", help="build only these images, comma separated: nats-server, callout, loadgen")
+    b.add_argument("ref", nargs="?", help="full 40 character commit sha of nats-server (not needed with --only callout,loadgen,provision)")
+    b.add_argument("--only", help="build only these images, comma separated: nats-server, callout, loadgen, provision")
     b.add_argument("--repo", default=images.DEFAULT_REPO, help="https URL of the nats-server repository")
     b.add_argument("--ref-name", help="branch or tag name to record on the broker image: a label and a second tag (the commit stays the identity)")
     b.add_argument("--platform", help="linux/amd64, linux/arm64, or both comma separated (both needs podman); default is this machine's")
@@ -54,10 +54,8 @@ def build_parser() -> argparse.ArgumentParser:
     cl.add_argument("--client-nodes", type=int, help="eks: nodes in the clients group (default 1)")
     cl.add_argument("--k8s-version", help="eks: Kubernetes version, e.g. 1.36 (default: pinned in the driver, see eks.DEFAULT_K8S_VERSION)")
 
-    se = sub.add_parser("secrets", parents=[on_target], help="create or delete the stack's Secrets in the target's cluster (never written to disk)")
+    se = sub.add_parser("secrets", parents=[on_target], help="create the TLS Secret (never written to disk) or delete it and what the provision init container made, in the target's cluster")
     se.add_argument("action", choices=["create", "delete"])
-    se.add_argument("--callout-image", help="local image whose `keygen --json` makes the issuer key (default: the callout built from the "
-                                            "current source, else callout:dev)")
 
     ru = sub.add_parser("run", parents=[on_target], help="storm two or more variants on the target's cluster: blocks in rotating order, one fresh broker per variant per block")
     ru.add_argument("--a", help="full commit sha of variant A (its image must be built and loaded, or pushed)")
@@ -139,8 +137,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.cmd == "secrets":
             if args.action == "create":
-                names = secrets_cmd.create(run, args.callout_image, args.target)
-                print("created Secrets " + ", ".join(names) + " in namespace storm-bench (values not shown)")
+                names = secrets_cmd.create(run, args.target)
+                print("created Secret " + ", ".join(names) + " in namespace storm-bench (values not shown)")
             else:
                 secrets_cmd.delete(run, args.target)
             return 0
@@ -149,8 +147,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "preflight":
             return runcmd.execute_preflight(run, args)
         if args.cmd == "report":
-            text = report.summarize(Path(args.dir))
-            (Path(args.dir) / "summary.txt").write_text(text + "\n")
+            text = report.write(Path(args.dir))
             print(text)
             return 0
     except eks.NotConfirmed as e:
@@ -165,7 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     except subprocess.CalledProcessError as e:
         print(f"bench: {e.cmd[0]} failed (exit {e.returncode})", file=sys.stderr)
         if args.cmd == "secrets" and args.action == "create":
-            print("bench: if the Secrets already exist, run `bench secrets delete` first and restart the pods afterwards", file=sys.stderr)
+            print("bench: if the Secret already exists, run `bench secrets delete` first and restart the pods afterwards", file=sys.stderr)
         return 1
     except config.MissingSecret as e:
         print(f"bench: {e}", file=sys.stderr)

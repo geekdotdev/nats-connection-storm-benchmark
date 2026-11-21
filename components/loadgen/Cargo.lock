@@ -6,7 +6,9 @@ version = 4
 name = "auth-storm"
 version = "0.1.0"
 dependencies = [
+ "data-encoding",
  "futures-util",
+ "ring",
  "rustls",
  "rustls-pemfile",
  "serde_json",

@@ -1,5 +1,15 @@
-# The auth-callout responder (components/callout). It connects to the broker as the AUTH account's user and
-# answers authorization requests. It may start before the broker: its connection retries.
+# The auth-callout responder (components/callout). It connects to the broker as a user of the AUTH account and answers authorization
+# requests (components/provision explains the keys). It may start before the broker: its connection retries.
+#
+# The pod's init container `provision` makes the operator, account and user keys and stores them as the Secrets storm-callout-auth and
+# storm-generator-auth and the ConfigMap storm-operator, once (it does nothing if they exist, so a restart keeps the keys). The callout
+# reads its keys from environment variables (secretKeyRef), not a mounted Secret: a pod's volumes are set up before its init containers
+# run, so a Secret volume for an object the init container creates would keep the pod from starting, while a container's environment is
+# read when that container starts. The broker mounts the ConfigMap and the load generator the other Secret; their pods wait until they
+# exist.
+#
+# The ServiceAccount token is not mounted by default (automountServiceAccountToken: false); only the init container gets one, through a
+# projected volume of its own, so the callout container holds no credential that can write Secrets (rbac.yaml says what it may do).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,24 +24,40 @@ spec:
     metadata:
       labels: {app.kubernetes.io/name: callout, app.kubernetes.io/part-of: storm-bench}
     spec:
+      serviceAccountName: storm-provision
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
         runAsGroup: 65534
         seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: provision
+          image: provision
+          imagePullPolicy: IfNotPresent
+          # If it fails, its last log lines (the reason, e.g. a 403 from the API server) go into the pod's status, where the driver's
+          # diagnosis of a rollout that does not finish can show them.
+          terminationMessagePolicy: FallbackToLogsOnError
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: provision-api, mountPath: /var/run/secrets/kubernetes.io/serviceaccount, readOnly: true}
       containers:
         - name: callout
           image: callout
           imagePullPolicy: IfNotPresent
-          args: ["serve", "--url", "nats://broker:4222", "--accounts", "16", "--workers", "16"]
+          args: ["serve", "--url", "nats://broker:4222", "--workers", "16"]
           env:
-            - {name: CALLOUT_SERVICE_USER, value: auth}
-            - name: CALLOUT_SERVICE_PASSWORD
-              valueFrom: {secretKeyRef: {name: storm-secrets, key: service-password}}
-            - name: CALLOUT_ISSUER_SEED
-              valueFrom: {secretKeyRef: {name: storm-secrets, key: issuer-seed}}
-            - name: CALLOUT_USER_PASSWORD
-              valueFrom: {secretKeyRef: {name: storm-secrets, key: user-password}}
+            - name: CALLOUT_CREDS
+              valueFrom: {secretKeyRef: {name: storm-callout-auth, key: callout.creds}}
+            - name: CALLOUT_AUTH_SIGNING_SEED
+              valueFrom: {secretKeyRef: {name: storm-callout-auth, key: auth-signing.seed}}
+            - name: CALLOUT_TENANT_SIGNING_SEED
+              valueFrom: {secretKeyRef: {name: storm-callout-auth, key: tenant-signing.seed}}
+            - name: CALLOUT_TENANT_PUBLIC
+              valueFrom: {secretKeyRef: {name: storm-callout-auth, key: tenant.pub}}
           ports:
             - {name: health, containerPort: 8080}
           readinessProbe:
@@ -41,3 +67,14 @@ spec:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities: {drop: ["ALL"]}
+      volumes:
+        - name: provision-api
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken: {path: token, expirationSeconds: 3600}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items: [{key: ca.crt, path: ca.crt}]
+              - downwardAPI:
+                  items: [{path: namespace, fieldRef: {fieldPath: metadata.namespace}}]

@@ -323,13 +323,13 @@ def render_overlay(path):
 C6I_XLARGE = dict(cpu="3920m", mem="7Gi")  # roughly what a 4 vCPU / 8 GiB node offers after the kubelet's reservation
 
 
-@pytest.mark.parametrize("stack,brokers", [("eks", 1), ("eks-cluster", 3), ("eks-cluster-leaf", 3)])
+@pytest.mark.parametrize("stack,brokers", [("eks", 1), ("eks-cluster", 3)])
 def test_the_eks_overlays_fit_a_c6i_xlarge_cluster_of_the_default_shape(stack, brokers):
     objs = [*render_overlay(f"deploy/stack/overlays/{stack}"), *render_overlay("deploy/loadgen/overlays/eks")]
     nodes = [node(f"b{i}", "broker", taints=[BROKER_TAINT], **C6I_XLARGE) for i in range(brokers)] + [node("c0", "client", **C6I_XLARGE)]
     checks = pf.placement_checks(objs, nodes)
     assert checks and not pf.failed(checks), pf.format_checks(checks)
-    assert all("@sha256:" in i for i in pf.images_of(objs))  # every image the eks overlays name is pinned by digest
+    assert all("@sha256:" in i for i in pf.images_of(objs)), pf.images_of(objs)  # every image the eks overlays name is pinned by digest
 
 
 def test_the_cluster_overlay_does_not_fit_a_cluster_with_one_broker_node():

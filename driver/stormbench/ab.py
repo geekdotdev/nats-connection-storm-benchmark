@@ -91,6 +91,8 @@ class Plan:
         env = {"STORM_CONNECTIONS": str(phase.connections), "STORM_RUNS": str(phase.runs),
                "STORM_PAUSE_MS": str(phase.pause_ms), "STORM_HOLD_MS": str(phase.hold_ms),
                "STORM_THREADS": str(self.threads), "STORM_LABEL": label, "STORM_JSON": "-"}
+        if phase.name != "warm":
+            env["STORM_SAMPLES"] = "1"  # every connection's timings, which is what the queue curves (queue.py) are drawn from
         if variant:
             env.update(variant.storm)  # the variant's own generator settings (variants.py keeps them off the phase variables)
         return env
