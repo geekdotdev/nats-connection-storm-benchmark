@@ -1,0 +1,44 @@
+eks-monitoring-check-2026-11-21: cluster eks · namespace storm-bench · run id 1046283b412a · started 2026-11-21T15:17:09-08:00 · run by cfedersp
+blocks found: [1, 2]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+nolock: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186
+
+idle
+  main     median auth p50 per block (ms): [1.6, 1.5]  mean 1.6   admitted 80/80   burst length median 0.00s
+  nolock   median auth p50 per block (ms): [1.7, 1.7]  mean 1.7   admitted 80/80   burst length median 0.00s
+  change nolock vs main in the mean of block medians: +7.5%   exact permutation p=0.33333  (n=2 v 2 blocks)
+  CPU (broker and callout: the whole storm, read from their cgroups by the driver; generator: each burst); mean over blocks of each block's median:
+                                                     main     nolock
+    generator CPU ms per connection                  0.78       0.80
+    generator cores busy while bursting (limit 2)        -          -
+    generator periods throttled %                     0.0        0.0
+    generator time throttled (s)                     0.00       0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  main     median auth p50 per block (ms): [142.9, 138.5]  mean 140.7   admitted 12800/12800   burst length median 0.56s
+  nolock   median auth p50 per block (ms): [128.2, 117.5]  mean 122.9   admitted 12800/12800   burst length median 0.54s
+  change nolock vs main in the mean of block medians: -12.7%   exact permutation p=0.33333  (n=2 v 2 blocks)
+  burst length (throughput proxy) change nolock vs main: -2.7%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               main     nolock
+    peak queue (connections)                    503        499
+    peak at (ms)                                297        300
+    90% of CONNECTs sent by (ms)                299        297
+    10% admitted by (ms)                        246        247
+    50% admitted by (ms)                        368        352
+    90% admitted by (ms)                        530        497
+    all admitted by (ms)                        555        536
+    drain rate 10-90% (connections/s)          2255       2535
+    peak queue (connections): nolock vs main -0.9%   exact permutation p=0.66667  (n=2 v 2 blocks)
+    90% admitted by (ms): nolock vs main -6.1%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +12.4%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (broker and callout: the whole storm, read from their cgroups by the driver; generator: each burst); mean over blocks of each block's median:
+                                                     main     nolock
+    generator CPU ms per connection                  0.82       0.83
+    generator cores busy while bursting (limit 2)     1.17       1.23
+    generator periods throttled %                    35.0       40.8
+    generator time throttled (s)                     0.05       0.19
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+

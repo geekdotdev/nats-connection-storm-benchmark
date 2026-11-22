@@ -1,0 +1,141 @@
+{
+ "target": "eks",
+ "cluster_kind": "eks",
+ "namespace": "storm-bench",
+ "auth": {
+  "mode": "operator",
+  "resolver": "memory",
+  "tenant_accounts": 1,
+  "ticket": "signed by the AUTH account's scoped key, pre-signed before each run",
+  "callout": "role-name mapper, user JWT valid 1 hour"
+ },
+ "date": "2026-11-21T16:37:12-08:00",
+ "variants": [
+  {
+   "label": "main_mutex",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:e5ad6a92cf954403f7b1ad8117d62801e33223ba44398b68a625c4ae4ac4c976",
+   "conf": "# nats-server settings for a profiled run (`bench run --profile --variants profile-variants.toml`): the pprof endpoint, and the block profile\n# at rate 1 (every blocking event is recorded). Block profiling slows the broker, so a profiled run's timings are not comparable with runs\n# without it; what it is for is where the waiting is. nats-server never sets the mutex profile, so on an unpatched broker only the block\n# profile has data; a broker built with `--patch mutex-profile` also fills /debug/pprof/mutex (who held the lock).\nprof_port: 6060\nprof_block_rate: 1\n"
+  },
+  {
+   "label": "nolock_mutex",
+   "commit": "37260075e5313019b14a4550c668b7048a73fb92",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:cdd54d7983f1321a5d96d7f6db2493d35855175b854cc008c3046f7dc6d8e6e7",
+   "conf": "# nats-server settings for a profiled run (`bench run --profile --variants profile-variants.toml`): the pprof endpoint, and the block profile\n# at rate 1 (every blocking event is recorded). Block profiling slows the broker, so a profiled run's timings are not comparable with runs\n# without it; what it is for is where the waiting is. nats-server never sets the mutex profile, so on an unpatched broker only the block\n# profile has data; a broker built with `--patch mutex-profile` also fills /debug/pprof/mutex (who held the lock).\nprof_port: 6060\nprof_block_rate: 1\n"
+  }
+ ],
+ "design": {
+  "blocks": 2,
+  "order": "alternating by block",
+  "phases": [
+   "warm",
+   "idle",
+   "n800"
+  ],
+  "sizes": [
+   800
+  ],
+  "threads": 4,
+  "settle_s": 8.0,
+  "per_phase": {
+   "warm": {
+    "connections": 200,
+    "runs": 3,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "idle": {
+    "connections": 1,
+    "runs": 40,
+    "pause_ms": 100,
+    "hold_ms": 100
+   },
+   "n800": {
+    "connections": 800,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   }
+  }
+ },
+ "cluster": {
+  "nodes": [
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966016Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966028Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "2",
+    "memory": "3907372Ki"
+   }
+  ]
+ },
+ "driver_host": {
+  "system": "Darwin",
+  "machine": "arm64",
+  "cpus": 16
+ },
+ "driver_version": "0.0.0",
+ "run_id": "010580a217e0",
+ "driver_revision": "98fc24190cbe+dirty",
+ "cpu_source": "probe",
+ "monitoring": {
+  "probe": true,
+  "prometheus": true,
+  "scrape_interval_s": 1
+ },
+ "variants_file": {
+  "path": "mutex-variants.toml",
+  "sha256": "39e3d2dbfecd8981cb807ecc56b0112e73d1ce29723bea6ce0f545c231d0a5cf",
+  "conf_files": [
+   "profile.conf",
+   "profile.conf"
+  ]
+ },
+ "profiling": {
+  "block_profiles": 398,
+  "taken_by": "the CPU probes, every few seconds",
+  "pod": "broker-0",
+  "note": "block profiling slows the broker: the timings of this run are perturbed and not comparable with runs without it"
+ },
+ "github_user": "cfedersp",
+ "backfilled": {
+  "time": "2026-11-21T18:10:00-08:00",
+  "keys": {
+   "github_user": "cfedersp"
+  },
+  "note": "github_user was added afterwards, not by the driver that made the run (it did not record one): it is the GitHub login that published the images these runs used (ghcr.io/cfedersp) and owns the fork their commits come from; this project had one runner then."
+ }
+}

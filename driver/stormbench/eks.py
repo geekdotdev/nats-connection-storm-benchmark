@@ -223,6 +223,12 @@ def infra_command(config_file: Path) -> list[str]:
     return ["eksctl", "create", "nodegroup", "--config-file", str(config_file), "--include", "infra"]
 
 
+def scale_command(p: Params, nodegroup: str, nodes: int) -> list[str]:
+    """Resize a managed node group of an existing cluster. The groups here have a fixed size (min = max = desired), so all three are set."""
+    return ["eksctl", "scale", "nodegroup", "--cluster", p.cluster, "--name", nodegroup, "--nodes", str(nodes),
+            "--nodes-min", str(nodes), "--nodes-max", str(nodes), "--region", p.region]
+
+
 def delete_command(p: Params) -> list[str]:
     return ["eksctl", "delete", "cluster", "--name", p.cluster, "--region", p.region, "--wait"]
 
@@ -274,6 +280,18 @@ def add_infra(run: Runner, p: Params, confirm: bool) -> None:
         cfg = Path(tmp) / "cluster.yaml"
         cfg.write_text(render(p))
         run(infra_command(cfg))
+
+
+def scale_clients(run: Runner, p: Params, nodes: int, confirm: bool) -> None:
+    """Resize the clients node group of a cluster that already exists: a second client node lets a bigger callout and a bigger generator
+    run side by side (3 CPU each does not fit one c6i.xlarge). Billable by the hour for as long as the nodes are there, and so is shrinking
+    it back a change to the cluster: both need --yes. Never while a run is going: a node arriving or leaving is a change under the storm."""
+    if not 1 <= nodes <= MAX_NODES:
+        raise ValueError(f"client nodes must be 1 to {MAX_NODES}, got {nodes}")
+    if not confirm and not run.dry_run:
+        raise NotConfirmed(f"this resizes the clients node group of {p.cluster} to {nodes} {p.instance_type} node(s), billed by the hour while they "
+                           "exist. Do not do it while a run is going. Run again with --yes.")
+    run(scale_command(p, "clients", nodes))
 
 
 def down(run: Runner, p: Params) -> None:

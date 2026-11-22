@@ -1,0 +1,29 @@
+# Does reply multiplexing help once the callout and the generator are not what holds the burst back?
+# `bench run --variants mux-uncapped-variants.toml --blocks 8 --sizes 800,1600` (plans/mux-uncapped-callout.md; needs a second client node:
+# `bench cluster scale --target eks --client-nodes 2 --yes`, and back to 1 afterwards).
+# nolock and mux_nolock as in lock-variants.toml (same images, same digests), and both with the same bigger callout and generator:
+# 3 CPU and 48 workers for the callout (16 workers per CPU, as before at 1 CPU), 3 CPU for the generator. Before: the callout was throttled in
+# about 60% of its CPU periods during bursts and the generator in about 35%.
+# nolock is first, so the report's own baseline is the comparison asked: mux_nolock against nolock.
+# Prediction and falsifier are in the plan, written before the run. First check the manipulation (the callout's and generator's throttled share
+# in the bursts, from probeCpu, must be low in both variants) before reading the difference.
+
+[[variant]]
+label = "nolock"
+commit = "37260075e5313019b14a4550c668b7048a73fb92"
+image = "ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186"      # nats-server:37260075e531
+callout_args = ["serve", "--url", "nats://broker:4222", "--workers", "48"]
+[variant.callout_resources]
+cpu = "3"
+[variant.generator_resources]
+cpu = "3"
+
+[[variant]]
+label = "mux_nolock"
+commit = "7ea787e2b5ee956f54a396fdea9ce3810a50c7bd"
+image = "ghcr.io/cfedersp/nats-server@sha256:d35b480b8d136f25d83e5eabba251b15147772a1672c4bd4158c766f7ae9f5cb"      # nats-server:7ea787e2b5ee
+callout_args = ["serve", "--url", "nats://broker:4222", "--workers", "48"]
+[variant.callout_resources]
+cpu = "3"
+[variant.generator_resources]
+cpu = "3"

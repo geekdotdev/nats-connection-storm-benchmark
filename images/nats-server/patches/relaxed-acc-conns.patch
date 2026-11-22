@@ -1,0 +1,63 @@
+diff --git a/server/accounts.go b/server/accounts.go
+index dd3022450..7b8a583df 100644
+--- a/server/accounts.go
++++ b/server/accounts.go
+@@ -73,6 +73,7 @@ type Account struct {
+ 	isid         uint64
+ 	etmr         *time.Timer
+ 	ctmr         *time.Timer
++	connsPending atomic.Bool // an accConnsUpdate is already scheduled (see accConnsUpdate): later changes are carried by it
+ 	strack       map[string]sconns
+ 	nrclients    int32
+ 	sysclients   int32
+diff --git a/server/events.go b/server/events.go
+index 345292c0c..dba611b47 100644
+--- a/server/events.go
++++ b/server/events.go
+@@ -2593,20 +2593,39 @@ func (a *Account) statz() *AccountStat {
+ func (s *Server) accConnsUpdate(a *Account) {
+ 	// No server lock: the only server state needed is the system send queue,
+ 	// which s.sysSendq mirrors (it is nil when events are off or shut down), and
+-	// $G is skipped by name. The account's own state is guarded by a.mu, event
+-	// ids by eventIdsMu, and the queue by its own lock.
+-	// This is called for every client added to or removed from an account, so
+-	// taking the server lock here made concurrent connects queue up.
++	// $G is skipped by name.
+ 	if a == nil || a.Name == globalAccountName {
+ 		return
+ 	}
+-	sendQ := s.sysSendq.Load()
+-	if sendQ == nil {
++	if s.sysSendq.Load() == nil {
++		return
++	}
++	// Benchmark patch (images/nats-server/patches/relaxed-acc-conns.patch): the
++	// event is no longer built and queued for every client added or removed. The
++	// first change in a window schedules one update, and every change until it
++	// runs is carried by it: it reads the count when it runs, so it reports the
++	// latest, at most accConnsCoalesce late. A connect now costs one atomic
++	// compare-and-swap here instead of a.mu, an event and two queue pushes. Other
++	// servers see this account's count that much later, which is the rigor given
++	// up: a limit that counts connections across servers is enforced that much
++	// late.
++	if !a.connsPending.CompareAndSwap(false, true) {
+ 		return
+ 	}
+-	s.pushAccConnsUpdate(a, sendQ, fmt.Sprintf(accConnsEventSubjOld, a.Name), fmt.Sprintf(accConnsEventSubjNew, a.Name))
++	time.AfterFunc(accConnsCoalesce, func() {
++		a.connsPending.Store(false) // before reading the count: a change during the push schedules the next
++		sendQ := s.sysSendq.Load()
++		if sendQ == nil {
++			return
++		}
++		s.pushAccConnsUpdate(a, sendQ, fmt.Sprintf(accConnsEventSubjOld, a.Name), fmt.Sprintf(accConnsEventSubjNew, a.Name))
++	})
+ }
+ 
++// accConnsCoalesce is how long an account's connection count may go unreported
++// after it changes (benchmark patch).
++var accConnsCoalesce = 100 * time.Millisecond
++
+ func (s *Server) nextEventID() string {
+ 	s.eventIdsMu.Lock()
+ 	id := s.eventIds.Next()

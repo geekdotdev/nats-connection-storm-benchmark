@@ -1,0 +1,60 @@
+eks-probe-check-2026-11-21: cluster eks · namespace storm-bench · run id a9619710399b · started 2026-11-21T15:28:11-08:00 · run by cfedersp
+blocks found: [1, 2]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+nolock: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186
+
+idle
+  main     median auth p50 per block (ms): [1.7, 1.6]  mean 1.6   admitted 80/80   burst length median 0.00s
+  nolock   median auth p50 per block (ms): [1.7, 1.5]  mean 1.6   admitted 80/80   burst length median 0.00s
+  change nolock vs main in the mean of block medians: -1.1%   exact permutation p=0.66667  (n=2 v 2 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock
+    broker CPU ms per connection                     1.78       1.75
+    broker cores busy while bursting (limit 3)          -          -
+    broker periods throttled %                        0.0        0.0
+    broker time throttled (s)                        0.00       0.00
+    callout CPU ms per connection                    0.54       0.53
+    callout cores busy while bursting (limit 1)         -          -
+    callout periods throttled %                         -        0.0
+    callout time throttled (s)                       0.00       0.00
+    generator CPU ms per connection                  0.66       0.65
+    generator cores busy while bursting (limit 2)        -          -
+    generator periods throttled %                     0.0        0.0
+    generator time throttled (s)                     0.00       0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  main     median auth p50 per block (ms): [138.2, 157.7]  mean 147.9   admitted 12800/12800   burst length median 0.56s
+  nolock   median auth p50 per block (ms): [129.0, 128.4]  mean 128.7   admitted 12800/12800   burst length median 0.54s
+  change nolock vs main in the mean of block medians: -13.0%   exact permutation p=0.33333  (n=2 v 2 blocks)
+  burst length (throughput proxy) change nolock vs main: -2.7%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               main     nolock
+    peak queue (connections)                    528        500
+    peak at (ms)                                299        300
+    90% of CONNECTs sent by (ms)                296        287
+    10% admitted by (ms)                        261        248
+    50% admitted by (ms)                        376        349
+    90% admitted by (ms)                        535        525
+    all admitted by (ms)                        559        544
+    drain rate 10-90% (connections/s)          2297       2367
+    peak queue (connections): nolock vs main -5.1%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    90% admitted by (ms): nolock vs main -1.8%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +3.1%   exact permutation p=0.66667  (n=2 v 2 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock
+    broker CPU ms per connection                     1.62       1.57
+    broker cores busy while bursting (limit 3)       2.31       2.31
+    broker periods throttled %                        0.0        0.0
+    broker time throttled (s)                        0.00       0.00
+    callout CPU ms per connection                    0.57       0.57
+    callout cores busy while bursting (limit 1)      0.80       0.83
+    callout periods throttled %                      61.7       60.0
+    callout time throttled (s)                       0.13       0.18
+    generator CPU ms per connection                  0.82       0.81
+    generator cores busy while bursting (limit 2)     1.18       1.19
+    generator periods throttled %                    35.0       36.7
+    generator time throttled (s)                     0.15       0.16
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+

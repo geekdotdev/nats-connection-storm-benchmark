@@ -37,6 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--only", help="build only these images, comma separated: nats-server, callout, loadgen, provision, cpuprobe")
     b.add_argument("--repo", default=images.DEFAULT_REPO, help="https URL of the nats-server repository")
     b.add_argument("--ref-name", help="branch or tag name to record on the broker image: a label and a second tag (the commit stays the identity)")
+    b.add_argument("--patch", help="apply images/nats-server/patches/<name>.patch on top of the commit (a benchmark-only change, e.g. mutex-profile): "
+                   "the tag becomes nats-server:<sha12>-<name> and the image is labelled with the patch")
     b.add_argument("--platform", help="linux/amd64, linux/arm64, or both comma separated (both needs podman); default is this machine's")
     k = isub.add_parser("load-kind", help="load images into the kind cluster")
     k.add_argument("images", nargs="+")
@@ -45,9 +47,10 @@ def build_parser() -> argparse.ArgumentParser:
     pu.add_argument("--insecure", action="store_true", help="skip TLS verification; only for a test registry on localhost")
 
     cl = sub.add_parser("cluster", parents=[on_target], help="create or delete the cluster (local = kind, eks = eksctl), or print the EKS config")
-    cl.add_argument("action", choices=["up", "down", "config", "addons", "infra"], help="config prints the eksctl ClusterConfig (eks only) and touches nothing; "
+    cl.add_argument("action", choices=["up", "down", "config", "addons", "infra", "scale"], help="config prints the eksctl ClusterConfig (eks only) and touches nothing; "
                     "addons installs the EBS CSI driver and its IAM role on an existing eks cluster (needs --yes); "
-                    "infra adds the infra node group (for Prometheus) to an existing eks cluster (needs --yes)")
+                    "infra adds the infra node group (for Prometheus) to an existing eks cluster (needs --yes); "
+                    "scale resizes the clients node group of an existing eks cluster to --client-nodes N (needs --yes; not during a run)")
     cl.add_argument("--yes", action="store_true", help="eks up: confirm that you accept the AWS charges")
     cl.add_argument("--region", help="eks: AWS region (default: AWS_REGION)")
     cl.add_argument("--zone", help="eks: availability zone for the nodes (default: <region>a)")
@@ -89,7 +92,9 @@ def build_parser() -> argparse.ArgumentParser:
     pf.add_argument("--image-prefix", help="as for `run`")
     pf.add_argument("--stack-overlay", help="as for `run`")
     pf.add_argument("--loadgen-overlay", help="as for `run`")
-    ru.add_argument("--name", help="results directory is results/<name>-<date> (default ab)")
+    ru.add_argument("--github-user", help="the GitHub login of whoever runs this (default: GITHUB_USER): the results go in results/<login>/<name>-<date>/ "
+                    "and every file of the run says who ran it")
+    ru.add_argument("--name", help="results directory is results/<login>/<name>-<date> (default ab)")
     ru.add_argument("--out", help="results directory (overrides --name)")
     ru.add_argument("--resume", action="store_true", help="continue the run recorded in the cluster (see `bench status`): its plan comes from "
                     "the record, so no plan option may be given; finished units are skipped and an unfinished one is redone from a fresh broker")
@@ -106,6 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     ad = sub.add_parser("adopt", parents=[on_target], help="record a results directory that has no run state, so `run --resume` can continue it "
                         "(optionally running chosen units again)")
     ad.add_argument("dir", help="a results directory made by `bench run`, whose run has ended")
+    ad.add_argument("--github-user", help="record this GitHub login as the run's runner if it has none (default: GITHUB_USER)")
     ad.add_argument("--redo", action="append", metavar="UNIT", help="run this unit again (<variant>-b<block>, e.g. main-b4); repeatable. Its files "
                     "are moved to DIR/discarded/, not deleted")
     ad.add_argument("--redo-failed", action="store_true", help="run again every unit with a burst in which not every connection was admitted")
@@ -119,6 +125,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", parents=[on_target], help="show the progress of the run recorded in the target's cluster; changes nothing")
     rp = sub.add_parser("report", help="summarise a results directory (exact permutation tests on block medians)")
     rp.add_argument("dir")
+    rp.add_argument("--baseline", metavar="LABEL", help="measure every change against this variant instead of the run's first one (e.g. `mux_nolock` against `nolock`); "
+                    "prints the report only and leaves summary.txt and the charts, which are against the run's own baseline, as they are")
 
     for name, text in PLANNED.items():
         sub.add_parser(name, help=f"(not implemented) {text}")
@@ -142,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.ref is None and (not only or "nats-server" in only):
                     print("bench: images build needs the commit sha unless --only leaves nats-server out", file=sys.stderr)
                     return 2
-                images.build(run, args.ref, args.repo, images.parse_platforms(args.platform), args.ref_name, only)
+                images.build(run, args.ref, args.repo, images.parse_platforms(args.platform), args.ref_name, only, args.patch)
             elif args.action == "load-kind":
                 kind.load(run, args.images)
             else:
@@ -165,10 +173,15 @@ def main(argv: list[str] | None = None) -> int:
                     eks.add_addons(run, params, args.yes)
                 elif args.action == "infra":
                     eks.add_infra(run, params, args.yes)
+                elif args.action == "scale":
+                    if args.client_nodes is None:
+                        print("bench cluster scale: give --client-nodes N (the size the clients group should have)", file=sys.stderr)
+                        return 2
+                    eks.scale_clients(run, params, args.client_nodes, args.yes)
                 else:
                     eks.down(run, params)
                 return 0
-            if args.action in ("config", "addons", "infra"):
+            if args.action in ("config", "addons", "infra", "scale"):
                 print(f"bench cluster {args.action}: only for --target eks", file=sys.stderr)
                 return 2
             (kind.up if args.action == "up" else kind.down)(run)
@@ -191,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "monitoring":
             return runcmd.execute_monitoring(run, args)
         if args.cmd == "report":
+            if args.baseline:   # another baseline is a different question about the same data: it is shown, not stored over the run's own summary
+                print(report.summarize(Path(args.dir), args.baseline))
+                return 0
             text = report.write(Path(args.dir))
             print(text)
             return 0

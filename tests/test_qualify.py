@@ -26,8 +26,8 @@ def test_local_is_kind_and_eks_is_eks():
 
 def test_a_value_that_was_not_recorded_says_so_instead_of_being_guessed():
     q = qualify.from_env({"target": "eks", "date": "2026-11-21T11:44:36-08:00"})        # a run from before namespaces and ids were written
-    assert q == {"cluster": "eks", "namespace": "not recorded", "run_id": "not recorded", "started": "2026-11-21T11:44:36-08:00"}
-    assert "namespace not recorded" in qualify.line(q)
+    assert q == {"cluster": "eks", "namespace": "not recorded", "run_id": "not recorded", "started": "2026-11-21T11:44:36-08:00", "github_user": "not recorded"}
+    assert "namespace not recorded" in qualify.line(q) and "run by not recorded" in qualify.line(q)
     assert qualify.from_env({})["cluster"] == "not recorded"
 
 
@@ -39,13 +39,13 @@ def test_a_new_run_qualifies_every_output_it_writes(tmp_path):
     rs = state.RunState.load(store)
     env = env_of(out)
     # environment.json: the kind is written out, not left as "local"
-    assert env["target"] == "local" and env["cluster_kind"] == "kind" and env["namespace"] == config.NAMESPACE
+    assert env["target"] == "local" and env["cluster_kind"] == "kind" and env["namespace"] == config.NAMESPACE and env["github_user"] == "test-user"
     assert env["run_id"] == rs.run_id and env["date"] == rs.plan["started"]
     # the first line of the summary
     m = QUALIFIED.search((out / "summary.txt").read_text().splitlines()[0])
-    assert m and m.groups() == ("kind", config.NAMESPACE, rs.run_id, env["date"])
+    assert m and m.groups() == ("kind", config.NAMESPACE, rs.run_id, env["date"]) and "run by test-user" in (out / "summary.txt").read_text().splitlines()[0]
     # every unit's meta, and every storm's own report, so that a single copied file is still labelled
-    want = {"run_id": rs.run_id, "cluster": "kind", "target": "local", "namespace": config.NAMESPACE, "started": env["date"]}
+    want = {"run_id": rs.run_id, "cluster": "kind", "target": "local", "namespace": config.NAMESPACE, "started": env["date"], "github_user": "test-user"}
     for unit in ("main-b1", "fixed-b1", "fixed-b2", "main-b2"):
         meta = json.loads((out / "raw" / f"{unit}.meta.json").read_text())
         assert meta["qualifiers"] == {**want, "unit": unit}
@@ -121,7 +121,7 @@ def test_the_report_gives_the_summary_and_the_chart_the_runs_own_qualifiers(tmp_
                "authMs": {"n": 100, "p50": 1.0, "p90": 1.0, "p99": 1.0, "max": 1.0}}
         (out / "raw" / f"{v}-b1-n800.json").write_text(json.dumps({"run": "x", "runs": [one, one]}))
     text = report.write(out)
-    assert text.splitlines()[0] == "run: cluster eks · namespace storm-bench · run id aaaabbbbcccc · started 2026-11-21T09:00:00-08:00"
+    assert text.splitlines()[0] == "run: cluster eks · namespace storm-bench · run id aaaabbbbcccc · started 2026-11-21T09:00:00-08:00 · run by not recorded"
     svg = (out / "queue-n800.svg").read_text()
     assert "cluster eks" in svg and "namespace storm-bench" in svg and "run id aaaabbbbcccc" in svg and "run started 2026-11-21T09:00:00-08:00" in svg
 
@@ -164,3 +164,84 @@ def test_a_unit_finished_from_the_cluster_is_labelled_like_any_other(tmp_path):
     ab.run_blocks(PLAN, cluster, raw, sleep=lambda s: None, now=lambda: "t", log=lambda m: None, progress=rs)
     rep = json.loads((raw / "main-b1-n800.json").read_text())
     assert rep["qualifiers"]["unit"] == "main-b1" and rep["qualifiers"]["storm"] == "main-b1-n800" and rep["qualifiers"]["cluster"] == "kind"
+
+
+
+# -- who ran it: the GitHub login ---------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("given,login", [("cfedersp", "cfedersp"), ("CFedersp", "cfedersp"), (" octo-cat ", "octo-cat"), ("a", "a"), ("a" * 39, "a" * 39), ("a1-b2", "a1-b2")])
+def test_a_github_login_is_checked_and_kept_in_lower_case(given, login):
+    assert qualify.github_user(given) == login
+
+
+@pytest.mark.parametrize("bad", ["", "  ", None, "-a", "a-", "a--b", "a_b", "a b", "a/b", "../x", "a" * 40, "é", "a.b"])
+def test_what_is_not_a_github_login_is_refused_before_it_becomes_a_directory(bad):
+    with pytest.raises(ValueError, match="GitHub login|GITHUB_USER"):
+        qualify.github_user(bad)
+
+
+def test_a_run_refuses_to_start_without_a_login_and_says_where_to_put_it(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("GITHUB_USER")
+    assert cli.main(["run", "--a", "a" * 40, "--b", "b" * 40, "--out", str(tmp_path / "out"), "--no-preflight"]) == 2
+    err = capsys.readouterr().err
+    assert "GITHUB_USER" in err and "--github-user" in err and not (tmp_path / "out").exists()
+
+
+def test_the_flag_wins_over_the_environment_and_a_bad_login_is_refused(tmp_path, monkeypatch):
+    args = cli.build_parser().parse_args(["run", "--a", "a" * 40, "--b", "b" * 40, "--github-user", "Other-Dev"])
+    assert runcmd.runner_login(args) == "other-dev"
+    with pytest.raises(ValueError, match="not a GitHub login"):
+        runcmd.runner_login(cli.build_parser().parse_args(["run", "--a", "a" * 40, "--b", "b" * 40, "--github-user", "no/slash"]))
+
+
+def test_results_go_under_the_runners_login_so_two_developers_cannot_overwrite_each_other():
+    one, two = runcmd.results_dir("cfedersp", "lock", "2026-11-21"), runcmd.results_dir("maintainer", "lock", "2026-11-21")
+    assert one.parts[-3:] == ("results", "cfedersp", "lock-2026-11-21") and two.parts[-3:] == ("results", "maintainer", "lock-2026-11-21") and one != two
+
+
+def test_a_new_run_records_the_login_in_the_environment_the_state_and_the_status(tmp_path):
+    store = state.MemoryStore()
+    assert go(run_args(tmp_path, "--github-user", "Maint-Ainer"), store, FakeCluster()) == 0
+    rs = state.RunState.load(store)
+    assert rs.plan["github_user"] == "maint-ainer" and env_of(tmp_path / "out")["github_user"] == "maint-ainer"
+    assert rs.qualifiers()["github_user"] == "maint-ainer"
+    text = state.format_status(rs)
+    assert "run by maint-ainer" in text and "results in results/maint-ainer/out" in text
+
+
+def test_a_state_from_before_logins_were_recorded_still_shows_and_says_not_recorded(tmp_path):
+    store = state.MemoryStore()
+    assert go(run_args(tmp_path), store, FakeCluster()) == 0
+    rs = state.RunState.load(store)
+    del rs.plan["github_user"]
+    assert rs.qualifiers()["github_user"] == "not recorded" and "run by" not in state.format_status(rs) and "results in results/out" in state.format_status(rs)
+
+
+def test_resume_looks_under_the_login_that_started_the_run_not_the_one_resuming_it(tmp_path, monkeypatch):
+    monkeypatch.setattr(runcmd, "REPO_ROOT", tmp_path)
+    mine = tmp_path / "results" / "starter" / "r-2026-11-21"
+    mine.mkdir(parents=True)
+    (mine / "environment.json").write_text("{}")
+    assert runcmd.recorded_results_dir({"out": "r-2026-11-21", "github_user": "starter"}) == mine
+    legacy = tmp_path / "results" / "old-2026-11-18"
+    legacy.mkdir(parents=True)
+    (legacy / "environment.json").write_text("{}")
+    assert runcmd.recorded_results_dir({"out": "old-2026-11-18"}) == legacy                        # recorded before logins: the flat path
+    assert runcmd.recorded_results_dir({"out": "gone", "github_user": "x"}) == tmp_path / "results" / "x" / "gone"   # nothing there: the path it should be
+
+
+def test_adopt_gives_an_older_run_the_login_it_is_given_and_says_so(tmp_path):
+    out = finished_run(tmp_path)
+    env = env_of(out)
+    env.pop("github_user", None)
+    (out / "environment.json").write_text(json.dumps(env))
+    store = state.MemoryStore()
+    assert runcmd.execute_adopt(Runner(), adopt_args(out, "--github-user", "Cfedersp"), make_store=lambda t: store) == 0
+    after = env_of(out)
+    assert after["github_user"] == "cfedersp" and "github_user" in after["adopted"]["qualifiers_added"]
+    assert state.RunState.load(store).plan["github_user"] == "cfedersp"
+
+
+def test_the_charts_say_who_ran_the_run():
+    svg = queue.chart("n800", {"a": queue.pooled_curves([burst()], 1000.0), "b": queue.pooled_curves([burst()], 1000.0)}, {"a": 1, "b": 1}, "d", "g",
+                      None, "abc123def456", "kind", "storm-bench", "cfedersp")
+    assert "cluster kind  ·  namespace storm-bench  ·  run id abc123def456  ·  run by cfedersp" in list(ET.fromstring(svg).itertext())

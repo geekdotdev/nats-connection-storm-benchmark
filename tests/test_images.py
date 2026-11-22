@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
+import re
+
 import pytest
 
 from stormbench import images, kind, registry
+from stormbench.config import REPO_ROOT
 from stormbench.runner import Runner
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -272,3 +275,57 @@ def test_only_limits_the_build_to_the_named_images(tmp_path):
         images.build_commands(None, tool="docker", root=tmp_path, only=("nope",))
     with pytest.raises(ValueError):
         images.build_commands(None, tool="docker", root=tmp_path)  # the broker is built, so the commit is required
+
+
+# -- a patch on top of the commit --------------------------------------------------------------------------------------------------------
+def with_patch(tmp_path, name="mutex-profile", body="--- a/x\n+++ b/x\n"):
+    d = tmp_path / "images/nats-server/patches"
+    d.mkdir(parents=True)
+    (d / f"{name}.patch").write_text(body)
+    return tmp_path
+
+
+def test_a_patched_broker_image_is_tagged_and_labelled_so_it_cannot_pass_for_the_commit(tmp_path):
+    import hashlib
+    root = with_patch(tmp_path)
+    (cmd,) = images.build_commands(SHA, tool="docker", root=root, only=("nats-server",), patch="mutex-profile")
+    assert images.broker_tag(SHA, "mutex-profile") == f"nats-server:{SHA[:12]}-mutex-profile" and f"nats-server:{SHA[:12]}-mutex-profile" in cmd
+    assert f"nats-server:{SHA[:12]}" not in cmd                                      # the commit's own tag is not taken by the patched image
+    assert "PATCH=mutex-profile" in cmd
+    assert f"benchmark.patch.sha256={hashlib.sha256((root / 'images/nats-server/patches/mutex-profile.patch').read_bytes()).hexdigest()}" in cmd
+
+
+def test_no_patch_means_the_build_is_as_it_was(tmp_path):
+    (cmd,) = images.build_commands(SHA, tool="docker", root=tmp_path, only=("nats-server",))
+    assert not any(a.startswith("PATCH=") for a in cmd) and f"nats-server:{SHA[:12]}" in cmd
+
+
+@pytest.mark.parametrize("name", ["../x", "Mutex", "a b", "a--b", "-a", "a/b", ""])
+def test_a_patch_name_cannot_reach_another_path(tmp_path, name):
+    with pytest.raises(ValueError, match="lowercase letters, digits and hyphens"):
+        images.patch_file(name, with_patch(tmp_path))
+
+
+def test_a_patch_that_does_not_exist_lists_the_ones_that_do(tmp_path):
+    with pytest.raises(ValueError, match=r"no patch 'nope'.*have: mutex-profile"):
+        images.patch_file("nope", with_patch(tmp_path))
+
+
+def test_the_shipped_mutex_patch_adds_only_the_mutex_profile_fraction():
+    text = images.patch_file("mutex-profile").read_text()
+    added = [l for l in text.splitlines() if l.startswith("+") and not l.startswith("+++") and not l.strip("+ \t").startswith("//")]
+    assert added == ["+\truntime.SetMutexProfileFraction(1)"] and not [l for l in text.splitlines() if l.startswith("-") and not l.startswith("---")]
+
+
+def test_the_dockerfile_applies_the_patch_only_when_asked_and_records_it():
+    text = (REPO_ROOT / "images/nats-server/Dockerfile").read_text()
+    assert 'git apply --verbose "/patches/$PATCH.patch"' in text and 'if [ -n "$PATCH" ]' in text and 'benchmark.patch="$PATCH"' in text
+    assert (REPO_ROOT / "images/nats-server/patches/mutex-profile.patch").is_file()
+
+
+def test_the_relaxed_patch_touches_only_the_two_files_it_names_and_says_what_it_gives_up():
+    text = images.patch_file("relaxed-acc-conns").read_text()
+    files = re.findall(r"^\+\+\+ b/(\S+)", text, re.M)
+    assert files == ["server/accounts.go", "server/events.go"]                               # nothing else in nats-server changes
+    assert "accConnsCoalesce" in text and "at most accConnsCoalesce late" in text and "Benchmark patch" in text
+    assert "connsPending atomic.Bool" in text

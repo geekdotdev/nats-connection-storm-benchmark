@@ -278,3 +278,27 @@ def test_the_command_line_takes_the_infra_options_and_refuses_infra_for_kind(mon
     assert cli.main(["cluster", "config", "--target", "eks", "--infra-nodes", "0"]) == 0
     assert "name: \"infra\"" not in capsys.readouterr().out.split("only for")[-1]
     assert cli.main(["cluster", "infra", "--target", "eks"]) == 2                            # needs --yes
+
+
+# -- resizing the clients group ----------------------------------------------------------------------------------------------------------------
+def test_the_scale_command_resizes_the_named_group_of_the_named_cluster_to_a_fixed_size():
+    assert eks.scale_command(params(), "clients", 2) == ["eksctl", "scale", "nodegroup", "--cluster", "storm-bench", "--name", "clients", "--nodes", "2",
+                                                         "--nodes-min", "2", "--nodes-max", "2", "--region", "us-east-1"]
+
+
+def test_scaling_needs_a_yes_and_a_sane_size_and_a_dry_run_shows_the_command(capsys):
+    with pytest.raises(eks.NotConfirmed, match="billed by the hour.*Do not do it while a run is going"):
+        eks.scale_clients(Runner(), params(), 2, confirm=False)
+    for bad in (0, -1, eks.MAX_NODES + 1):
+        with pytest.raises(ValueError, match="client nodes must be 1 to"):
+            eks.scale_clients(Runner(), params(), bad, confirm=True)
+    eks.scale_clients(Runner(dry_run=True), params(), 2, confirm=False)
+    assert capsys.readouterr().err.startswith("+ eksctl scale nodegroup --cluster storm-bench --name clients --nodes 2")
+
+
+def test_the_command_line_scales_only_with_a_size_and_a_yes_and_only_for_eks(monkeypatch, capsys):
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    assert cli.main(["cluster", "scale", "--target", "local", "--client-nodes", "2"]) == 2                  # kind has no node groups
+    assert cli.main(["cluster", "scale", "--target", "eks"]) == 2 and "--client-nodes N" in capsys.readouterr().err   # no size: never a silent shrink to 1
+    assert cli.main(["cluster", "scale", "--target", "eks", "--client-nodes", "2"]) == 2                    # no --yes
+    assert cli.main(["--dry-run", "cluster", "scale", "--target", "eks", "--client-nodes", "2"]) == 0

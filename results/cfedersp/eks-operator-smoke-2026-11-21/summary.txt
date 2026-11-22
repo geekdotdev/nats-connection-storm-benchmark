@@ -1,0 +1,17 @@
+eks-operator-smoke-2026-11-21: cluster eks · namespace not recorded · run id not recorded · started 2026-11-21T09:18:15-08:00 · run by cfedersp
+blocks found: [1, 2]
+single: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server:582fb8e939a7
+cluster: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server:582fb8e939a7   settings {"stack": "deploy/stack/overlays/eks-cluster"}
+
+idle
+  single   median auth p50 per block (ms): [1.7, 1.7]  mean 1.7   admitted 80/80   burst length median 0.00s
+  cluster  median auth p50 per block (ms): [1.9, 1.9]  mean 1.9   admitted 80/80   burst length median 0.00s
+  change cluster vs single in the mean of block medians: +15.7%   exact permutation p=0.33333  (n=2 v 2 blocks)
+
+n800
+  single   median auth p50 per block (ms): [255.4, 155.9]  mean 205.6   admitted 12800/12800   burst length median 0.86s
+  cluster  median auth p50 per block (ms): [180.5, 189.2]  mean 184.8   admitted 12800/12800   burst length median 1.00s
+  change cluster vs single in the mean of block medians: -10.1%   exact permutation p=1.00000  (n=2 v 2 blocks)
+  burst length (throughput proxy) change cluster vs single: +16.3%
+  (no per-connection samples in this phase, so no queue curve; runs before the samples were recorded have none)
+

@@ -1,0 +1,23 @@
+# kind-main-vs-lockfree-2026-11-17
+
+<!-- generated from environment.json: do not edit between the markers -->
+
+- **Run:** cluster not recorded · namespace not recorded · run id not recorded · started 2026-11-17T21:11:29-08:00 · run by cfedersp
+- **Target:** not recorded
+- **Design:** 8 blocks, sizes [800, 1600], phases warm, idle, n800, n1600
+- **CPU source:** not recorded (before it was)
+- **Backfilled afterwards:** github_user (see `environment.json`)
+
+<!-- end generated -->
+
+## Purpose
+
+The first comparison of upstream `main` against the lock-free change to `accConnsUpdate`, on a kind cluster: 8 blocks, sizes 800 and 1600.
+
+## What it showed
+
+See `summary.txt`. Kept as history only.
+
+## What perturbs it
+
+Made before operator mode replaced the earlier authentication (a password callout, accounts in the broker's configuration, one shared password); the current code cannot reproduce it (git commit `bf93da8` and earlier) and its numbers are not comparable with later runs. See `results/README.md`. Kind, on one machine: not a place to publish numbers from.

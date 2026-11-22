@@ -6,12 +6,16 @@ For each running container of the pods labelled `app.kubernetes.io/part-of=storm
 
 - `GET /metrics`: Prometheus text format (`storm_cpu_usage_seconds_total`, `storm_cpu_periods_total`, `storm_cpu_throttled_periods_total`, `storm_cpu_throttled_seconds_total`, `storm_cpu_limit_cores`, ...), labelled with namespace, pod, container, component and node. Prometheus scrapes it every second.
 - `GET /counters`: the same counters as JSON with the instant they were read (`timeMs`). The load generator asks every probe at the start and the end of each burst, so the broker's and callout's CPU in a burst are in the generator's report, in the Job's log.
+- `GET /profiles`, `GET /profiles/<pod uid>/<file>`, `DELETE /profiles`: the broker's pprof block profile snapshots the probe has kept (below).
 - `GET /healthz`.
 
 A container's cgroup directory is found once, by searching the mounted tree for a directory whose name contains the container's runtime id (`cri-containerd-<id>.scope` with the systemd driver), and remembered until the container is gone. A container with no cgroup yet, or one that cannot be read, is left out, never an error: a pod that has just started or just died is normal. If the API cannot be reached the last pod list is kept.
 
+**Broker profiles.** Every `--profile-interval` (2 s) the probe fetches `/debug/pprof/block` from each broker pod on its node (the pod's IP, port `--profile-port`, 6060) and keeps the snapshot under `--profile-dir` with its time and the pod's UID, at most `--profile-max-bytes` (the oldest go first), until the run is over. A block profile is cumulative since the process started, so two snapshots of one pod subtract into the waits between them; the storms' times pick the pair afterwards, and nothing here knows when a storm starts. A broker without `prof_port` refuses the connection and is left alone for 30 s at a time (`--profile-interval 0` turns the harvester off). The driver takes no part during the run: when it has completed it reads `/profiles` out of the probes, and deletes them when the next run starts.
+
 ```
 cpuprobe [--listen :9100] [--cgroup-root /host/sys/fs/cgroup] [--namespace NS] [--node NODE] [--selector LABELS] [--refresh 2s]
+         [--profile-dir /profiles] [--profile-interval 2s] [--profile-max-bytes 209715200] [--profile-port 6060]
 ```
 
 `--namespace` and `--node` come from the downward API (`POD_NAMESPACE`, `NODE_NAME`). It runs as a DaemonSet (`deploy/monitoring`) with `/sys/fs/cgroup` of the node mounted **read-only**, and its ServiceAccount may get and list pods in the benchmark's namespace and nothing else.

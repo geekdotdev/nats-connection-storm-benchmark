@@ -1,0 +1,81 @@
+lock-mux-eks-retry-2026-11-21: cluster eks · namespace storm-bench · run id b18d36028497 · started 2026-11-21T11:44:36-08:00 · run by cfedersp
+blocks found: [1, 2, 3, 4, 5, 6, 7, 8]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+nolock: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186
+mux_main: commit ec9244c3444d, image ghcr.io/cfedersp/nats-server@sha256:0676f13113d55867c00c5a1cb76bffc6057896a9adb461892a0570354355e0aa
+mux_nolock: commit 7ea787e2b5ee, image ghcr.io/cfedersp/nats-server@sha256:d35b480b8d136f25d83e5eabba251b15147772a1672c4bd4158c766f7ae9f5cb
+baseline main; 3 comparisons with it, not corrected for the number of them
+
+idle
+  main     median auth p50 per block (ms): [1.6, 1.6, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  nolock   median auth p50 per block (ms): [1.7, 1.7, 1.6, 1.6, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  mux_main median auth p50 per block (ms): [1.6, 1.7, 1.6, 1.6, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  mux_nolock median auth p50 per block (ms): [1.7, 1.6, 1.7, 1.6, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  change nolock vs main in the mean of block medians: -0.5%   exact permutation p=0.66371  (n=8 v 8 blocks)
+  change mux_main vs main in the mean of block medians: -0.8%   exact permutation p=0.35758  (n=8 v 8 blocks)
+  change mux_nolock vs main in the mean of block medians: +0.1%   exact permutation p=0.90490  (n=8 v 8 blocks)
+
+n800
+  main     median auth p50 per block (ms): [140.7, 148.7, 140.4, 148.5, 102.7, 141.6, 145.2, 137.8]  mean 138.2   admitted 51200/51200   burst length median 0.55s
+  nolock   median auth p50 per block (ms): [131.3, 141.7, 117.7, 96.2, 126.4, 118.4, 126.2, 121.7]  mean 122.5   admitted 51200/51200   burst length median 0.55s
+  mux_main median auth p50 per block (ms): [140.2, 145.6, 147.0, 140.9, 145.0, 147.8, 141.1, 141.3]  mean 143.6   admitted 51200/51200   burst length median 0.55s
+  mux_nolock median auth p50 per block (ms): [120.7, 130.2, 128.3, 127.1, 119.1, 114.5, 117.4, 121.2]  mean 122.3   admitted 51200/51200   burst length median 0.54s
+  change nolock vs main in the mean of block medians: -11.4%   exact permutation p=0.04336  (n=8 v 8 blocks)
+  burst length (throughput proxy) change nolock vs main: +0.0%
+  change mux_main vs main in the mean of block medians: +3.9%   exact permutation p=0.43357  (n=8 v 8 blocks)
+  burst length (throughput proxy) change mux_main vs main: +0.0%
+  change mux_nolock vs main in the mean of block medians: -11.5%   exact permutation p=0.01538  (n=8 v 8 blocks)
+  burst length (throughput proxy) change mux_nolock vs main: -1.8%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                                main      nolock    mux_main  mux_nolock
+    peak queue (connections)                     484         483         504         500
+    peak at (ms)                                 336         321         294         295
+    90% of CONNECTs sent by (ms)                 336         329         292         293
+    10% admitted by (ms)                         273         269         251         246
+    50% admitted by (ms)                         405         381         373         350
+    90% admitted by (ms)                         554         523         526         498
+    all admitted by (ms)                         579         564         555         543
+    drain rate 10-90% (connections/s)           2293        2456        2285        2536
+    peak queue (connections): nolock vs main -0.3%   exact permutation p=0.89728  (n=8 v 8 blocks)
+    90% admitted by (ms): nolock vs main -5.6%   exact permutation p=0.42953  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +7.1%   exact permutation p=0.00622  (n=8 v 8 blocks)
+    peak queue (connections): mux_main vs main +4.1%   exact permutation p=0.78337  (n=8 v 8 blocks)
+    90% admitted by (ms): mux_main vs main -5.1%   exact permutation p=0.32277  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): mux_main vs main -0.3%   exact permutation p=0.78710  (n=8 v 8 blocks)
+    peak queue (connections): mux_nolock vs main +3.1%   exact permutation p=0.89713  (n=8 v 8 blocks)
+    90% admitted by (ms): mux_nolock vs main -10.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): mux_nolock vs main +10.6%   exact permutation p=0.00124  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+
+n1600
+  main     median auth p50 per block (ms): [271.5, 272.6, 270.4, 277.8, 284.3, 280.1, 295.9, 282.4]  mean 279.4   admitted 102400/102400   burst length median 1.13s
+  nolock   median auth p50 per block (ms): [231.1, 215.2, 229.6, 234.2, 246.4, 179.8, 248.9, 244.7]  mean 228.7   admitted 102400/102400   burst length median 1.10s
+  mux_main median auth p50 per block (ms): [278.3, 281.8, 266.5, 256.8, 269.5, 278.0, 260.1, 260.3]  mean 268.9   admitted 102400/102400   burst length median 1.10s
+  mux_nolock median auth p50 per block (ms): [236.5, 234.2, 234.6, 243.7, 249.5, 234.4, 242.5, 245.9]  mean 240.2   admitted 102400/102400   burst length median 1.10s
+  change nolock vs main in the mean of block medians: -18.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change nolock vs main: -2.7%
+  change mux_main vs main in the mean of block medians: -3.7%   exact permutation p=0.03667  (n=8 v 8 blocks)
+  burst length (throughput proxy) change mux_main vs main: -2.7%
+  change mux_nolock vs main in the mean of block medians: -14.0%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change mux_nolock vs main: -2.7%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                                main      nolock    mux_main  mux_nolock
+    peak queue (connections)                    1040         938        1035         995
+    peak at (ms)                                 598         687         597         589
+    90% of CONNECTs sent by (ms)                 592         688         590         588
+    10% admitted by (ms)                         410         425         433         405
+    50% admitted by (ms)                         745         774         740         703
+    90% admitted by (ms)                        1048        1065        1030        1006
+    all admitted by (ms)                        1125        1152        1107        1100
+    drain rate 10-90% (connections/s)           1961        2007        2071        2055
+    peak queue (connections): nolock vs main -9.8%   exact permutation p=0.04289  (n=8 v 8 blocks)
+    90% admitted by (ms): nolock vs main +1.6%   exact permutation p=0.99876  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +2.3%   exact permutation p=0.70847  (n=8 v 8 blocks)
+    peak queue (connections): mux_main vs main -0.5%   exact permutation p=0.78493  (n=8 v 8 blocks)
+    90% admitted by (ms): mux_main vs main -1.7%   exact permutation p=0.02238  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): mux_main vs main +5.6%   exact permutation p=0.08858  (n=8 v 8 blocks)
+    peak queue (connections): mux_nolock vs main -4.3%   exact permutation p=0.02020  (n=8 v 8 blocks)
+    90% admitted by (ms): mux_nolock vs main -4.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): mux_nolock vs main +4.8%   exact permutation p=0.26154  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+

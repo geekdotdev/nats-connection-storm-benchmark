@@ -25,6 +25,8 @@ type Container struct {
 	Name      string // the container's name in its pod
 	Component string // the pod's app.kubernetes.io/name: broker, callout, loadgen...
 	ID        string // the runtime's id, without the "containerd://" prefix
+	UID       string // the pod's UID: a replaced pod has a new one, so counters that restart from zero are told apart
+	PodIP     string // where the pod can be reached on the pod network (the profile harvester's address for the broker)
 }
 
 // PodLister says which containers of the benchmark are on this node.
@@ -36,11 +38,13 @@ type podList struct {
 	Items []struct {
 		Metadata struct {
 			Name      string            `json:"name"`
+			UID       string            `json:"uid"`
 			Namespace string            `json:"namespace"`
 			Labels    map[string]string `json:"labels"`
 		} `json:"metadata"`
 		Status struct {
 			Phase             string `json:"phase"`
+			PodIP             string `json:"podIP"`
 			ContainerStatuses []struct {
 				Name        string                 `json:"name"`
 				ContainerID string                 `json:"containerID"`
@@ -68,7 +72,7 @@ func ParsePods(body []byte) ([]Container, error) {
 				id = id[i+3:]
 			}
 			out = append(out, Container{Namespace: p.Metadata.Namespace, Pod: p.Metadata.Name, Name: cs.Name,
-				Component: p.Metadata.Labels["app.kubernetes.io/name"], ID: id})
+				Component: p.Metadata.Labels["app.kubernetes.io/name"], ID: id, UID: p.Metadata.UID, PodIP: p.Status.PodIP})
 		}
 	}
 	return out, nil

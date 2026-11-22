@@ -1,0 +1,158 @@
+{
+ "run": "nolock-b1-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 60.908228,
+    "n": 200,
+    "p50": 34.953335,
+    "p90": 49.134738,
+    "p99": 56.130918
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 83952,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 186996,
+    "userUsec": 103044
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 44.686,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "nolock-b1-warm",
+   "seconds": 0.22,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 222.009724,
+    "n": 200,
+    "p50": 179.573886,
+    "p90": 213.673704,
+    "p99": 220.734924
+   }
+  },
+  {
+   "authMs": {
+    "max": 80.058347,
+    "n": 200,
+    "p50": 41.699392,
+    "p90": 72.50314200000001,
+    "p99": 79.11958
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 93734,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 175486,
+    "userUsec": 81752
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 2.691,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "nolock-b1-warm",
+   "seconds": 0.13,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 127.70922700000001,
+    "n": 200,
+    "p50": 88.519008,
+    "p90": 121.383515,
+    "p99": 126.80008500000001
+   }
+  },
+  {
+   "authMs": {
+    "max": 74.10522999999999,
+    "n": 200,
+    "p50": 39.830544,
+    "p90": 66.22610800000001,
+    "p99": 73.660892
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 99095,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 180888,
+    "userUsec": 81794
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 3.297,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "nolock-b1-warm",
+   "seconds": 0.13,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 124.795566,
+    "n": 200,
+    "p50": 85.882988,
+    "p90": 117.953556,
+    "p99": 124.55376799999999
+   }
+  }
+ ],
+ "cpu": {
+  "source": "cgroup v2 cpu.stat and cpu.max, read with kubectl exec just before the Job was created and just after it finished",
+  "components": {
+   "broker": {
+    "broker-0": {
+     "usage_usec": 1063894,
+     "user_usec": 895687,
+     "system_usec": 168207,
+     "nr_periods": 28,
+     "nr_throttled": 0,
+     "throttled_usec": 0,
+     "limit_cores": 3.0
+    }
+   },
+   "callout": {
+    "callout-5c6c46f678-mxknd": {
+     "usage_usec": 347735,
+     "user_usec": 325586,
+     "system_usec": 22148,
+     "nr_periods": 14,
+     "nr_throttled": 0,
+     "throttled_usec": 0,
+     "limit_cores": 1.0
+    }
+   }
+  }
+ },
+ "qualifiers": {
+  "run_id": "96891fa8d821",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-21T13:54:31-08:00",
+  "unit": "nolock-b1",
+  "storm": "nolock-b1-warm"
+ }
+}

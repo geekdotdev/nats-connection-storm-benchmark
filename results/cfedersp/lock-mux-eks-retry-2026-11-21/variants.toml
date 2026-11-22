@@ -1,0 +1,32 @@
+# The accConnsUpdate lock and the auth callout reply multiplexing, four ways: `bench run --variants lock-variants.toml`.
+# The first variant is the baseline. Every image is pinned by digest (the amd64 and arm64 list pushed to GHCR on 2026-11-21, each
+# checked to resolve anonymously), so a tag cannot move under a run; `commit` is recorded in the run's environment.json and says what
+# the image was built from. All four differ only in the broker's source: same stack, same callout, same generator settings.
+#
+#   main        upstream main: accConnsUpdate takes a read lock (#8905)
+#   nolock      feature/lockfree-acc-conns-update: an atomic pointer to the system send queue, so accConnsUpdate takes no server-wide lock
+#   mux_main    feature/auth-callout-mux-on-main: main plus the auth callout reply multiplexing (one shared reply subscription per account)
+#   mux_nolock  feature/auth-callout-mux-on-lockfree: the same multiplexing on top of nolock
+#
+# The branches are on github.com/cfedersp/nats-server. The mux change is an experiment set aside on 2026-11-16 and applied to each base
+# unchanged but for the test file's merge; it was checked with `go test -race -run TestAuthCallout`, not the full nats-server suite.
+
+[[variant]]
+label = "main"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+
+[[variant]]
+label = "nolock"
+commit = "37260075e5313019b14a4550c668b7048a73fb92"
+image = "ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186"      # nats-server:37260075e531
+
+[[variant]]
+label = "mux_main"
+commit = "ec9244c3444df361675dd49f72f73d685c30964d"
+image = "ghcr.io/cfedersp/nats-server@sha256:0676f13113d55867c00c5a1cb76bffc6057896a9adb461892a0570354355e0aa"      # nats-server:ec9244c3444d
+
+[[variant]]
+label = "mux_nolock"
+commit = "7ea787e2b5ee956f54a396fdea9ce3810a50c7bd"
+image = "ghcr.io/cfedersp/nats-server@sha256:d35b480b8d136f25d83e5eabba251b15147772a1672c4bd4158c766f7ae9f5cb"      # nats-server:7ea787e2b5ee

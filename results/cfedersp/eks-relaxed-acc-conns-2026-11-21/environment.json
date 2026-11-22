@@ -1,0 +1,142 @@
+{
+ "target": "eks",
+ "cluster_kind": "eks",
+ "namespace": "storm-bench",
+ "auth": {
+  "mode": "operator",
+  "resolver": "memory",
+  "tenant_accounts": 1,
+  "ticket": "signed by the AUTH account's scoped key, pre-signed before each run",
+  "callout": "role-name mapper, user JWT valid 1 hour"
+ },
+ "date": "2026-11-21T17:11:52-08:00",
+ "variants": [
+  {
+   "label": "main",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"
+  },
+  {
+   "label": "nolock",
+   "commit": "37260075e5313019b14a4550c668b7048a73fb92",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186"
+  },
+  {
+   "label": "relaxed",
+   "commit": "37260075e5313019b14a4550c668b7048a73fb92",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:01b0f78412f07175657cf37c72455445858b72c17b6a914fc651b4e067b4f001"
+  }
+ ],
+ "design": {
+  "blocks": 8,
+  "order": "rotating by block",
+  "phases": [
+   "warm",
+   "idle",
+   "n800",
+   "n1600"
+  ],
+  "sizes": [
+   800,
+   1600
+  ],
+  "threads": 4,
+  "settle_s": 8.0,
+  "per_phase": {
+   "warm": {
+    "connections": 200,
+    "runs": 3,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "idle": {
+    "connections": 1,
+    "runs": 40,
+    "pause_ms": 100,
+    "hold_ms": 100
+   },
+   "n800": {
+    "connections": 800,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "n1600": {
+    "connections": 1600,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   }
+  }
+ },
+ "cluster": {
+  "nodes": [
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966016Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966028Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "2",
+    "memory": "3907372Ki"
+   }
+  ]
+ },
+ "driver_host": {
+  "system": "Darwin",
+  "machine": "arm64",
+  "cpus": 16
+ },
+ "driver_version": "0.0.0",
+ "run_id": "6bd3204a85ad",
+ "driver_revision": "98fc24190cbe+dirty",
+ "cpu_source": "probe",
+ "monitoring": {
+  "probe": true,
+  "prometheus": true,
+  "scrape_interval_s": 1
+ },
+ "variants_file": {
+  "path": "relaxed-variants.toml",
+  "sha256": "ad8ebc9733e77dce76b884b0dbb15ec7d514879d943411b6d40719f5d6cdd9f3"
+ },
+ "github_user": "cfedersp",
+ "backfilled": {
+  "time": "2026-11-21T18:10:00-08:00",
+  "keys": {
+   "github_user": "cfedersp"
+  },
+  "note": "github_user was added afterwards, not by the driver that made the run (it did not record one): it is the GitHub login that published the images these runs used (ghcr.io/cfedersp) and owns the fork their commits come from; this project had one runner then."
+ }
+}

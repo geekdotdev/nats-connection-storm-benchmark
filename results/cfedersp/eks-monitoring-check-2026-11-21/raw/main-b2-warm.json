@@ -1,0 +1,131 @@
+{
+ "run": "main-b2-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 75.51116099999999,
+    "n": 200,
+    "p50": 55.694007,
+    "p90": 70.525725,
+    "p99": 75.05125699999999
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 120706,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 186874,
+    "userUsec": 66167
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 38.774,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "main-b2-warm",
+   "seconds": 0.21,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 210.589199,
+    "n": 200,
+    "p50": 169.116934,
+    "p90": 205.401444,
+    "p99": 210.411341
+   }
+  },
+  {
+   "authMs": {
+    "max": 89.29276,
+    "n": 200,
+    "p50": 54.324112,
+    "p90": 83.50124000000001,
+    "p99": 88.425536
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 58843,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 179279,
+    "userUsec": 120436
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.582,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "main-b2-warm",
+   "seconds": 0.14,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 139.820495,
+    "n": 200,
+    "p50": 100.94701,
+    "p90": 134.38606000000001,
+    "p99": 139.104104
+   }
+  },
+  {
+   "authMs": {
+    "max": 84.669923,
+    "n": 200,
+    "p50": 49.666295,
+    "p90": 78.053943,
+    "p99": 83.031203
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 62490,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 175024,
+    "userUsec": 112534
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 2.468,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "main-b2-warm",
+   "seconds": 0.14,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 135.157364,
+    "n": 200,
+    "p50": 101.240284,
+    "p90": 130.708182,
+    "p99": 134.509969
+   }
+  }
+ ],
+ "qualifiers": {
+  "run_id": "1046283b412a",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-21T15:17:09-08:00",
+  "unit": "main-b2",
+  "storm": "main-b2-warm"
+ }
+}

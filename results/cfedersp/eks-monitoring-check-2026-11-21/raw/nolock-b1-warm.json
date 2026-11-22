@@ -1,0 +1,131 @@
+{
+ "run": "nolock-b1-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 57.233036,
+    "n": 200,
+    "p50": 37.908428,
+    "p90": 49.609355,
+    "p99": 54.406544000000004
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 87956,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 191768,
+    "userUsec": 103811
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 39.123,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "nolock-b1-warm",
+   "seconds": 0.21,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 208.108611,
+    "n": 200,
+    "p50": 165.464113,
+    "p90": 198.416781,
+    "p99": 204.956668
+   }
+  },
+  {
+   "authMs": {
+    "max": 74.712143,
+    "n": 200,
+    "p50": 37.126844,
+    "p90": 67.763677,
+    "p99": 73.03480599999999
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 81171,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 174827,
+    "userUsec": 93656
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.99,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "nolock-b1-warm",
+   "seconds": 0.13,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 126.54864199999999,
+    "n": 200,
+    "p50": 85.91573600000001,
+    "p90": 118.37987199999999,
+    "p99": 126.25612799999999
+   }
+  },
+  {
+   "authMs": {
+    "max": 77.709323,
+    "n": 200,
+    "p50": 42.098692,
+    "p90": 66.610854,
+    "p99": 71.78150099999999
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 119947,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 177182,
+    "userUsec": 57235
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.278,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "nolock-b1-warm",
+   "seconds": 0.13,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 125.01309099999999,
+    "n": 200,
+    "p50": 87.005228,
+    "p90": 118.855401,
+    "p99": 124.651298
+   }
+  }
+ ],
+ "qualifiers": {
+  "run_id": "1046283b412a",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-21T15:17:09-08:00",
+  "unit": "nolock-b1",
+  "storm": "nolock-b1-warm"
+ }
+}

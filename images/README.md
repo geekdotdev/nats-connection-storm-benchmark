@@ -10,6 +10,8 @@ One directory per image, each with its own Dockerfile. Build them with `uv run b
 | `provision` | `components/provision` | repository root (built by `bench images build`, tagged like the callout; the Dockerfile has been built by no one yet) |
 | `cpuprobe` | `components/cpuprobe` | repository root (the DaemonSet of `deploy/monitoring`; Go, standard library only, tagged like the callout) |
 
+The images that have been pushed, with their digests and which are current, are listed in [PUBLISHED.md](PUBLISHED.md): add a row when you push one.
+
 ## Platforms and publishing
 
 ```bash
@@ -32,6 +34,10 @@ uv run bench images push nats-server:<first 12 of the sha>           # needs REG
 Tag the broker image with the commit it was built from, and use the image digest, not the tag, when deploying, so a tag can never change under a run. The `nats-server`, `callout` and `loadgen` Dockerfiles were built with podman for both platforms before operator mode, and the broker image started (`nats-server --version`, and the commit it reports in `/REVISION`). The callout and load generator were rebuilt after operator mode replaced the password callout, and the `provision` image was built for the first time, on 2026-11-21 with podman for arm64 only (one platform, with the `:dev` tags); all three then ran on a kind cluster against the broker image (`deploy/README.md`). The amd64 and arm64 builds that were pushed have not been run.
 
 `callout`, `loadgen` and `provision` are tagged `<name>:src-<12 hex>`, a hash of their source files and Dockerfile (not of a commit, since the source may be uncommitted); a single-platform build also gets `<name>:dev` for the local flow. `bench images build --only callout,loadgen,provision` builds just those, with no commit needed. The `callout` (`src-faac5bdfebd5`) and `loadgen` (`src-9a52195fe7db`) images published to GHCR on 2026-11-18 hold the earlier password callout and plain generator: **they are superseded**. The images built from the operator-mode source were pushed as amd64 and arm64 lists on 2026-11-21 and the EKS overlays pin them: `ghcr.io/cfedersp/callout@sha256:21ca37a0…` (`src-3cff67e67dd2`), `ghcr.io/cfedersp/loadgen@sha256:93d0fc35…` (`src-16759d90c2a9`, pushed later the same day: it records each burst's CPU use and throttling as well as every connection's timings; the earlier lists `src-f92df7b220d0`, timings only, and `src-d4e091f900ab`, neither, are superseded) and `ghcr.io/cfedersp/provision@sha256:b01b5bc5…` (`src-c1a3acc650f6`); the `provision` package was new and private, and was made public the same day.
+
+## A patch on top of a commit
+
+`uv run bench images build <sha> --only nats-server --repo <url> --patch mutex-profile` applies `images/nats-server/patches/mutex-profile.patch` after checking out the commit. It is for a change that exists only to measure: `mutex-profile` adds one line, `runtime.SetMutexProfileFraction(1)`, next to where nats-server starts its profiler, because nats-server never turns the mutex profile on and `/debug/pprof/mutex` would otherwise be empty (the block profile says who waited; the mutex profile says who held the lock they waited for). The image is tagged `nats-server:<sha12>-<patch>` (never the commit's own tag), labelled `benchmark.patch` and `benchmark.patch.sha256`, and the build fails if the patch does not apply. The patch is a file in this repository, not a branch pushed anywhere. It must apply to every commit being compared, so that all variants carry the same extra line; and a patched build must not be compared with an unpatched one.
 
 ## Broker images for the lock and multiplexing comparison
 

@@ -66,7 +66,10 @@ spec:
             seccompProfile: {type: RuntimeDefault}
           volumeMounts:
             - {name: cgroup, mountPath: /host/sys/fs/cgroup, readOnly: true}
+            - {name: profiles, mountPath: /profiles}   # the broker's block profiles, kept here until the run is over (--profile-dir)
       volumes:
+        - name: profiles
+          emptyDir: {sizeLimit: 256Mi}   # gone with the pod; the driver reads it when the run completes. The probe keeps at most 200Mi of it
         - name: cgroup
           hostPath: {path: /sys/fs/cgroup, type: Directory}   # the node's cgroup v2 tree, read-only inside the container
 ---

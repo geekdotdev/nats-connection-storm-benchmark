@@ -25,6 +25,10 @@ func main() {
 	node := flag.String("node", os.Getenv("NODE_NAME"), "this node's name")
 	selector := flag.String("selector", "app.kubernetes.io/part-of=storm-bench", "label selector of the pods to read")
 	refresh := flag.Duration("refresh", 2*time.Second, "how often the pod list is refreshed at most")
+	profDir := flag.String("profile-dir", "/profiles", "where the broker's profiles are kept until the run is over (an emptyDir)")
+	profEvery := flag.Duration("profile-interval", 2*time.Second, "how often to take the broker's block profile (0: never)")
+	profMax := flag.Int64("profile-max-bytes", 200<<20, "the most profile data kept: the oldest go first")
+	profPort := flag.Int("profile-port", 6060, "the broker's prof_port")
 	flag.Parse()
 	if *namespace == "" || *node == "" {
 		slog.Error("--namespace and --node are needed (POD_NAMESPACE and NODE_NAME from the downward API)")
@@ -36,7 +40,12 @@ func main() {
 		os.Exit(1)
 	}
 	probe := NewProbe(lister, *root, *refresh)
-	srv := &http.Server{Addr: *listen, Handler: Handler(probe, *node), ReadHeaderTimeout: 5 * time.Second}
+	var harvester *Harvester
+	if *profEvery > 0 {
+		harvester = NewHarvester(lister, *profDir, *profEvery, *profMax, *profPort)
+		go harvester.Run(context.Background())
+	}
+	srv := &http.Server{Addr: *listen, Handler: Handler(probe, *node, harvester), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server", "err", err)

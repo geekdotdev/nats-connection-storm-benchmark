@@ -6,29 +6,39 @@ network blip. A Python process keeps the code it loaded when it started, so with
 or the run is thrown away. With it, the driver can be stopped at any point and started again with `bench run --resume`: it reads
 what was done from the cluster, skips the finished units and carries on, with whatever code is on disk by then.
 
-The ConfigMap `storm-run` in `storm-bench` has three keys, each one JSON document:
+The ConfigMap `storm-run` in `storm-bench` has two keys, each one JSON document (who is driving the run is not here: it is a Kubernetes
+Lease, below):
 
   plan.json      written once when the run starts: its name and results directory, the target and overlays, the variants in full, the
                  blocks, sizes and threads, and the design (phases and pauses). `--resume` rebuilds the plan from this, so it does not
                  need the original command line or variants file.
   progress.json  every unit (one variant's turn in one block: a fresh broker and all its phases) as running or done, the driver
                  revision that ran it, whether the run is complete, and when it was resumed.
-  lease.json     who is driving the run and when they last said so (see below).
 
 The measurements stay on the machine running the driver (results/<name>-<date>/raw): the state only says how far the run got. A unit
 the state calls done whose files are not all there is redone. A unit that was running when the driver stopped is redone too, from a
 restarted broker: its phases only mean something on one broker from the first warm-up storm on, so none of an interrupted unit is kept.
 
-The lease stops two drivers from running one run (they would delete each other's Jobs). A driver writes its token and the time at
-every unit and storm; another one refuses to start while that is under five minutes old, unless told to take over. A driver that is
-stopped normally (or killed with SIGTERM or Ctrl-C) releases it, so restarting at once needs nothing; after a kill -9 or a crash of the
-machine, wait five minutes or pass --takeover.
+The lease stops two drivers from running one run (they would delete each other's Jobs). It is a Kubernetes Lease (coordination.k8s.io/v1),
+`storm-run` in `storm-bench`, next to the ConfigMap: spec.holderIdentity is the driver's token, spec.renewTime the last time it said so
+(at every unit and storm), spec.leaseDurationSeconds is 300, and spec.leaseTransitions counts how often the holder changed. It is atomic: it
+is created with `kubectl create` (which fails if it exists) and changed with `kubectl replace` carrying the resourceVersion it was read at
+(which fails if anyone changed it since; a Lease that was deleted meanwhile is simply written again, which is harmless to a driver that was taking, renewing or releasing it anyway), so two drivers starting at once cannot both win. And it is owned: every renewal reads the Lease
+first, and a driver that finds another holder has been taken over and stops (LeaseLost) instead of carrying on beside the new one. Another
+driver refuses to start while the renewal is under five minutes old, unless told to take over. A driver that is stopped normally (or killed
+with SIGTERM or Ctrl-C) releases it, so restarting at once needs nothing; after a kill -9 or a crash of the machine, wait five minutes or
+pass --takeover (the old driver, if it is not dead after all, loses the Lease at its next renewal). The driver's clock decides whether a
+renewal is stale: a machine whose clock is minutes off will misjudge, as with any lease.
 
 The store is a small interface so the logic is tested without a cluster. Reads and writes that fail are retried like the job poll in
-kube.py is (a dropped connection must not end a run); creating the ConfigMap is not retried, since a retry could race its own success.
+kube.py is (a dropped connection must not end a run); creating the ConfigMap is not retried, since a retry could race its own success. A
+Lease write that fails for any reason but a conflict is retried too: if the first try did succeed, the retry meets a conflict, the caller reads
+the Lease again, sees itself as the holder and writes again.
 """
 from __future__ import annotations
 
+import dataclasses
+import datetime as dt
 import json
 import os
 import subprocess
@@ -53,6 +63,24 @@ class LeaseHeld(RuntimeError):
     pass
 
 
+class LeaseLost(LeaseHeld):
+    """This driver held the run's Lease and no longer does: another driver took it over. It must stop."""
+
+
+class LeaseConflict(RuntimeError):
+    """A Lease write found the Lease changed (or missing, or already there) since it was read: nothing was written."""
+
+
+@dataclasses.dataclass
+class Lease:
+    holder: str            # spec.holderIdentity: the driver's token, or "" once released
+    renew: float           # spec.renewTime as epoch seconds
+    duration: float = 300.0
+    transitions: int = 0   # spec.leaseTransitions
+    pid: int = 0           # annotation storm-bench/pid
+    rv: str = ""           # metadata.resourceVersion: what a replace must still find
+
+
 class StateError(RuntimeError):
     """The recorded state cannot be used (another schema, a damaged document) or there is none where one is needed."""
 
@@ -68,6 +96,7 @@ class MemoryStore:
     """For tests, and anywhere no cluster is wanted."""
     def __init__(self) -> None:
         self.data: dict[str, str] | None = None
+        self.leases = MemoryLeaseStore()
 
     def read(self):
         return None if self.data is None else dict(self.data)
@@ -84,13 +113,102 @@ class MemoryStore:
 
     def delete(self):
         self.data = None
+        self.leases.delete()
+
+
+class MemoryLeaseStore:
+    """A Lease with the real one's atomicity (create fails if it exists, replace fails if the resourceVersion moved), for tests."""
+    def __init__(self) -> None:
+        self.lease: Lease | None = None
+        self._rv = 0
+
+    def get(self) -> Lease | None:
+        return None if self.lease is None else dataclasses.replace(self.lease)
+
+    def create(self, lease: Lease) -> None:
+        if self.lease is not None:
+            raise LeaseConflict("the Lease already exists")
+        self._rv += 1
+        self.lease = dataclasses.replace(lease, rv=str(self._rv))
+
+    def replace(self, lease: Lease, rv: str) -> None:
+        if self.lease is None or self.lease.rv != rv:
+            raise LeaseConflict("the Lease changed")
+        self._rv += 1
+        self.lease = dataclasses.replace(lease, rv=str(self._rv))
+
+    def delete(self) -> None:
+        self.lease = None
+
+
+LEASE_NAME = "storm-run"
+
+
+def _micro(epoch: float) -> str:
+    return dt.datetime.fromtimestamp(epoch, dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def _epoch(text: str | None) -> float:
+    return dt.datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp() if text else 0.0
+
+
+class KubeLeaseStore:
+    """The Lease `storm-run` (coordination.k8s.io/v1) in the target's cluster. kubectl is run here, not through Runner, because telling a
+    conflict from a network error needs kubectl's stderr, which Runner does not capture."""
+    def __init__(self, target: str, *, retries: int = 60, wait_s: float = 10.0, sleep: Callable[[float], None] = time.sleep,
+                 runner: Callable[..., subprocess.CompletedProcess] = subprocess.run) -> None:
+        self.target, self.retries, self.wait_s, self.sleep, self.runner = target, retries, wait_s, sleep, runner
+
+    def _kubectl(self, *args: str, input: str | None = None) -> subprocess.CompletedProcess:
+        return self.runner(k8s.kubectl_command("-n", NAMESPACE, *args, target=self.target), input=input, text=True, capture_output=True, cwd=REPO_ROOT)
+
+    def _try(self, what: str, args: tuple[str, ...], input: str | None = None, conflict: tuple[str, ...] = ()) -> str:
+        for attempt in range(self.retries + 1):
+            done = self._kubectl(*args, input=input)
+            if done.returncode == 0:
+                return done.stdout
+            if any(c in done.stderr for c in conflict):
+                raise LeaseConflict(done.stderr.strip().splitlines()[-1] if done.stderr.strip() else what)
+            if attempt == self.retries:
+                raise subprocess.CalledProcessError(done.returncode, args, done.stdout, done.stderr)
+            print(f"bench: {what} failed (exit {done.returncode}); trying again in {self.wait_s:.0f} s ({attempt + 1}/{self.retries})", file=sys.stderr, flush=True)
+            self.sleep(self.wait_s)
+        raise AssertionError("unreachable")
+
+    @staticmethod
+    def _manifest(lease: Lease, rv: str | None) -> str:
+        meta = {"name": LEASE_NAME, "namespace": NAMESPACE, "labels": {"app.kubernetes.io/part-of": "storm-bench"},
+                "annotations": {"storm-bench/pid": str(lease.pid)}, **({"resourceVersion": rv} if rv else {})}
+        spec = {"holderIdentity": lease.holder, "leaseDurationSeconds": int(lease.duration), "renewTime": _micro(lease.renew),
+                "acquireTime": _micro(lease.renew), "leaseTransitions": lease.transitions}
+        return json.dumps({"apiVersion": "coordination.k8s.io/v1", "kind": "Lease", "metadata": meta, "spec": spec})
+
+    def get(self) -> Lease | None:
+        out = self._try("reading the run's lease", ("get", "lease", LEASE_NAME, "-o", "json", "--ignore-not-found"))
+        if not out.strip():
+            return None
+        doc = json.loads(out)
+        spec = doc.get("spec", {})
+        return Lease(holder=spec.get("holderIdentity") or "", renew=_epoch(spec.get("renewTime")), duration=float(spec.get("leaseDurationSeconds") or LEASE_S),
+                     transitions=int(spec.get("leaseTransitions") or 0), pid=int(doc["metadata"].get("annotations", {}).get("storm-bench/pid", 0) or 0),
+                     rv=doc["metadata"].get("resourceVersion", ""))
+
+    def create(self, lease: Lease) -> None:
+        self._try("creating the run's lease", ("create", "-f", "-"), self._manifest(lease, None), conflict=("AlreadyExists",))
+
+    def replace(self, lease: Lease, rv: str) -> None:
+        self._try("renewing the run's lease", ("replace", "-f", "-"), self._manifest(lease, rv), conflict=("Conflict", "has been modified", "NotFound"))
+
+    def delete(self) -> None:
+        self._try("deleting the run's lease", ("delete", "lease", LEASE_NAME, "--ignore-not-found"))
 
 
 class KubeStore:
-    """The ConfigMap `storm-run` in the target's cluster, through kubectl with the benchmark's own kubeconfig."""
+    """The ConfigMap `storm-run` in the target's cluster, through kubectl with the benchmark's own kubeconfig. Its Lease is `leases`."""
     def __init__(self, run: Runner, target: str, *, retries: int = 60, wait_s: float = 10.0,
-                 sleep: Callable[[float], None] = time.sleep) -> None:
+                 sleep: Callable[[float], None] = time.sleep, leases: "MemoryLeaseStore | KubeLeaseStore | None" = None) -> None:
         self.run, self.target, self.retries, self.wait_s, self.sleep = run, target, retries, wait_s, sleep
+        self.leases = leases or KubeLeaseStore(target, retries=retries, wait_s=wait_s, sleep=sleep)
 
     def _k(self, *args: str) -> list[str]:
         return k8s.kubectl_command("-n", NAMESPACE, *args, target=self.target)
@@ -126,6 +244,7 @@ class KubeStore:
     def delete(self) -> None:
         self._try("deleting the run state", lambda: self.run.output(
             self._k("delete", "configmap", CONFIGMAP, "--ignore-not-found"), quiet=True))
+        self.leases.delete()
 
 
 def driver_revision() -> str:
@@ -201,10 +320,11 @@ def new_run_id() -> str:
 
 def plan_document(plan: Plan, *, name: str, out: str, target: str, stack_overlay: str, loadgen_overlay: str, settle_s: float,
                   design: dict, revision: str, now: float, run_id: str | None = None, namespace: str = NAMESPACE,
-                  started: str | None = None) -> dict:
+                  started: str | None = None, github_user: str | None = None) -> dict:
     """The run's plan, as plan.json keeps it. `namespace` is where the run's components are (and this ConfigMap): recorded so that a copy
     of the document says so, and so that --resume can tell when the driver would look somewhere else."""
     return {"schema": SCHEMA, "run_id": run_id or new_run_id(), "name": name, "out": out, "target": target, "cluster_kind": qualify.cluster_kind(target), "namespace": namespace,
+            **({"github_user": github_user} if github_user else {}),
             "started": started or _iso(now),
             "stack_overlay": stack_overlay, "loadgen_overlay": loadgen_overlay, "settle_s": settle_s,
             "created": _iso(now), "driver_revision": revision,
@@ -227,7 +347,6 @@ class RunState:
         try:
             self.plan = json.loads(data["plan.json"])
             self.progress = json.loads(data["progress.json"])
-            self.lease = json.loads(data.get("lease.json", "{}"))
         except (KeyError, ValueError) as e:
             raise StateError(f"the run state in the cluster is damaged ({e!r}); `bench run --discard-state` removes it") from e
         if self.plan.get("schema") != SCHEMA:
@@ -238,8 +357,7 @@ class RunState:
     @classmethod
     def create(cls, store: Store, plan_doc: dict, *, units: dict | None = None, now: Callable[[], float] = time.time,
                revision: str | None = None) -> "RunState":
-        data = {"plan.json": json.dumps(plan_doc, indent=1), "progress.json": json.dumps({"units": units or {}, "complete": False, "resumes": []}),
-                "lease.json": "{}"}
+        data = {"plan.json": json.dumps(plan_doc, indent=1), "progress.json": json.dumps({"units": units or {}, "complete": False, "resumes": []})}
         store.create(data)
         return cls(store, data, now=now, revision=revision)
 
@@ -257,30 +375,74 @@ class RunState:
         state from before it was recorded has none, and the driver that resumes it is operating in this one. The start is the run's
         (an adopted run's is the original's, not the time it was adopted)."""
         return {"run_id": self.run_id, "cluster": qualify.cluster_kind(self.plan.get("target")), "target": self.plan.get("target"),
-                "namespace": self.plan.get("namespace") or NAMESPACE, "started": self.plan.get("started") or self.plan.get("created")}
+                "namespace": self.plan.get("namespace") or NAMESPACE, "started": self.plan.get("started") or self.plan.get("created"),
+                "github_user": self.plan.get("github_user") or qualify.NOT_RECORDED}
 
     # -- the lease -----------------------------------------------------------------------------------------------
+    @property
+    def lease(self) -> dict:
+        """The Lease as the status shows it: {} when there is none, else its holder ('' once released), the holder's pid and when it last renewed."""
+        held = self.store.leases.get()
+        return {} if held is None else {"owner": held.holder, "pid": held.pid, "heartbeat": held.renew}
+
+    def _check(self, held: Lease | None, takeover: bool) -> None:
+        if held is None or takeover:
+            return
+        age = self.now() - held.renew
+        if held.holder and held.holder != self.token and age < held.duration:
+            raise LeaseHeld(f"another driver (token {held.holder}, pid {held.pid}) wrote to this run {age:.0f} s ago. If it is still "
+                            f"running, stop it first. If it was killed, wait until that is {held.duration:.0f} s or pass --takeover.")
+
     def check_lease(self, takeover: bool = False) -> None:
-        """Raise LeaseHeld when another driver wrote to the run recently, unless taking over. Changes nothing."""
-        owner, beat = self.lease.get("owner", ""), self.lease.get("heartbeat", 0.0)
-        age = self.now() - beat
-        if owner and owner != self.token and age < LEASE_S and not takeover:
-            raise LeaseHeld(f"another driver (token {owner}, pid {self.lease.get('pid')}) wrote to this run {age:.0f} s ago. If it is still "
-                            f"running, stop it first. If it was killed, wait until that is {LEASE_S:.0f} s or pass --takeover.")
+        """Raise LeaseHeld when another driver renewed the run's Lease recently, unless taking over. Changes nothing."""
+        self._check(self.store.leases.get(), takeover)
+
+    def _mine(self, transitions: int) -> Lease:
+        return Lease(self.token, self.now(), LEASE_S, transitions, os.getpid())
 
     def acquire(self, takeover: bool = False) -> None:
-        self.check_lease(takeover)
-        self._write_lease(self.token)
+        """Take the Lease: create it, or replace it at the resourceVersion read when it is free, stale or being taken over. If anyone wrote it in
+        between, read it again; three losses in a row mean another driver is starting at the same moment."""
+        leases = self.store.leases
+        for _ in range(3):
+            held = leases.get()
+            self._check(held, takeover)
+            try:
+                if held is None:
+                    leases.create(self._mine(0))
+                else:
+                    leases.replace(self._mine(held.transitions + (0 if held.holder == self.token else 1)), held.rv)
+                return
+            except LeaseConflict:
+                continue
+        raise LeaseHeld("another driver took the run's Lease at the same moment: run `bench status`")
 
-    def _write_lease(self, owner: str) -> None:
-        self.lease = {"owner": owner, "pid": os.getpid(), "heartbeat": self.now(), "heartbeat_time": _iso(self.now())}
-        self.store.patch({"lease.json": json.dumps(self.lease)})
+    def _renew(self) -> None:
+        """Say the run is still being driven, and check that it still is by this driver: the Lease is read first, and another holder means this
+        driver was taken over (--takeover from another machine, or a clock that made this one look dead) and must stop."""
+        leases = self.store.leases
+        for _ in range(3):
+            held = leases.get()
+            if held is not None and held.holder != self.token:
+                raise LeaseLost(f"the run is no longer this driver's: driver {held.holder or '(none)'} (pid {held.pid}) holds it now"
+                                + (" (it took the run over)" if held.holder else " (it was released)") + ". This driver stops so that two do not run one run.")
+            try:
+                if held is None:   # never acquired (a caller that did not take it first), or deleted: take it
+                    leases.create(self._mine(0))
+                else:
+                    leases.replace(self._mine(held.transitions), held.rv)
+                return
+            except LeaseConflict:
+                continue
+        raise LeaseLost("could not renew the run's Lease: it kept changing under this driver")
 
     def release(self) -> None:
-        """Hand the run back, so the next driver can start at once. Best effort: this runs while the driver is already ending."""
+        """Hand the run back, so the next driver can start at once. Best effort: this runs while the driver is already ending, and only the
+        holder releases (a driver that was taken over leaves the new holder's Lease alone)."""
         try:
-            if self.lease.get("owner") == self.token:
-                self._write_lease("")
+            held = self.store.leases.get()
+            if held is not None and held.holder == self.token:
+                self.store.leases.replace(Lease("", self.now(), LEASE_S, held.transitions, os.getpid()), held.rv)
         except Exception as e:  # noqa: BLE001 -- the driver is stopping; a failure to say so must not hide why
             print(f"bench: could not release the run's lease ({e}); it expires in {LEASE_S:.0f} s", file=sys.stderr)
 
@@ -305,7 +467,7 @@ class RunState:
         self.progress["units"][unit.key] = {"status": "running", "started": _iso(self.now()), "driver_revision": self.revision,
                                             "attempt": attempt}
         self._save_progress()
-        self._write_lease(self.token)
+        self._renew()
         return attempt
 
     def broker_up(self, unit: Unit, facts: dict) -> None:
@@ -314,13 +476,13 @@ class RunState:
         self._save_progress()
 
     def beat(self) -> None:
-        self._write_lease(self.token)
+        self._renew()
 
     def finish(self, unit: Unit) -> None:
         rec = self.progress["units"][unit.key]
         rec.update(status="done", finished=_iso(self.now()))
         self._save_progress()
-        self._write_lease(self.token)
+        self._renew()
 
     def complete(self) -> None:
         self.progress["complete"] = True
@@ -349,7 +511,7 @@ def format_status(state: RunState) -> str:
     total, done = state.total_units(), state.done_units()
     ns = f", namespace {p['namespace']}" if p.get("namespace") else ""   # a state written before the namespace was recorded has none
     lines = [f"run {p['name']!r} on {p['target']}{ns}: {done} of {total} units done" + ("  (COMPLETE)" if state.is_complete else ""),
-             f"  started {p.get('started') or p['created']}, run id {p['run_id']}, results in results/{p['out']}, driver revision {p['driver_revision']}",
+             f"  started {p.get('started') or p['created']}, run id {p['run_id']}{', run by ' + p['github_user'] if p.get('github_user') else ''}, results in results/{p['github_user'] + '/' if p.get('github_user') else ''}{p['out']}, driver revision {p['driver_revision']}",
              f"  {p['blocks']} blocks x {len(p['variants'])} variants ({', '.join(v['label'] for v in p['variants'])}), sizes {p['sizes']}"]
     running = [k for k, r in pr["units"].items() if r.get("status") == "running"]
     if running:

@@ -73,9 +73,12 @@ func Metrics(node string, samples []Sample) string {
 }
 
 // Handler serves the probe: /metrics for Prometheus, /counters for a client that wants the instant (the load
-// generator, at the start and end of a burst), /healthz.
-func Handler(p *Probe, node string) http.Handler {
+// generator, at the start and end of a burst), /healthz, and, when h is not nil, the broker profiles it has kept (/profiles).
+func Handler(p *Probe, node string, h ...*Harvester) http.Handler {
 	mux := http.NewServeMux()
+	if len(h) > 0 && h[0] != nil {
+		h[0].Mount(mux, node)
+	}
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 		fmt.Fprint(w, Metrics(node, p.Snapshot(r.Context())))

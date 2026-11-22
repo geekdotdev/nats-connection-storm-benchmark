@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# EKS: the probe image is pinned by digest (cpuprobe:src-bf62150bbb28 pushed on 2026-11-21, amd64 and arm64; rebuild, push and replace it
+# EKS: the probe image is pinned by digest (cpuprobe:src-4682f1886471 pushed on 2026-11-21, amd64 and arm64: with the broker block and mutex profile harvester; rebuild, push and replace it
 # when components/cpuprobe changes). EDIT `newName` to your registry account. Prometheus's claim is an EBS gp3 volume (the CSI driver and the
 # StorageClass come from `bench cluster addons`), and the pod runs on the `infra` node group (`bench cluster infra`), which only it uses:
 # a volume attaches to one node, in one zone, and the benchmark's brokers and clients should not share a node with its disk writes.
@@ -10,7 +10,7 @@ resources:
 images:
   - name: cpuprobe
     newName: ghcr.io/cfedersp/cpuprobe
-    digest: sha256:f448f153d27e1348144ba03a7a5ebb4c267645dde490ed64c25dec3a1de98a4d   # cpuprobe:src-bf62150bbb28, amd64 and arm64
+    digest: sha256:305ae94ea239ba26cd9f8d018e0861353f5c6f8a60b12bed195f49ce1cca242d   # cpuprobe:src-4682f1886471, amd64 and arm64
 patches:
   - target: {kind: StatefulSet, name: prometheus}
     patch: |-

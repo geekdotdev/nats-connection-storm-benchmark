@@ -1,0 +1,75 @@
+eks-mutex-profile-2026-11-21: cluster eks · namespace storm-bench · run id 010580a217e0 · started 2026-11-21T16:37:12-08:00 · run by cfedersp
+blocks found: [1, 2]
+main_mutex: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:e5ad6a92cf954403f7b1ad8117d62801e33223ba44398b68a625c4ae4ac4c976   settings {"conf": "# nats-server settings for a profiled run (`bench run --profile --variants profile-variants.toml`): the pprof endpoint, and the block profile\n# at rate 1 (every blocking event is recorded). Block profiling slows the broker, so a profiled run's timings are not comparable with runs\n# without it; what it is for is where the waiting is. nats-server never sets the mutex profile, so on an unpatched broker only the block\n# profile has data; a broker built with `--patch mutex-profile` also fills /debug/pprof/mutex (who held the lock).\nprof_port: 6060\nprof_block_rate: 1\n"}
+nolock_mutex: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:cdd54d7983f1321a5d96d7f6db2493d35855175b854cc008c3046f7dc6d8e6e7   settings {"conf": "# nats-server settings for a profiled run (`bench run --profile --variants profile-variants.toml`): the pprof endpoint, and the block profile\n# at rate 1 (every blocking event is recorded). Block profiling slows the broker, so a profiled run's timings are not comparable with runs\n# without it; what it is for is where the waiting is. nats-server never sets the mutex profile, so on an unpatched broker only the block\n# profile has data; a broker built with `--patch mutex-profile` also fills /debug/pprof/mutex (who held the lock).\nprof_port: 6060\nprof_block_rate: 1\n"}
+
+idle
+  main_mutex median auth p50 per block (ms): [1.7, 1.6]  mean 1.7   admitted 80/80   burst length median 0.00s
+  nolock_mutex median auth p50 per block (ms): [1.4, 1.7]  mean 1.5   admitted 80/80   burst length median 0.00s
+  change nolock_mutex vs main_mutex in the mean of block medians: -7.8%   exact permutation p=0.66667  (n=2 v 2 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                  main_mutex  nolock_mutex
+    broker CPU ms per connection                        1.63          1.60
+    broker cores busy while bursting (limit 3)             -             -
+    broker periods throttled %                           0.0           0.0
+    broker time throttled (s)                           0.00          0.00
+    callout CPU ms per connection                       0.58          0.52
+    callout cores busy while bursting (limit 1)            -             -
+    callout periods throttled %                          0.0             -
+    callout time throttled (s)                          0.00          0.00
+    generator CPU ms per connection                     0.73          0.66
+    generator cores busy while bursting (limit 2)           -             -
+    generator periods throttled %                          -           0.0
+    generator time throttled (s)                        0.00          0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  main_mutex median auth p50 per block (ms): [149.4, 142.8]  mean 146.1   admitted 12800/12800   burst length median 0.56s
+  nolock_mutex median auth p50 per block (ms): [117.4, 128.9]  mean 123.2   admitted 12800/12800   burst length median 0.55s
+  change nolock_mutex vs main_mutex in the mean of block medians: -15.7%   exact permutation p=0.33333  (n=2 v 2 blocks)
+  burst length (throughput proxy) change nolock_mutex vs main_mutex: -2.7%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                            main_mutex  nolock_mutex
+    peak queue (connections)                       503           501
+    peak at (ms)                                   302           304
+    90% of CONNECTs sent by (ms)                   302           295
+    10% admitted by (ms)                           255           246
+    50% admitted by (ms)                           381           350
+    90% admitted by (ms)                           537           501
+    all admitted by (ms)                           566           549
+    drain rate 10-90% (connections/s)             2243          2440
+    peak queue (connections): nolock_mutex vs main_mutex -0.4%   exact permutation p=1.00000  (n=2 v 2 blocks)
+    90% admitted by (ms): nolock_mutex vs main_mutex -6.6%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    drain rate 10-90% (connections/s): nolock_mutex vs main_mutex +8.8%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                  main_mutex  nolock_mutex
+    broker CPU ms per connection                        1.60          1.60
+    broker cores busy while bursting (limit 3)          2.30          2.32
+    broker periods throttled %                           0.0           0.0
+    broker time throttled (s)                           0.00          0.00
+    callout CPU ms per connection                       0.57          0.57
+    callout cores busy while bursting (limit 1)         0.81          0.83
+    callout periods throttled %                         60.0          60.0
+    callout time throttled (s)                          0.15          0.18
+    generator CPU ms per connection                     0.82          0.81
+    generator cores busy while bursting (limit 2)        1.17          1.17
+    generator periods throttled %                       33.3          38.3
+    generator time throttled (s)                        0.15          0.06
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+
+profile: seconds that goroutines spent waiting during each burst storm, summed over goroutines (so more than the storm's own length), from the broker's block profile. The broker ran with block profiling on: its timings are perturbed and not comparable with runs without it.
+  storm                     locks  callout   locks, by function: accConnsUpdate      addClient   removeClient createWSClient authentication processConnect    processPing
+  main_mutex-b1-n800       1250.9    165.0                            2.1    0%      1.3    0%      0.8    0%   1248.1  100%    327.6   26%    634.6   51%    270.4   22%
+  main_mutex-b2-n800       1086.2    209.7                            2.0    0%      1.2    0%      0.8    0%   1083.6  100%    304.9   28%    561.0   52%    232.8   21%
+  nolock_mutex-b1-n800      991.2    156.5                            0.0    0%      0.1    0%      0.1    0%    989.8  100%    271.1   27%    509.7   51%    220.1   22%
+  nolock_mutex-b2-n800     1141.8    137.1                            0.0    0%      0.1    0%      0.1    0%   1140.4  100%    307.7   27%    579.6   51%    264.4   23%
+  (locks: time in sync.Mutex and sync.RWMutex Lock calls; callout: time waiting for the auth callout's reply; a share is of the lock time, and a stack through two of the functions counts in both)
+
+held: seconds that waiters lost on locks, charged to the function that released the lock (the broker's mutex profile: a patched build), and the five functions that held the most
+  storm                    lost s  held by
+  main_mutex-b1-n800       1060.0  (*Server).processClientOrLeafAuthentication 62%, (*Server).createWSClient 20%, (*client).processPing 9%, (*client).processConnect 9%, (*Server).globalAccount 0%
+  main_mutex-b2-n800        920.3  (*Server).processClientOrLeafAuthentication 64%, (*Server).createWSClient 18%, (*client).processConnect 10%, (*client).processPing 8%, (*Server).startGoRoutine 0%
+  nolock_mutex-b1-n800      834.1  (*Server).processClientOrLeafAuthentication 71%, (*Server).createWSClient 16%, (*client).processConnect 7%, (*client).processPing 6%, (*Server).globalAccount 0%
+  nolock_mutex-b2-n800      961.0  (*Server).processClientOrLeafAuthentication 68%, (*Server).createWSClient 17%, (*client).processConnect 8%, (*client).processPing 7%, (*Server).globalAccount 0%

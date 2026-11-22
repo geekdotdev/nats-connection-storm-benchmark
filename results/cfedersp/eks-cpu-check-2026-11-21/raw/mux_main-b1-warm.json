@@ -1,0 +1,158 @@
+{
+ "run": "mux_main-b1-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 83.554427,
+    "n": 200,
+    "p50": 44.536722,
+    "p90": 77.895037,
+    "p99": 82.637356
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 3,
+    "systemUsec": 127020,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 190489,
+    "userUsec": 63469
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 39.609,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "mux_main-b1-warm",
+   "seconds": 0.22,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 214.03937100000002,
+    "n": 200,
+    "p50": 176.277408,
+    "p90": 209.52395700000002,
+    "p99": 213.495188
+   }
+  },
+  {
+   "authMs": {
+    "max": 82.874421,
+    "n": 200,
+    "p50": 48.327053,
+    "p90": 79.69290199999999,
+    "p99": 81.970422
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 84525,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 174929,
+    "userUsec": 90405
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 4.386,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "mux_main-b1-warm",
+   "seconds": 0.14,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 140.104625,
+    "n": 200,
+    "p50": 101.285269,
+    "p90": 135.70067,
+    "p99": 139.452659
+   }
+  },
+  {
+   "authMs": {
+    "max": 86.985428,
+    "n": 200,
+    "p50": 48.408536000000005,
+    "p90": 78.249278,
+    "p99": 79.719827
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 73116,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 167798,
+    "userUsec": 94682
+   },
+   "connections": 200,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 3.546,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "rampMs": 0,
+   "run": "mux_main-b1-warm",
+   "seconds": 0.14,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 134.837736,
+    "n": 200,
+    "p50": 93.5252,
+    "p90": 129.81674,
+    "p99": 133.815866
+   }
+  }
+ ],
+ "cpu": {
+  "source": "cgroup v2 cpu.stat and cpu.max, read with kubectl exec just before the Job was created and just after it finished",
+  "components": {
+   "broker": {
+    "broker-0": {
+     "usage_usec": 1066390,
+     "user_usec": 892017,
+     "system_usec": 174372,
+     "nr_periods": 31,
+     "nr_throttled": 0,
+     "throttled_usec": 0,
+     "limit_cores": 3.0
+    }
+   },
+   "callout": {
+    "callout-586fc9565-wb4m6": {
+     "usage_usec": 352708,
+     "user_usec": 343490,
+     "system_usec": 9218,
+     "nr_periods": 17,
+     "nr_throttled": 0,
+     "throttled_usec": 0,
+     "limit_cores": 1.0
+    }
+   }
+  }
+ },
+ "qualifiers": {
+  "run_id": "96891fa8d821",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-21T13:54:31-08:00",
+  "unit": "mux_main-b1",
+  "storm": "mux_main-b1-warm"
+ }
+}

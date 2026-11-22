@@ -254,7 +254,7 @@ def test_only_the_holder_can_release_the_lease():
     one.acquire()
     two = state.RunState.load(store, now=lambda: 1000.0)
     two.release()
-    assert json.loads(store.data["lease.json"])["owner"] == one.token
+    assert store.leases.get().holder == one.token
 
 
 def test_the_lease_is_held_while_blocks_run_and_released_after_a_failure_and_after_sigterm(tmp_path):
@@ -267,7 +267,7 @@ def test_the_lease_is_held_while_blocks_run_and_released_after_a_failure_and_aft
 
             class Backend(base):
                 def run_storm(inner, label, env):
-                    seen.append(json.loads(store.data["lease.json"])["owner"])
+                    seen.append(store.leases.get().holder)
                     if label == "main-b1-idle":
                         raise SystemExit(143)                          # what the SIGTERM handler raises
                     return super().run_storm(label, env)
@@ -275,7 +275,7 @@ def test_the_lease_is_held_while_blocks_run_and_released_after_a_failure_and_aft
     before = signal.getsignal(signal.SIGTERM)
     with pytest.raises(SystemExit):
         go(run_args(tmp_path), store, Spy())
-    assert seen[0] != "" and json.loads(store.data["lease.json"])["owner"] == ""
+    assert seen[0] != "" and store.leases.get().holder == ""
     assert signal.getsignal(signal.SIGTERM) == before                  # the handler was put back
 
 
@@ -321,7 +321,7 @@ NO_NET = subprocess.CalledProcessError(1, ["kubectl"])
 
 def test_the_configmap_is_read_created_patched_and_deleted_through_the_benchmarks_kubeconfig(kubeconfig):
     run = Scripted(["", json.dumps({"data": {"plan.json": "{}"}}), "", "", ""])
-    store = state.KubeStore(run, "local", sleep=lambda s: None)
+    store = state.KubeStore(run, "local", sleep=lambda s: None, leases=state.MemoryLeaseStore())
     assert store.read() is None and store.read() == {"plan.json": "{}"}
     store.create({"plan.json": "{}"})
     store.patch({"lease.json": "{\"owner\": \"x\"}"})
@@ -739,3 +739,188 @@ def test_the_state_configmap_is_made_in_that_namespace(kubeconfig):
     run = Scripted([""])
     state.KubeStore(run, "local").create({"plan.json": "{}"})
     assert json.loads(run.stdin[0])["metadata"]["namespace"] == config.NAMESPACE and "-n" in run.cmds[0] and config.NAMESPACE in run.cmds[0]
+
+
+
+# -- the Kubernetes Lease ----------------------------------------------------------------------------------------------------------------
+def test_the_lease_is_created_by_the_first_driver_and_replaced_at_the_version_the_second_read():
+    clock = [1000.0]
+    store, one = fresh_state(lambda: clock[0])
+    assert store.leases.get() is None
+    one.acquire()
+    first = store.leases.get()
+    assert first.holder == one.token and first.transitions == 0 and first.duration == state.LEASE_S
+    clock[0] += 10
+    one.beat()
+    again = store.leases.get()
+    assert again.renew == 1010.0 and again.rv != first.rv and again.transitions == 0       # a renewal is a write, and not a change of holder
+
+
+def test_two_drivers_starting_at_the_same_moment_cannot_both_win():
+    """Both read the Lease free, then both try to write it: the second write finds the resourceVersion moved and loses."""
+    store, one = fresh_state(lambda: 1000.0)
+    two = state.RunState.load(store, now=lambda: 1000.0, revision="rev2")
+    real_get = store.leases.get
+    calls = []
+
+    def get_then_let_the_other_in():
+        held = real_get()
+        if not calls:                         # driver two reads, then driver one gets in before two writes
+            calls.append(1)
+            one.acquire()
+        return held
+    store.leases.get = get_then_let_the_other_in
+    with pytest.raises(state.LeaseHeld):
+        two.acquire()
+    store.leases.get = real_get
+    assert store.leases.get().holder == one.token
+
+
+def test_a_driver_that_was_taken_over_stops_at_its_next_renewal_and_leaves_the_new_holders_lease_alone():
+    clock = [1000.0]
+    store, one = fresh_state(lambda: clock[0])
+    one.acquire()
+    two = state.RunState.load(store, now=lambda: clock[0], revision="rev2")
+    two.acquire(takeover=True)
+    assert store.leases.get().holder == two.token and store.leases.get().transitions == 1
+    with pytest.raises(state.LeaseLost, match=f"driver {two.token}"):
+        one.beat()
+    one.release()                                                                         # not the holder: nothing is written
+    assert store.leases.get().holder == two.token
+    two.beat()                                                                            # and the new holder carries on
+
+
+def test_a_released_lease_is_not_renewed_by_the_driver_that_let_go_of_it_to_another_but_is_taken_back_by_nobody_by_accident():
+    store, one = fresh_state(lambda: 1000.0)
+    one.acquire()
+    one.release()
+    two = state.RunState.load(store, now=lambda: 1000.0)
+    two.acquire()
+    with pytest.raises(state.LeaseLost):
+        one.beat()
+
+
+def test_a_deleted_lease_is_taken_again_by_a_driver_that_never_held_it():
+    store, rs = fresh_state(lambda: 1000.0)
+    rs.beat()                                                                             # callers that run blocks without `holding`
+    assert store.leases.get().holder == rs.token
+
+
+def test_a_renewal_that_loses_a_race_with_itself_reads_again_and_goes_on():
+    store, rs = fresh_state(lambda: 1000.0)
+    rs.acquire()
+    real_replace, hits = store.leases.replace, []
+
+    def conflict_once(lease, rv):
+        if not hits:
+            hits.append(1)
+            raise state.LeaseConflict("changed")
+        return real_replace(lease, rv)
+    store.leases.replace = conflict_once
+    rs.beat()
+    assert hits == [1] and store.leases.get().holder == rs.token
+
+
+def test_the_status_shows_the_holder_from_the_lease():
+    clock = [1000.0]
+    store, rs = fresh_state(lambda: clock[0])
+    assert "none holds the run" in state.format_status(rs)
+    rs.acquire()
+    clock[0] += 30
+    text = state.format_status(rs)
+    assert f"driver: token {rs.token}" in text and "last wrote 30 s ago" in text
+    rs.release()
+    assert "none holds the run" in state.format_status(rs)
+
+
+def test_deleting_the_run_state_deletes_its_lease_too():
+    store, rs = fresh_state(lambda: 1000.0)
+    rs.acquire()
+    store.delete()
+    assert store.read() is None and store.leases.get() is None
+
+
+def test_a_run_whose_lease_is_taken_mid_run_stops_without_the_resume_hint(tmp_path, capsys):
+    store = state.MemoryStore()
+
+    class Thief(FakeCluster):
+        def factory(self):
+            base = super().factory()
+
+            class Backend(base):
+                def run_storm(inner, label, env):
+                    if label == "main-b1-idle":   # another driver takes the run over while this one is working
+                        held = store.leases.get()
+                        store.leases.replace(state.Lease("thief", held.renew, state.LEASE_S, held.transitions + 1, 99), held.rv)
+                    return super().run_storm(label, env)
+            return Backend
+    with pytest.raises(state.LeaseLost, match="driver thief"):
+        go(run_args(tmp_path), store, Thief())
+    assert "continues it" not in capsys.readouterr().err                                  # this driver has no run to hand back
+    assert store.leases.get().holder == "thief"                                           # and it did not release the thief's lease
+
+
+# KubeLeaseStore, against kubectl's own words
+class Kubectl:
+    """subprocess.run as kubectl answers: a list of (returncode, stdout, stderr), in order; records the command and its input."""
+    def __init__(self, *answers):
+        self.answers, self.calls = list(answers), []
+
+    def __call__(self, cmd, **kw):
+        self.calls.append((cmd, kw.get("input")))
+        rc, out, err = self.answers.pop(0)
+        return subprocess.CompletedProcess(cmd, rc, out, err)
+
+
+def lease_json(holder="abc", renew="2026-11-21T16:37:12.500000Z", rv="77", transitions=2, pid="123"):
+    return json.dumps({"metadata": {"name": "storm-run", "resourceVersion": rv, "annotations": {"storm-bench/pid": pid}},
+                       "spec": {"holderIdentity": holder, "leaseDurationSeconds": 300, "renewTime": renew, "leaseTransitions": transitions}})
+
+
+def test_the_lease_is_read_from_the_clusters_json(kubeconfig):
+    k = Kubectl((0, lease_json(), ""))
+    got = state.KubeLeaseStore("local", runner=k).get()
+    assert (got.holder, got.rv, got.transitions, got.pid, got.duration) == ("abc", "77", 2, 123, 300.0)
+    assert got.renew == pytest.approx(1795279032.5)
+    assert k.calls[0][0][5:] == ["get", "lease", "storm-run", "-o", "json", "--ignore-not-found"]
+    assert state.KubeLeaseStore("local", runner=Kubectl((0, "", ""))).get() is None
+
+
+def test_the_lease_manifest_is_a_coordination_lease_and_a_replace_carries_the_resource_version(kubeconfig):
+    k = Kubectl((0, "", ""), (0, "", ""))
+    store = state.KubeLeaseStore("local", runner=k)
+    store.create(state.Lease("tok", 1795279032.5, 300.0, 1, 42))
+    store.replace(state.Lease("tok", 1795307900.0, 300.0, 1, 42), "77")
+    created, replaced = (json.loads(c[1]) for c in k.calls)
+    assert created["apiVersion"] == "coordination.k8s.io/v1" and created["kind"] == "Lease" and "resourceVersion" not in created["metadata"]
+    assert created["spec"]["holderIdentity"] == "tok" and created["spec"]["leaseDurationSeconds"] == 300 and created["spec"]["leaseTransitions"] == 1
+    assert created["spec"]["renewTime"] == "2026-11-21T16:37:12.500000Z" and created["metadata"]["annotations"] == {"storm-bench/pid": "42"}
+    assert replaced["metadata"]["resourceVersion"] == "77"                                # the compare-and-swap: the API refuses it if the version moved
+    assert [c[0][5:8] for c in k.calls] == [["create", "-f", "-"], ["replace", "-f", "-"]]
+
+
+@pytest.mark.parametrize("verb,stderr", [("create", 'Error from server (AlreadyExists): leases.coordination.k8s.io "storm-run" already exists'),
+                                         ("replace", "Error from server (Conflict): Operation cannot be fulfilled on leases: the object has been modified"),
+                                         ("replace", 'Error from server (NotFound): leases "storm-run" not found')])
+def test_a_conflict_is_told_from_a_network_error_and_is_not_retried(kubeconfig, verb, stderr):
+    k = Kubectl((1, "", stderr))
+    store = state.KubeLeaseStore("local", runner=k, sleep=lambda s: pytest.fail("a conflict must not be retried"))
+    with pytest.raises(state.LeaseConflict):
+        store.create(state.Lease("t", 1.0)) if verb == "create" else store.replace(state.Lease("t", 1.0), "5")
+    assert len(k.calls) == 1
+
+
+def test_a_dropped_connection_is_retried_for_the_lease_too(kubeconfig, capsys):
+    k = Kubectl((1, "", "Unable to connect to the server: dial tcp: lookup: no such host"), (1, "", "Unable to connect"), (0, lease_json(), ""))
+    sleeps = []
+    got = state.KubeLeaseStore("local", runner=k, sleep=sleeps.append, wait_s=2.0).get()
+    assert got.holder == "abc" and sleeps == [2.0, 2.0] and "reading the run's lease failed" in capsys.readouterr().err
+    with pytest.raises(subprocess.CalledProcessError):
+        state.KubeLeaseStore("local", runner=Kubectl(*[(1, "", "x")] * 3), sleep=lambda s: None, retries=2).get()
+
+
+def test_deleting_the_kube_store_also_deletes_the_lease(kubeconfig):
+    k = Kubectl((0, "", ""))
+    store = state.KubeStore(Scripted([""]), "local", sleep=lambda s: None, leases=state.KubeLeaseStore("local", runner=k))
+    store.delete()
+    assert k.calls[0][0][5:] == ["delete", "lease", "storm-run", "--ignore-not-found"]

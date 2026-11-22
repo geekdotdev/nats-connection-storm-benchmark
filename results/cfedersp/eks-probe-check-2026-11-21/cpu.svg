@@ -1,0 +1,534 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 588" width="780" height="588" role="img" aria-labelledby="t d" font-family="system-ui, sans-serif" font-size="12">
+<title id="t">CPU use over the run, from Prometheus</title>
+<desc id="d">The cores each component used, second by second, and the share of its CPU scheduling periods in which it was throttled, with the bursts shaded.</desc>
+<style>:root{color-scheme:light dark;--bg:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--grid:#e3e2dd;--band:#9a9992;--s0:#2a78d6;--s1:#eb6834;--s2:#1baf7a;--s3:#eda100;--s4:#e87ba4;--s5:#008300;--s6:#6250d6;--s7:#e34948;}@media (prefers-color-scheme:dark){:root{--bg:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--grid:#34332f;--band:#8a897f;--s0:#3987e5;--s1:#d95926;--s2:#199e70;--s3:#c98500;--s4:#d55181;--s5:#0ca30c;--s6:#9085e9;--s7:#e66767;}}.t{fill:var(--ink)}.t2{fill:var(--ink2)}.g{stroke:var(--grid);stroke-width:1}.ax{stroke:var(--ink2);stroke-width:1}</style>
+<rect width="100%" height="100%" fill="var(--bg)"/>
+<text class="t" x="62" y="24" font-size="15" font-weight="600">CPU over the run</text>
+<text class="t2" x="62" y="44">Read from the probes once a second and kept in Prometheus. The shaded columns are the bursts.</text>
+<text class="t2" x="62" y="60">Throttling is the share of 100 ms scheduling periods in which a container had used its limit and was stopped until the next.</text>
+<line x1="62" y1="77" x2="84" y2="77" stroke="var(--s0)" stroke-width="2"/>
+<text class="t2" x="90" y="81">broker</text>
+<line x1="162" y1="77" x2="184" y2="77" stroke="var(--s1)" stroke-width="2" stroke-dasharray="7 4"/>
+<text class="t2" x="190" y="81">callout</text>
+<line x1="270" y1="77" x2="292" y2="77" stroke="var(--s2)" stroke-width="2" stroke-dasharray="2 3"/>
+<text class="t2" x="298" y="81">loadgen</text>
+<rect x="127.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="132.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="136.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="156.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="156.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="157.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="157.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="157.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="158.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="158.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="158.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="159.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="159.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="160.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="160.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="160.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="161.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="161.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="161.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="162.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="162.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="162.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="163.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="163.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="164.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="164.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="164.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="165.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="165.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="165.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="166.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="166.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="167.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="167.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="167.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="168.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="168.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="168.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="169.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="169.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="169.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="170.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="170.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.4" y="112" width="1.2" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="192.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="197.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="202.9" y="112" width="1.1" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="208.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="213.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="219.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="224.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="279.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="284.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="289.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="309.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="309.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="310.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="310.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="310.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="311.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="311.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="311.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="312.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="312.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="313.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="313.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="313.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="314.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="314.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="314.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="315.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="315.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="316.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="316.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="316.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="317.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="317.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="317.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="318.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="318.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="319.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="319.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="319.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="320.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="320.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="320.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="321.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="321.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="321.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="322.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="322.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="323.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="323.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="323.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="339.5" y="112" width="1.2" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="345.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="350.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="356.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="361.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="366.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="372.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="377.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="445.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="449.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="454.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="475.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="475.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="476.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="476.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="476.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="477.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="477.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="478.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="478.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="478.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="479.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="479.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="479.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="480.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="480.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="481.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="481.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="481.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="482.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="482.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="482.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="483.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="483.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="483.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="484.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="484.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="486.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="486.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="486.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="487.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="487.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="488.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="488.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="488.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="489.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="489.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="489.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="510.6" y="112" width="1.1" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="516.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="521.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="527.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="532.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="537.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="543.1" y="112" width="4.4" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="551.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="618.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="623.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="628.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="648.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="648.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="649.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="649.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="649.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="650.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="650.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="651.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="651.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="651.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="652.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="652.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="653.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="653.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="653.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="654.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="654.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="654.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="655.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="655.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="656.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="656.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="656.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="657.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="657.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="657.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="658.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="658.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="658.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="659.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="659.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="660.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="660.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="660.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="661.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="661.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="661.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="662.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="662.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="663.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="683.3" y="112" width="1.3" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="689.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="694.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="700.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="705.4" y="112" width="1.1" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="710.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="716.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="721.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<line class="g" x1="62" y1="282.0" x2="756" y2="282.0"/>
+<text class="t2" x="54" y="286.0" text-anchor="end">0</text>
+<line class="g" x1="62" y1="225.3" x2="756" y2="225.3"/>
+<text class="t2" x="54" y="229.3" text-anchor="end">0.5</text>
+<line class="g" x1="62" y1="168.7" x2="756" y2="168.7"/>
+<text class="t2" x="54" y="172.7" text-anchor="end">1</text>
+<line class="g" x1="62" y1="112.0" x2="756" y2="112.0"/>
+<text class="t2" x="54" y="116.0" text-anchor="end">1.5</text>
+<text class="t2" x="62.0" y="298" text-anchor="middle">0</text>
+<text class="t2" x="148.8" y="298" text-anchor="middle">50</text>
+<text class="t2" x="235.5" y="298" text-anchor="middle">100</text>
+<text class="t2" x="322.2" y="298" text-anchor="middle">150</text>
+<text class="t2" x="409.0" y="298" text-anchor="middle">200</text>
+<text class="t2" x="495.8" y="298" text-anchor="middle">250</text>
+<text class="t2" x="582.5" y="298" text-anchor="middle">300</text>
+<text class="t2" x="669.2" y="298" text-anchor="middle">350</text>
+<text class="t2" x="756.0" y="298" text-anchor="middle">400</text>
+<line class="ax" x1="62" y1="282" x2="756" y2="282"/>
+<text class="t2" x="62" y="100">cores used (CPU seconds per second)</text>
+<polyline points="62.0,281.9 63.7,282.0 65.5,281.9 67.2,281.9 68.9,281.9 72.4,279.9 74.1,281.9 75.9,281.9 77.6,281.9 79.3,281.8 81.1,282.0 82.8,281.9 84.6,281.9 86.3,281.9 88.0,282.0 89.8,281.9 91.5,282.0 93.2,281.9 95.0,282.0 96.7,281.9 98.4,281.9 103.6,281.7 105.4,282.0 107.1,281.9 108.8,282.0 110.6,281.9 112.3,282.0 114.0,281.9 115.8,282.0 117.5,281.9 119.3,282.0 121.0,281.9 122.7,279.0 124.5,281.9 126.2,282.0 127.9,281.9 129.7,244.2 131.4,279.2 133.1,281.9 134.9,246.9 136.6,278.7 138.3,246.7 140.1,278.4 141.8,281.9 143.5,282.0 145.3,281.9 147.0,282.0 148.8,281.9 150.5,282.0 152.2,281.9 154.0,282.0 155.7,281.9 157.4,281.7 159.2,280.7 160.9,281.0 162.6,280.7 164.4,280.8 166.1,280.8 167.8,281.0 169.6,280.7 171.3,280.0 173.0,281.6 174.8,282.0 176.5,281.9 178.2,282.0 180.0,281.9 181.7,282.0 183.4,281.9 185.2,282.0 186.9,281.9 188.7,132.4 190.4,271.6 192.1,282.0 193.9,150.5 195.6,261.0 197.3,279.3 199.1,176.7 200.8,236.0 202.5,276.8 204.3,209.3 206.0,213.0 207.7,272.7 209.5,264.9 211.2,155.6 212.9,264.1 214.7,281.9 216.4,144.6 218.2,263.9 219.9,282.0 221.6,143.0 223.4,271.3 225.1,281.9 226.8,135.1 228.6,271.5 230.3,281.9 232.0,281.9 233.8,282.0 235.5,281.9 237.2,281.9 239.0,281.9 240.7,282.0 242.4,281.9 244.2,282.0 245.9,281.9 247.6,282.0 249.4,281.9 251.1,281.9 252.8,281.6 254.6,278.0 256.3,281.7 258.1,281.9 259.8,281.9 261.5,282.0 263.3,281.9 265.0,282.0 266.7,281.9 268.5,281.9 270.2,281.9 271.9,282.0 273.7,281.9 275.4,279.0 277.1,281.9 278.9,282.0 280.6,281.5 282.3,244.7 284.1,279.6 285.8,244.7 287.6,279.6 289.3,282.0 291.0,245.8 292.8,279.6 294.5,281.9 296.2,282.0 298.0,281.9 299.7,281.9 301.4,281.9 303.2,282.0 304.9,281.9 306.6,282.0 308.4,281.9 310.1,282.0 311.8,280.8 313.6,281.0 315.3,280.7 317.0,280.8 318.8,280.8 320.5,281.0 322.2,280.8 324.0,280.8 325.7,281.4 327.5,282.0 329.2,281.9 330.9,282.0 332.7,281.9 334.4,282.0 336.1,281.2 337.9,281.8 339.6,281.9 341.3,178.4 343.1,231.9 344.8,277.3 346.5,202.1 348.3,215.9 350.0,274.1 351.7,253.8 353.5,167.4 355.2,267.8 356.9,280.7 358.7,143.4 360.4,266.5 362.2,282.0 363.9,138.5 365.6,271.5 367.4,281.9 369.1,146.2 370.8,263.3 372.6,282.0 374.3,145.3 376.0,272.0 377.8,281.9 379.5,132.7 381.2,271.7 383.0,282.0 384.7,281.9 386.4,281.9 388.2,281.9 389.9,281.9 391.6,281.9 393.4,282.0 395.1,281.9 396.9,282.0 398.6,281.9 400.3,282.0 402.1,281.9 403.8,282.0 405.5,281.9 407.3,282.0 412.5,282.0 414.2,281.9 415.9,281.9 417.7,281.9 419.4,281.9 421.1,281.8 422.9,281.9 424.6,281.9 426.4,281.9 428.1,282.0 429.8,281.9 431.6,282.0 433.3,281.9 435.0,282.0 436.8,281.9 438.5,281.9 440.2,278.9 442.0,282.0 443.7,281.9 445.4,281.4 447.2,245.4 448.9,279.1 450.6,246.6 452.4,278.8 454.1,281.9 455.8,246.6 457.6,278.4 459.3,282.0 461.1,281.9 462.8,282.0 464.5,281.9 466.3,281.9 468.0,281.9 469.7,282.0 471.5,281.9 473.2,281.9 474.9,281.9 476.7,281.2 478.4,280.8 480.1,280.8 481.9,281.0 483.6,280.8 485.3,280.8 487.1,280.8 488.8,280.9 490.5,280.2 492.3,281.9 494.0,281.9 495.8,281.9 497.5,282.0 499.2,281.9 501.0,282.0 502.7,281.9 504.4,282.0 506.2,281.9 507.9,281.9 509.6,281.9 511.4,208.8 513.1,208.8 514.8,273.9 516.6,247.9 518.3,174.6 520.0,271.5 521.8,281.8 523.5,139.2 525.2,267.1 527.0,281.9 528.7,141.9 530.5,271.6 532.2,281.9 533.9,140.8 535.7,271.5 537.4,281.9 539.1,138.2 540.9,271.5 542.6,281.9 544.3,143.7 546.1,263.7 547.8,281.0 549.5,281.9 551.3,281.9 553.0,142.2 554.7,270.4 556.5,281.5 558.2,281.9 559.9,282.0 561.7,281.9 563.4,281.9 565.1,281.9 566.9,282.0 568.6,281.9 570.4,282.0 572.1,281.9 573.8,282.0 575.6,281.9 577.3,281.9 579.0,281.9 580.8,282.0 584.2,279.9 586.0,281.9 587.7,281.9 589.4,281.9 591.2,281.9 592.9,281.9 594.6,281.8 596.4,281.9 598.1,281.9 599.9,281.9 601.6,282.0 603.3,281.9 605.1,282.0 606.8,281.9 608.5,282.0 610.3,281.9 612.0,281.9 613.7,278.9 615.5,282.0 617.2,281.9 618.9,280.8 620.7,244.7 622.4,279.2 624.1,246.7 625.9,279.5 627.6,281.9 629.3,246.1 631.1,279.4 632.8,282.0 634.5,281.9 636.3,282.0 638.0,281.9 639.8,281.9 641.5,281.9 643.2,282.0 645.0,281.9 646.7,281.9 648.4,281.9 650.2,280.8 651.9,281.0 653.6,280.8 655.4,280.9 657.1,280.8 658.8,280.7 660.6,281.0 662.3,279.8 664.0,281.2 665.8,281.9 667.5,282.0 669.2,281.9 671.0,282.0 672.7,281.9 674.5,282.0 676.2,281.9 677.9,282.0 679.7,281.9 681.4,281.9 683.1,281.9 684.9,129.9 686.6,270.0 688.3,282.0 690.1,155.3 691.8,249.9 693.5,278.0 695.3,190.0 697.0,215.0 698.7,274.3 700.5,230.0 702.2,187.9 704.0,264.8 705.7,273.7 707.4,138.9 709.2,269.3 710.9,281.9 712.6,132.2 714.4,269.6 716.1,281.9 717.8,137.4 719.6,269.7 721.3,281.9 723.0,128.4 724.8,270.0 726.5,281.9 728.2,281.9 730.0,282.0 731.7,281.9 733.4,281.9 735.2,281.9 736.9,282.0 738.6,281.9 740.4,281.9 742.1,281.9 743.9,282.0 745.6,281.9 747.3,282.0 749.1,281.9 750.8,282.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="62.0,282.0 63.7,282.0 65.5,282.0 67.2,282.0 68.9,282.0 74.1,281.4 75.9,281.5 77.6,281.5 79.3,281.5 81.1,281.7 82.8,282.0 84.6,282.0 86.3,282.0 88.0,282.0 89.8,282.0 91.5,282.0 93.2,282.0 95.0,282.0 96.7,282.0 98.4,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="105.4,282.0 107.1,282.0 108.8,282.0 110.6,282.0 112.3,282.0 114.0,282.0 115.8,282.0 117.5,282.0 119.3,282.0 121.0,282.0 122.7,282.0 124.5,282.0 126.2,282.0 127.9,282.0 129.7,268.0 131.4,282.0 133.1,282.0 134.9,268.5 136.6,282.0 138.3,269.8 140.1,282.0 141.8,282.0 143.5,282.0 145.3,282.0 147.0,282.0 148.8,282.0 150.5,282.0 152.2,282.0 154.0,282.0 155.7,282.0 157.4,281.9 159.2,281.7 160.9,281.7 162.6,281.7 164.4,281.7 166.1,281.8 167.8,281.7 169.6,281.7 171.3,281.7 173.0,281.9 174.8,282.0 176.5,282.0 178.2,282.0 180.0,282.0 181.7,282.0 183.4,282.0 185.2,282.0 186.9,282.0 188.7,233.0 190.4,282.0 192.1,282.0 193.9,242.3 195.6,271.1 197.3,282.0 199.1,255.0 200.8,255.8 202.5,282.0 204.3,270.3 206.0,238.4 207.7,282.0 209.5,281.8 211.2,233.8 212.9,282.0 214.7,282.0 216.4,230.4 218.2,282.0 219.9,282.0 221.6,228.7 223.4,282.0 225.1,282.0 226.8,230.6 228.6,282.0 230.3,282.0 232.0,282.0 233.8,282.0 235.5,282.0 237.2,282.0 239.0,282.0 240.7,282.0 242.4,282.0 244.2,282.0 245.9,282.0 247.6,282.0 249.4,282.0 251.1,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="258.1,282.0 259.8,282.0 261.5,282.0 263.3,282.0 265.0,282.0 266.7,282.0 268.5,282.0 270.2,282.0 271.9,282.0 273.7,282.0 275.4,282.0 277.1,282.0 278.9,282.0 280.6,282.0 282.3,269.0 284.1,282.0 285.8,270.5 287.6,282.0 289.3,282.0 291.0,269.3 292.8,282.0 294.5,282.0 296.2,282.0 298.0,282.0 299.7,282.0 301.4,282.0 303.2,282.0 304.9,282.0 306.6,282.0 308.4,282.0 310.1,282.0 311.8,281.7 313.6,281.7 315.3,281.7 317.0,281.7 318.8,281.7 320.5,281.7 322.2,281.7 324.0,281.7 325.7,281.8 327.5,282.0 329.2,282.0 330.9,282.0 332.7,282.0 334.4,282.0 336.1,282.0 337.9,282.0 339.6,282.0 341.3,258.2 343.1,256.9 344.8,282.0 346.5,267.0 348.3,242.6 350.0,282.0 351.7,281.2 353.5,238.9 355.2,282.0 356.9,282.0 358.7,227.1 360.4,282.0 362.2,282.0 363.9,231.5 365.6,282.0 367.4,282.0 369.1,232.5 370.8,282.0 372.6,282.0 374.3,233.2 376.0,282.0 377.8,282.0 379.5,224.4 381.2,282.0 383.0,282.0 384.7,282.0 386.4,282.0 388.2,282.0 389.9,282.0 391.6,282.0 393.4,282.0 395.1,282.0 396.9,282.0 398.6,282.0 400.3,282.0 402.1,282.0 403.8,282.0 405.5,282.0 407.3,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="414.2,281.6 415.9,281.7 417.7,281.5 419.4,281.5 421.1,281.6 422.9,282.0 424.6,282.0 426.4,282.0 428.1,282.0 429.8,282.0 431.6,282.0 433.3,282.0 435.0,282.0 436.8,282.0 438.5,282.0 440.2,282.0 442.0,282.0 443.7,282.0 445.4,282.0 447.2,269.2 448.9,282.0 450.6,281.9 452.4,269.4 454.1,282.0 455.8,269.2 457.6,282.0 459.3,282.0 461.1,282.0 462.8,282.0 464.5,282.0 466.3,282.0 468.0,282.0 469.7,282.0 471.5,282.0 473.2,282.0 474.9,282.0 476.7,281.9 478.4,281.6 480.1,281.8 481.9,281.7 483.6,281.7 485.3,281.5 487.1,281.8 488.8,281.7 490.5,281.7 492.3,281.9 494.0,282.0 495.8,282.0 497.5,282.0 499.2,282.0 501.0,282.0 502.7,282.0 504.4,282.0 506.2,282.0 507.9,282.0 509.6,282.0 511.4,282.0 513.1,229.1 514.8,282.0 516.6,282.0 518.3,225.6 520.0,282.0 521.8,282.0 523.5,228.7 525.2,282.0 527.0,282.0 528.7,239.5 530.5,275.5 532.2,282.0 533.9,250.9 535.7,262.6 537.4,282.0 539.1,262.7 540.9,249.9 542.6,282.0 544.3,277.3 546.1,228.8 547.8,282.0 549.5,281.6 551.3,282.0 553.0,279.4 554.7,229.8 556.5,282.0 558.2,282.0 559.9,282.0 561.7,282.0 563.4,282.0 565.1,282.0 566.9,282.0 568.6,282.0 570.4,282.0 572.1,282.0 573.8,282.0 575.6,282.0 577.3,282.0 579.0,282.0 580.8,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="587.7,281.5 589.4,281.4 591.2,281.5 592.9,281.7 594.6,281.6 596.4,282.0 598.1,282.0 599.9,282.0 601.6,282.0 603.3,282.0 605.1,282.0 606.8,282.0 608.5,282.0 610.3,282.0 612.0,282.0 613.7,282.0 615.5,282.0 617.2,282.0 618.9,282.0 620.7,267.3 622.4,282.0 624.1,281.8 625.9,268.3 627.6,282.0 629.3,268.4 631.1,282.0 632.8,282.0 634.5,282.0 636.3,282.0 638.0,282.0 639.8,282.0 641.5,282.0 643.2,282.0 645.0,282.0 646.7,282.0 648.4,282.0 650.2,281.8 651.9,281.7 653.6,281.7 655.4,281.7 657.1,281.5 658.8,281.7 660.6,281.8 662.3,281.7 664.0,281.7 665.8,282.0 667.5,282.0 669.2,282.0 671.0,282.0 672.7,282.0 674.5,282.0 676.2,282.0 677.9,282.0 679.7,282.0 681.4,282.0 683.1,282.0 684.9,278.6 686.6,232.4 688.3,282.0 690.1,282.0 691.8,233.4 693.5,282.0 695.3,282.0 697.0,232.9 698.7,282.0 700.5,282.0 702.2,228.9 704.0,282.0 705.7,282.0 707.4,232.6 709.2,279.0 710.9,282.0 712.6,250.0 714.4,261.5 716.1,282.0 717.8,263.1 719.6,248.7 721.3,282.0 723.0,274.5 724.8,236.8 726.5,282.0 728.2,282.0 730.0,282.0 731.7,282.0 733.4,282.0 735.2,282.0 736.9,282.0 738.6,282.0 740.4,282.0 742.1,282.0 743.9,282.0 745.6,282.0 747.3,282.0 749.1,282.0 750.8,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="131.4,279.7 133.1,282.0 134.9,260.7 136.6,280.1 138.3,260.3" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="162.6,280.5 164.4,280.5 166.1,280.7 167.8,280.4 169.6,280.4 171.3,280.4" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="190.4,274.0 192.1,282.0 193.9,202.6 195.6,275.4 197.3,278.8 199.1,203.8 200.8,276.1 202.5,277.3 204.3,222.0 206.0,260.1 207.7,274.0 209.5,264.5 211.2,214.7 212.9,274.1 214.7,282.0 216.4,200.8 218.2,273.8 219.9,282.0 221.6,202.6 223.4,274.0 225.1,282.0 226.8,204.3" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="284.1,280.1 285.8,260.2 287.6,280.1 289.3,282.0 291.0,260.7" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="317.0,280.4 318.8,280.6 320.5,280.5 322.2,280.5 324.0,280.6" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="346.5,218.5 348.3,266.0 350.0,274.0 351.7,252.4 353.5,231.0 355.2,273.7 356.9,276.2 358.7,208.9 360.4,274.0 362.2,282.0 363.9,201.6 365.6,273.9 367.4,282.0 369.1,204.0 370.8,273.7 372.6,282.0 374.3,203.8 376.0,274.0 377.8,282.0 379.5,201.7 381.2,271.8" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="450.6,282.0 452.4,261.0 454.1,280.1 455.8,261.4" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="481.9,280.6 483.6,280.4 485.3,280.5 487.1,280.7 488.8,280.5 490.5,280.4" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="516.6,282.0 518.3,202.4 520.0,273.5 521.8,282.0 523.5,202.6 525.2,273.4 527.0,282.0 528.7,202.2 530.5,274.8 532.2,279.6 533.9,200.4 535.7,274.8 537.4,277.8 539.1,213.7 540.9,268.8 542.6,274.3 544.3,236.8 546.1,248.3 547.8,274.6 549.5,281.3 551.3,281.7 553.0,257.5 554.7,227.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="624.1,282.0 625.9,261.7 627.6,280.0 629.3,260.9" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="655.4,280.6 657.1,280.2 658.8,280.4 660.6,280.7 662.3,280.4 664.0,280.5" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="690.1,272.2 691.8,211.8 693.5,273.6 695.3,282.0 697.0,198.5 698.7,273.6 700.5,282.0 702.2,201.8 704.0,273.7 705.7,282.0 707.4,200.5 709.2,274.5 710.9,280.1 712.6,204.0 714.4,274.9 716.1,277.4 717.8,207.2 719.6,275.2 721.3,276.1 723.0,227.6 724.8,254.7" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<rect x="127.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="132.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="136.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="156.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="156.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="157.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="157.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="157.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="158.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="158.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="158.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="159.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="159.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="160.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="160.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="160.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="161.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="161.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="161.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="162.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="162.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="162.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="163.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="163.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="164.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="164.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="164.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="165.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="165.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="165.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="166.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="166.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="167.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="167.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="167.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="168.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="168.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="168.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="169.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="169.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="169.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="170.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="170.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.4" y="336" width="1.2" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="192.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="197.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="202.9" y="336" width="1.1" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="208.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="213.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="219.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="224.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="279.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="284.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="289.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="309.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="309.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="310.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="310.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="310.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="311.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="311.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="311.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="312.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="312.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="313.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="313.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="313.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="314.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="314.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="314.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="315.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="315.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="316.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="316.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="316.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="317.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="317.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="317.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="318.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="318.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="319.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="319.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="319.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="320.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="320.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="320.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="321.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="321.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="321.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="322.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="322.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="323.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="323.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="323.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="339.5" y="336" width="1.2" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="345.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="350.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="356.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="361.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="366.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="372.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="377.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="445.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="449.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="454.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="475.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="475.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="476.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="476.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="476.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="477.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="477.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="478.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="478.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="478.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="479.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="479.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="479.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="480.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="480.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="481.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="481.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="481.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="482.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="482.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="482.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="483.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="483.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="483.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="484.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="484.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="486.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="486.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="486.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="487.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="487.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="488.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="488.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="488.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="489.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="489.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="489.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="510.6" y="336" width="1.1" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="516.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="521.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="527.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="532.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="537.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="543.1" y="336" width="4.4" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="551.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="618.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="623.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="628.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="648.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="648.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="649.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="649.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="649.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="650.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="650.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="651.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="651.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="651.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="652.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="652.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="653.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="653.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="653.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="654.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="654.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="654.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="655.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="655.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="656.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="656.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="656.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="657.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="657.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="657.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="658.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="658.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="658.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="659.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="659.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="660.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="660.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="660.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="661.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="661.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="661.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="662.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="662.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="663.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="683.3" y="336" width="1.3" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="689.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="694.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="700.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="705.4" y="336" width="1.1" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="710.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="716.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="721.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<line class="g" x1="62" y1="506.0" x2="756" y2="506.0"/>
+<text class="t2" x="54" y="510.0" text-anchor="end">0%</text>
+<line class="g" x1="62" y1="463.5" x2="756" y2="463.5"/>
+<text class="t2" x="54" y="467.5" text-anchor="end">25%</text>
+<line class="g" x1="62" y1="421.0" x2="756" y2="421.0"/>
+<text class="t2" x="54" y="425.0" text-anchor="end">50%</text>
+<line class="g" x1="62" y1="378.5" x2="756" y2="378.5"/>
+<text class="t2" x="54" y="382.5" text-anchor="end">75%</text>
+<line class="g" x1="62" y1="336.0" x2="756" y2="336.0"/>
+<text class="t2" x="54" y="340.0" text-anchor="end">100%</text>
+<text class="t2" x="62.0" y="522" text-anchor="middle">0</text>
+<text class="t2" x="148.8" y="522" text-anchor="middle">50</text>
+<text class="t2" x="235.5" y="522" text-anchor="middle">100</text>
+<text class="t2" x="322.2" y="522" text-anchor="middle">150</text>
+<text class="t2" x="409.0" y="522" text-anchor="middle">200</text>
+<text class="t2" x="495.8" y="522" text-anchor="middle">250</text>
+<text class="t2" x="582.5" y="522" text-anchor="middle">300</text>
+<text class="t2" x="669.2" y="522" text-anchor="middle">350</text>
+<text class="t2" x="756.0" y="522" text-anchor="middle">400</text>
+<line class="ax" x1="62" y1="506" x2="756" y2="506"/>
+<text class="t2" x="62" y="324">share of scheduling periods throttled</text>
+<polyline points="67.2,506.0 68.9,506.0 72.4,506.0 74.1,506.0 79.3,506.0 81.1,506.0 84.6,506.0 89.8,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="98.4,506.0 103.6,506.0 105.4,506.0 107.1,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="114.0,506.0 117.5,506.0 121.0,506.0 122.7,506.0 124.5,506.0 127.9,506.0 129.7,506.0 131.4,506.0 134.9,506.0 136.6,506.0 138.3,506.0 140.1,506.0 143.5,506.0 145.3,506.0 150.5,506.0 155.7,506.0 157.4,506.0 159.2,506.0 160.9,506.0 162.6,506.0 164.4,506.0 166.1,506.0 167.8,506.0 169.6,506.0 171.3,506.0 173.0,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="183.4,506.0 185.2,506.0 186.9,506.0 188.7,506.0 190.4,506.0 192.1,506.0 193.9,506.0 195.6,506.0 197.3,506.0 199.1,506.0 200.8,506.0 202.5,506.0 204.3,506.0 206.0,506.0 207.7,506.0 211.2,506.0 212.9,506.0 214.7,506.0 216.4,506.0 218.2,506.0 221.6,506.0 223.4,506.0 225.1,506.0 226.8,506.0 228.6,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="235.5,506.0 237.2,506.0 239.0,506.0 244.2,506.0 247.6,506.0 249.4,506.0 252.8,506.0 254.6,506.0 256.3,506.0 261.5,506.0 266.7,506.0 268.5,506.0 270.2,506.0 271.9,506.0 273.7,506.0 275.4,506.0 280.6,506.0 282.3,506.0 284.1,506.0 285.8,506.0 287.6,506.0 291.0,506.0 292.8,506.0 294.5,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="301.4,506.0 304.9,506.0 308.4,506.0 311.8,506.0 313.6,506.0 315.3,506.0 317.0,506.0 318.8,506.0 320.5,506.0 322.2,506.0 324.0,506.0 325.7,506.0 330.9,506.0 332.7,506.0 334.4,506.0 336.1,506.0 337.9,506.0 339.6,506.0 341.3,506.0 343.1,506.0 344.8,506.0 346.5,506.0 348.3,506.0 350.0,506.0 351.7,506.0 353.5,506.0 355.2,506.0 358.7,506.0 360.4,506.0 362.2,506.0 363.9,506.0 365.6,506.0 367.4,506.0 369.1,506.0 370.8,506.0 374.3,506.0 376.0,506.0 377.8,506.0 379.5,481.7 381.2,506.0 383.0,506.0 384.7,506.0 386.4,506.0 389.9,506.0 391.6,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="398.6,506.0 400.3,506.0 402.1,506.0 405.5,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="412.5,506.0 414.2,506.0 417.7,506.0 419.4,506.0 421.1,506.0 422.9,506.0 424.6,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="431.6,506.0 436.8,506.0 438.5,506.0 440.2,506.0 445.4,506.0 447.2,506.0 448.9,506.0 450.6,506.0 452.4,506.0 454.1,506.0 455.8,506.0 457.6,506.0 459.3,506.0 464.5,506.0 466.3,506.0 469.7,506.0 471.5,506.0 473.2,506.0 476.7,506.0 478.4,506.0 480.1,506.0 481.9,506.0 483.6,506.0 485.3,506.0 487.1,506.0 488.8,506.0 490.5,506.0 495.8,506.0 497.5,506.0 499.2,506.0 501.0,506.0 502.7,506.0 504.4,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="511.4,506.0 513.1,506.0 514.8,506.0 516.6,506.0 518.3,506.0 520.0,506.0 521.8,506.0 523.5,506.0 525.2,506.0 528.7,506.0 530.5,506.0 532.2,506.0 533.9,506.0 535.7,506.0 537.4,506.0 539.1,506.0 540.9,506.0 544.3,506.0 546.1,506.0 547.8,506.0 549.5,506.0 553.0,506.0 554.7,506.0 556.5,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="563.4,506.0 565.1,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="572.1,506.0 573.8,506.0 579.0,506.0 580.8,506.0 584.2,506.0 586.0,506.0 589.4,506.0 591.2,506.0 594.6,506.0 596.4,506.0 601.6,506.0 603.3,506.0 608.5,506.0 613.7,506.0 617.2,506.0 618.9,506.0 620.7,506.0 622.4,506.0 624.1,506.0 625.9,506.0 629.3,506.0 631.1,506.0 634.5,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="641.5,506.0 645.0,506.0 646.7,506.0 650.2,506.0 651.9,506.0 653.6,506.0 655.4,506.0 657.1,506.0 658.8,506.0 660.6,506.0 662.3,506.0 664.0,506.0 665.8,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="672.7,506.0 676.2,506.0 679.7,506.0 684.9,506.0 686.6,506.0 688.3,506.0 690.1,506.0 691.8,506.0 693.5,506.0 695.3,506.0 697.0,506.0 698.7,506.0 700.5,506.0 702.2,506.0 704.0,506.0 705.7,506.0 707.4,506.0 709.2,506.0 710.9,506.0 712.6,506.0 714.4,506.0 717.8,506.0 719.6,506.0 721.3,506.0 723.0,506.0 724.8,506.0 726.5,506.0 731.7,506.0 733.4,506.0 738.6,506.0 742.1,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="749.1,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="67.2,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="74.1,506.0 75.9,506.0 77.6,506.0 79.3,506.0 81.1,506.0 84.6,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="126.2,506.0 129.7,449.3 133.1,506.0 134.9,463.5 138.3,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="147.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="154.0,506.0 159.2,506.0 160.9,506.0 162.6,506.0 164.4,506.0 166.1,506.0 167.8,506.0 169.6,506.0 171.3,506.0 173.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="181.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="188.7,392.7 190.4,506.0 193.9,421.0 195.6,449.3 199.1,449.3 200.8,421.0 204.3,506.0 206.0,392.7 211.2,433.1 216.4,442.2 221.6,433.1 226.8,433.1" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="259.8,506.0 261.5,506.0 265.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="282.3,506.0 285.8,506.0 287.6,506.0 291.0,463.5" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="311.8,506.0 313.6,506.0 315.3,506.0 317.0,506.0 318.8,506.0 320.5,506.0 322.2,506.0 324.0,506.0 325.7,506.0 327.5,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="341.3,463.5 343.1,421.0 346.5,506.0 348.3,421.0 353.5,433.1 358.7,433.1 363.9,433.1 369.1,433.1 374.3,421.0 376.0,506.0 379.5,404.0 381.2,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="396.9,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="414.2,506.0 415.9,506.0 417.7,506.0 419.4,506.0 421.1,506.0 422.9,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="447.2,506.0 452.4,463.5 455.8,506.0 457.6,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="468.0,506.0 471.5,506.0 476.7,506.0 478.4,506.0 480.1,506.0 481.9,506.0 483.6,506.0 485.3,506.0 487.1,506.0 488.8,506.0 490.5,506.0 492.3,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="502.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="513.1,449.3 518.3,421.0 520.0,506.0 523.5,404.0 525.2,506.0 527.0,506.0 528.7,421.0 530.5,449.3 533.9,449.3 535.7,421.0 539.1,506.0 540.9,433.1 544.3,506.0 546.1,408.9 549.5,506.0 554.7,457.4" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="561.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="587.7,506.0 589.4,506.0 591.2,506.0 592.9,506.0 594.6,506.0 599.9,506.0 601.6,506.0 606.8,506.0 608.5,506.0 610.3,506.0 612.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="620.7,463.5 624.1,506.0 625.9,472.0 629.3,506.0 631.1,506.0 634.5,506.0 636.3,506.0 638.0,506.0 639.8,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="650.2,506.0 651.9,506.0 653.6,506.0 655.4,506.0 657.1,506.0 658.8,506.0 660.6,506.0 662.3,506.0 664.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="676.2,506.0 677.9,506.0 683.1,506.0 684.9,506.0 686.6,392.7 691.8,433.1 697.0,421.0 700.5,506.0 702.2,442.2 707.4,392.7 709.2,506.0 712.6,421.0 714.4,421.0 717.8,449.3 719.6,404.0 721.3,506.0 723.0,506.0 724.8,408.9 726.5,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="735.2,506.0 736.9,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="131.4,506.0 134.9,506.0 136.6,506.0 138.3,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="162.6,506.0 164.4,506.0 166.1,506.0 167.8,506.0 169.6,506.0 171.3,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="190.4,506.0 192.1,506.0 193.9,438.0 195.6,506.0 197.3,506.0 199.1,392.7 200.8,506.0 202.5,506.0 204.3,421.0 206.0,481.7 207.7,506.0 209.5,506.0 211.2,457.4 212.9,506.0 216.4,463.5 218.2,506.0 221.6,463.5 223.4,506.0 226.8,457.4" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="284.1,506.0 285.8,506.0 287.6,506.0 289.3,506.0 291.0,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="317.0,506.0 318.8,506.0 320.5,506.0 322.2,506.0 324.0,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="346.5,392.7 348.3,477.7 350.0,506.0 351.7,506.0 353.5,457.4 355.2,506.0 358.7,463.5 360.4,506.0 363.9,463.5 365.6,506.0 369.1,463.5 370.8,506.0 374.3,457.4 376.0,506.0 377.8,506.0 379.5,449.3 381.2,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="452.4,506.0 454.1,506.0 455.8,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="481.9,506.0 483.6,506.0 485.3,506.0 487.1,506.0 488.8,506.0 490.5,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="518.3,484.8 520.0,506.0 523.5,449.3 525.2,506.0 527.0,506.0 528.7,438.0 530.5,506.0 532.2,506.0 533.9,438.0 535.7,506.0 537.4,506.0 539.1,421.0 540.9,506.0 542.6,506.0 544.3,449.3 546.1,481.7 547.8,506.0 549.5,506.0 551.3,506.0 553.0,506.0 554.7,449.3" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="625.9,506.0 627.6,506.0 629.3,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="655.4,506.0 657.1,506.0 658.8,506.0 660.6,506.0 662.3,506.0 664.0,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="690.1,506.0 691.8,433.1 693.5,506.0 697.0,468.2 698.7,506.0 702.2,463.5 704.0,506.0 707.4,433.1 709.2,506.0 710.9,506.0 712.6,404.0 714.4,506.0 716.1,506.0 717.8,421.0 719.6,506.0 721.3,506.0 723.0,449.3 724.8,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<text class="t2" x="409" y="542" text-anchor="middle">seconds since the first sample</text>
+<text class="t2" x="62" y="564" font-size="11">cluster eks  ·  namespace storm-bench  ·  run id a9619710399b  ·  run by cfedersp</text>
+<text class="t2" x="62" y="580" font-size="11">run started 2026-11-21T15:28:11-08:00  ·  chart generated 2026-11-21T18:10:03-08:00</text>
+</svg>

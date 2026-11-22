@@ -34,6 +34,7 @@ KEYS: tuple[Key, ...] = (
     Key("REGISTRY_USER", "images push"),
     Key("REGISTRY_TOKEN", "images push", "GHCR: classic token with write:packages"),
     Key("GITHUB_TOKEN", "ci dispatch, ci fetch", "fine-grained, this repository only"),
+    Key("GITHUB_USER", "run", "your GitHub login, not a secret: results go in results/<login>/ and every file of the run names it"),
     Key("AWS_PROFILE", "cluster up/down --target eks", "preferred over static keys"),
     Key("AWS_REGION", "cluster up/down --target eks"),
     Key("AWS_ACCESS_KEY_ID", "cluster up/down --target eks", "discouraged; use a profile"),

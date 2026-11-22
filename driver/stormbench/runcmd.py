@@ -15,7 +15,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from . import __version__, config, k8s, monitoring, preflight, qualify, report, state as state_mod, variants as variants_mod
+from . import __version__, config, k8s, monitoring, notes, preflight, profiling, qualify, report, state as state_mod, variants as variants_mod
 from .ab import Plan, Variant, run_blocks, schedule, units
 from .config import REPO_ROOT
 from .images import broker_tag
@@ -69,8 +69,28 @@ def design(plan: Plan, settle_s: float) -> dict:
                           for p in plan.phases}}
 
 
-def environment(plan: Plan, cluster: dict, settle_s: float, target: str = "local") -> dict:
+def runner_login(args) -> str:
+    """The GitHub login of whoever runs this (--github-user, else GITHUB_USER), checked. The one thing a run refuses to start without that
+    the cluster cannot supply: it says who the results belong to."""
+    return qualify.github_user(getattr(args, "github_user", None) or os.environ.get("GITHUB_USER"))
+
+
+def recorded_results_dir(doc: dict) -> Path:
+    """Where a recorded run's results are: under the login that ran it, or, for a run recorded before logins were, results/<out>. The recorded
+    login wins over whoever resumes it: the results belong to the one who started the run."""
+    base = REPO_ROOT / "results"
+    candidates = ([base / doc["github_user"] / doc["out"]] if doc.get("github_user") else []) + [base / doc["out"]]
+    return next((c for c in candidates if (c / "environment.json").is_file()), candidates[0])
+
+
+def results_dir(login: str, name: str, today: str | None = None) -> Path:
+    """results/<login>/<name>-<date>: a person's runs are under their own login."""
+    return REPO_ROOT / "results" / login / f"{name}-{today or dt.date.today().isoformat()}"
+
+
+def environment(plan: Plan, cluster: dict, settle_s: float, target: str = "local", github_user: str | None = None) -> dict:
     return {"target": target, "cluster_kind": qualify.cluster_kind(target), "namespace": config.NAMESPACE, "auth": AUTH,
+            **({"github_user": github_user} if github_user else {}),
             "date": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             "variants": [v.describe() for v in plan.variants],
             "design": design(plan, settle_s),
@@ -138,6 +158,43 @@ def export_monitoring(run: Runner, target: str, out: Path, env: dict) -> None:
         monitoring.export(run, target, out, start, time.time() + 2)
     except Exception as e:  # noqa: BLE001
         print(f"bench: could not export Prometheus's series ({e}); `bench --target {target} monitoring export {out}` tries again", file=sys.stderr, flush=True)
+    export_profiles(run, target, out)
+
+
+def write_notes(out: Path) -> None:
+    """The run's NOTES.md: the facts from environment.json written for it, and three headings left for what only a person knows. A run
+    that was resumed has its generated block refreshed; what was written by hand is never touched."""
+    try:
+        made = notes.ensure(out)
+        notes.refresh(out)
+        if made:
+            print(f"\nnotes: {made} has the run's facts; write its Purpose, What it showed and What perturbs it, and add a line for the run "
+                  "to results/INDEX.md (CLAUDE.md: every run gets notes)", flush=True)
+    except Exception as e:  # noqa: BLE001 -- the run's results are on disk; a notes file must not turn that into a failure
+        print(f"bench: could not write {out / 'NOTES.md'} ({e})", file=sys.stderr, flush=True)
+
+
+def clear_profiles(run: Runner, target: str) -> None:
+    """A new run starts with none of an earlier run's broker profiles in the probes. Best effort."""
+    try:
+        profiling.clear(run, target)
+    except Exception as e:  # noqa: BLE001
+        print(f"bench: could not clear the probes' broker profiles ({e}); the run's own are told apart by time", file=sys.stderr, flush=True)
+
+
+def export_profiles(run: Runner, target: str, out: Path) -> None:
+    """Take the broker profiles the probes kept (only when a variant enabled the broker's profiler, so most runs have none) into
+    out/raw/profile, and say in environment.json that the broker was profiled: its timings are then perturbed. Best effort."""
+    try:
+        kept = profiling.export(run, target, out)
+        if kept:
+            path = out / "environment.json"
+            env = json.loads(path.read_text())
+            env["profiling"] = {"block_profiles": len(kept), "taken_by": "the CPU probes, every few seconds", "pod": kept[0]["pod"],
+                                "note": "block profiling slows the broker: the timings of this run are perturbed and not comparable with runs without it"}
+            path.write_text(json.dumps(env, indent=1) + "\n")
+    except Exception as e:  # noqa: BLE001
+        print(f"bench: could not read the broker profiles from the probes ({e})", file=sys.stderr, flush=True)
 
 
 def save_variants_file(src: Path, out: Path) -> dict:
@@ -179,6 +236,8 @@ def holding(rs: state_mod.RunState, takeover: bool):
         pass
     try:
         yield
+    except state_mod.LeaseLost:
+        raise  # another driver holds the run now: its message says so, and this one has nothing to hand back
     except BaseException:
         # Whatever ended the loop (a failed storm, a network that stayed down, Ctrl-C, SIGTERM), the run is still recorded.
         print(f"bench: the run is recorded in the cluster: `bench --target {rs.plan['target']} run --resume` continues it "
@@ -214,7 +273,8 @@ def _start(run: Runner, args, make_store, backend_factory) -> int:
     plan = make_plan(variants_from_args(args), blocks=DEFAULT_BLOCKS if args.blocks is None else args.blocks,
                      sizes=args.sizes or DEFAULT_SIZES, threads=DEFAULT_THREADS if args.threads is None else args.threads)
     name = args.name or DEFAULT_NAME
-    out = Path(args.out) if args.out else REPO_ROOT / "results" / f"{name}-{dt.date.today().isoformat()}"
+    login = runner_login(args)
+    out = Path(args.out) if args.out else results_dir(login, name)
     if run.dry_run:
         steps = list(schedule(plan))
         print(f"would write {out}: {plan.blocks} blocks x {len(plan.variants)} variants, {len(steps)} storms")
@@ -244,9 +304,11 @@ def _start(run: Runner, args, make_store, backend_factory) -> int:
         backend.prepare(plan.variants)
         if hasattr(backend, "delete_storm_jobs"):
             backend.delete_storm_jobs()  # the storms of an earlier run, and the single Job older drivers made: a new run starts with none
+        if probes:
+            clear_profiles(run, args.target)
         out.mkdir(parents=True)
         run_id, revision = state_mod.new_run_id(), state_mod.driver_revision()
-        env = {**environment(plan, backend.describe(), settle_s, args.target), "run_id": run_id, "driver_revision": revision,
+        env = {**environment(plan, backend.describe(), settle_s, args.target, login), "run_id": run_id, "driver_revision": revision,
                "cpu_source": "probe" if probes else ("exec" if not args.no_cpu else "none"),
                **({"monitoring": {"probe": True, "prometheus": True, "scrape_interval_s": monitoring.STEP_S}} if probes else {})}
         if args.variants:
@@ -257,7 +319,7 @@ def _start(run: Runner, args, make_store, backend_factory) -> int:
         rs = state_mod.RunState.create(store, state_mod.plan_document(
             plan, name=name, out=out.name, target=args.target, stack_overlay=args.stack_overlay or STACK_OVERLAYS[args.target],
             loadgen_overlay=args.loadgen_overlay or LOADGEN_OVERLAYS[args.target], settle_s=settle_s, design=env["design"],
-            revision=revision, now=time.time(), run_id=run_id, started=env["date"]))
+            revision=revision, now=time.time(), run_id=run_id, started=env["date"], github_user=login))
         with holding(rs, args.takeover):
             run_blocks(plan, backend, out / "raw", progress=rs)
             rs.complete()
@@ -269,6 +331,7 @@ def _start(run: Runner, args, make_store, backend_factory) -> int:
         export_monitoring(run, args.target, out, json.loads((out / "environment.json").read_text()))
     text = report.write(out)
     print("\n" + text)
+    write_notes(out)
     return 0
 
 
@@ -286,7 +349,7 @@ def _resume(run: Runner, args, make_store, backend_factory) -> int:
         raise ValueError(f"the recorded run's components are in namespace {doc['namespace']!r}, but this driver looks in {config.NAMESPACE!r}: "
                          "it would be resuming a run it cannot find")
     plan = plan_from_document(doc)
-    out = Path(args.out) if args.out else REPO_ROOT / "results" / doc["out"]
+    out = Path(args.out) if args.out else recorded_results_dir(doc)
     if not (out / "environment.json").is_file():
         print(f"bench: {out}/environment.json not found: the measurements are kept on the machine that ran them. Pass --out DIR "
               "to point at the results directory, or `bench run --discard-state ...` to start over.", flush=True)
@@ -334,6 +397,7 @@ def _resume(run: Runner, args, make_store, backend_factory) -> int:
         export_monitoring(run, args.target, out, json.loads((out / "environment.json").read_text()))
     text = report.write(out)
     print("\n" + text)
+    write_notes(out)
     return 0
 
 
@@ -401,6 +465,10 @@ def execute_adopt(run: Runner, args, *, make_store=None) -> int:
     if moved:
         (raw / "DONE").unlink(missing_ok=True)  # the run is not done any more: --resume writes it again
     rev = state_mod.driver_revision()
+    given = getattr(args, "github_user", None) or os.environ.get("GITHUB_USER")
+    recorded_login = None
+    if given and not env.get("github_user"):   # a run from before logins were recorded takes the one given, and says so
+        recorded_login = env["github_user"] = qualify.github_user(given)
     run_id = env.get("run_id") or state_mod.new_run_id()  # a directory that already has one keeps it
     if existing:
         store.delete()
@@ -409,10 +477,12 @@ def execute_adopt(run: Runner, args, *, make_store=None) -> int:
                                         stack_overlay=args.stack_overlay or STACK_OVERLAYS[args.target],
                                         loadgen_overlay=args.loadgen_overlay or LOADGEN_OVERLAYS[args.target],
                                         settle_s=d["settle_s"], design=d, revision=rev, now=time.time(), run_id=run_id,
-                                        started=env.get("date")),
+                                        started=env.get("date"), github_user=env.get("github_user")),
         units={u.key: {"status": "done", "adopted": True, "driver_revision": "adopted"} for u in keep})
     env["run_id"] = run_id
     added = [k for k in ("cluster_kind", "namespace") if k not in env]   # a run from before they were recorded: said, so it is not mistaken for a fact the old driver wrote
+    if recorded_login:
+        added.append("github_user")
     env.setdefault("cluster_kind", qualify.cluster_kind(args.target))
     env.setdefault("namespace", config.NAMESPACE)
     if args.variants_file:
@@ -458,6 +528,7 @@ def execute_monitoring(run: Runner, args) -> int:
         done = out / "raw" / "DONE"
         end = time.time() + 2 if not done.is_file() else dt.datetime.strptime(done.read_text().strip(), "%Y-%m-%dT%H:%M:%S%z").timestamp() + 5
         monitoring.export(run, target, out, dt.datetime.fromisoformat(env["date"]).timestamp() - 15, end)
+        export_profiles(run, target, out)
         text = report.write(out)
         print("\n" + text)
     return 0

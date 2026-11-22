@@ -92,7 +92,7 @@ def burst_windows(run_dir: Path) -> list[tuple[float, float]]:
 
 
 def chart(use: dict[str, list[tuple[float, float]]], throttled: dict[str, list[tuple[float, float]]], bursts: list[tuple[float, float]],
-          *, run_date: str = "", generated: str = "", run_id: str = "", cluster: str = "", namespace: str = "") -> str:
+          *, run_date: str = "", generated: str = "", run_id: str = "", cluster: str = "", namespace: str = "", github_user: str = "") -> str:
     comps = [c for c in COMPONENTS if c in use] + [c for c in use if c not in COMPONENTS]
     t0 = min(t for pts in use.values() for t, _ in pts)
     t1 = max(t for pts in use.values() for t, _ in pts)
@@ -155,7 +155,8 @@ def chart(use: dict[str, list[tuple[float, float]]], throttled: dict[str, list[t
     if not throttled:
         o.append(f'<text class="t2" x="{ML + 8}" y="{TOP + PH + GAP + 20}">no container reported a CPU limit, so nothing could be throttled</text>')
     o.append(f'<text class="t2" x="{(ML + W - MR) / 2:.0f}" y="{H - 46}" text-anchor="middle">seconds since the first sample</text>')
-    where = [f"cluster {cluster}" if cluster else "", f"namespace {namespace}" if namespace else "", f"run id {run_id}" if run_id else ""]
+    where = [f"cluster {cluster}" if cluster else "", f"namespace {namespace}" if namespace else "", f"run id {run_id}" if run_id else "",
+             f"run by {github_user}" if github_user else ""]
     stamps = [f"run started {run_date}" if run_date else "", f"chart generated {generated}" if generated else ""]
     if any(where):
         o.append(f'<text class="t2" x="{ML}" y="{H - 24}" font-size="11">{html.escape("  ·  ".join(x for x in where if x))}</text>')
@@ -165,7 +166,7 @@ def chart(use: dict[str, list[tuple[float, float]]], throttled: dict[str, list[t
     return "\n".join(o) + "\n"
 
 
-def write(run_dir: Path, *, run_date: str = "", generated: str = "", run_id: str = "", cluster: str = "", namespace: str = "") -> Path | None:
+def write(run_dir: Path, *, run_date: str = "", generated: str = "", run_id: str = "", cluster: str = "", namespace: str = "", github_user: str = "") -> Path | None:
     """cpu.svg, when the run exported Prometheus series that have samples; None otherwise (and any stale cpu.svg is removed)."""
     target = run_dir / "cpu.svg"
     target.unlink(missing_ok=True)
@@ -174,5 +175,5 @@ def write(run_dir: Path, *, run_date: str = "", generated: str = "", run_id: str
     if not use:
         return None
     target.write_text(chart(use, throttled_share(folder), burst_windows(run_dir), run_date=run_date, generated=generated, run_id=run_id,
-                            cluster=cluster, namespace=namespace))
+                            cluster=cluster, namespace=namespace, github_user=github_user))
     return target

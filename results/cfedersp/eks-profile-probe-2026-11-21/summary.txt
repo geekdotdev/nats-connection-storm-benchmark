@@ -1,0 +1,68 @@
+eks-profile-probe-2026-11-21: cluster eks · namespace storm-bench · run id 17f98322cd0f · started 2026-11-21T16:06:45-08:00 · run by cfedersp
+blocks found: [1, 2]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"conf": "# nats-server settings for a profiled run (`bench run --profile --variants profile-variants.toml`): the pprof endpoint, and the block profile\n# at rate 1 (every blocking event is recorded). Block profiling slows the broker, so a profiled run's timings are not comparable with runs\n# without it; what it is for is where the waiting is. nats-server never sets the mutex profile, so only the block profile is useful.\nprof_port: 6060\nprof_block_rate: 1\n"}
+nolock: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186   settings {"conf": "# nats-server settings for a profiled run (`bench run --profile --variants profile-variants.toml`): the pprof endpoint, and the block profile\n# at rate 1 (every blocking event is recorded). Block profiling slows the broker, so a profiled run's timings are not comparable with runs\n# without it; what it is for is where the waiting is. nats-server never sets the mutex profile, so only the block profile is useful.\nprof_port: 6060\nprof_block_rate: 1\n"}
+
+idle
+  main     median auth p50 per block (ms): [1.6, 1.6]  mean 1.6   admitted 80/80   burst length median 0.00s
+  nolock   median auth p50 per block (ms): [1.6, 1.6]  mean 1.6   admitted 80/80   burst length median 0.00s
+  change nolock vs main in the mean of block medians: +0.1%   exact permutation p=1.00000  (n=2 v 2 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock
+    broker CPU ms per connection                     1.88       1.84
+    broker cores busy while bursting (limit 3)       1.43          -
+    broker periods throttled %                        0.0        0.0
+    broker time throttled (s)                        0.00       0.00
+    callout CPU ms per connection                    0.54       0.53
+    callout cores busy while bursting (limit 1)      0.14          -
+    callout periods throttled %                         -          -
+    callout time throttled (s)                       0.00       0.00
+    generator CPU ms per connection                  0.68       0.66
+    generator cores busy while bursting (limit 2)     0.08          -
+    generator periods throttled %                     0.0        0.0
+    generator time throttled (s)                     0.00       0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  main     median auth p50 per block (ms): [165.4, 135.2]  mean 150.3   admitted 12800/12800   burst length median 0.57s
+  nolock   median auth p50 per block (ms): [147.1, 120.2]  mean 133.6   admitted 12800/12800   burst length median 0.58s
+  change nolock vs main in the mean of block medians: -11.1%   exact permutation p=0.66667  (n=2 v 2 blocks)
+  burst length (throughput proxy) change nolock vs main: +1.7%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               main     nolock
+    peak queue (connections)                    528        532
+    peak at (ms)                                298        308
+    90% of CONNECTs sent by (ms)                292        293
+    10% admitted by (ms)                        257        264
+    50% admitted by (ms)                        383        367
+    90% admitted by (ms)                        547        532
+    all admitted by (ms)                        575        574
+    drain rate 10-90% (connections/s)          2223       2364
+    peak queue (connections): nolock vs main +0.8%   exact permutation p=1.00000  (n=2 v 2 blocks)
+    90% admitted by (ms): nolock vs main -2.7%   exact permutation p=0.66667  (n=2 v 2 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +6.3%   exact permutation p=0.33333  (n=2 v 2 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock
+    broker CPU ms per connection                     1.67       1.67
+    broker cores busy while bursting (limit 3)       2.33       2.30
+    broker periods throttled %                        0.0        0.0
+    broker time throttled (s)                        0.00       0.00
+    callout CPU ms per connection                    0.56       0.56
+    callout cores busy while bursting (limit 1)      0.80       0.78
+    callout periods throttled %                      55.0       58.6
+    callout time throttled (s)                       0.13       0.19
+    generator CPU ms per connection                  0.82       0.83
+    generator cores busy while bursting (limit 2)     1.14       1.15
+    generator periods throttled %                    33.3       32.1
+    generator time throttled (s)                     0.09       0.15
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+
+profile: seconds that goroutines spent waiting during each burst storm, summed over goroutines (so more than the storm's own length), from the broker's block profile. The broker ran with block profiling on: its timings are perturbed and not comparable with runs without it.
+  storm                     locks  callout   locks, by function: accConnsUpdate      addClient   removeClient createWSClient authentication processConnect    processPing
+  main-b1-n800             1414.9    183.5                            2.2    0%      1.4    0%      0.8    0%   1412.1  100%    416.5   29%    736.7   52%    339.4   24%
+  main-b2-n800             1041.4    203.3                            1.9    0%      1.2    0%      0.7    0%   1038.8  100%    296.4   28%    543.1   52%    227.7   22%
+  nolock-b1-n800           1235.9    180.8                            0.1    0%      0.1    0%      0.2    0%   1234.4  100%    366.6   30%    652.6   53%    294.7   24%
+  nolock-b2-n800           1050.8    175.6                            0.0    0%      0.4    0%      0.1    0%   1049.4  100%    313.2   30%    551.2   52%    245.8   23%
+  (locks: time in sync.Mutex and sync.RWMutex Lock calls; callout: time waiting for the auth callout's reply; a share is of the lock time, and a stack through two of the functions counts in both)

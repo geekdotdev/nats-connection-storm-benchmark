@@ -1,3 +1,4 @@
+# GITHUB_USER=<your GitHub login> (in .env or the environment; or --github-user) is required by `run`: results go to results/<login>/<name>-<date>/
 AWS_PROFILE=AwsProfileName-AccountNum uv run bench cluster up --target eks --region us-east-1 --yes
 uv run bench --target eks preflight --variants cluster-variants.toml
 uv run bench --target eks run --variants cluster-variants.toml --name eks-800-1600 --sizes 800,1600
@@ -9,4 +10,9 @@ restart auto-discovers the run by inspecting a configmap, so the driver itself i
 AWS_PROFILE=AwsProfileName-AccountNum AWS_REGION=us-east-1 uv run bench --target eks run --resume
 
 post:
-uv run bench report results/<<output dir>>
+uv run bench report results/<<github login>>/<<output dir>>
+
+compare against another variant:
+the report measures every change against the run's first variant (its baseline), and summary.txt is written that way. To ask a different question of the same data, e.g. mux_nolock against nolock, name the baseline; this prints only and leaves summary.txt and the charts as they are:
+uv run bench report results/<<github login>>/<<output dir>> --baseline <<variant label>>
+(each extra baseline is another comparison: the p values are not corrected for them, so say how many were looked at)

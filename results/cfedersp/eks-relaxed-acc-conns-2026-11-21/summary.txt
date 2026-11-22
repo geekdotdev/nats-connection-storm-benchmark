@@ -1,0 +1,111 @@
+eks-relaxed-acc-conns-2026-11-21: cluster eks · namespace storm-bench · run id 6bd3204a85ad · started 2026-11-21T17:11:52-08:00 · run by cfedersp
+blocks found: [1, 2, 3, 4, 5, 6, 7, 8]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+nolock: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186
+relaxed: commit 37260075e531, image ghcr.io/cfedersp/nats-server@sha256:01b0f78412f07175657cf37c72455445858b72c17b6a914fc651b4e067b4f001
+baseline main; 2 comparisons with it, not corrected for the number of them
+
+idle
+  main     median auth p50 per block (ms): [1.6, 1.6, 1.8, 1.8, 1.8, 1.6, 1.6, 1.6]  mean 1.7   admitted 320/320   burst length median 0.00s
+  nolock   median auth p50 per block (ms): [1.8, 1.6, 1.8, 1.6, 1.6, 1.6, 1.6, 1.6]  mean 1.7   admitted 320/320   burst length median 0.00s
+  relaxed  median auth p50 per block (ms): [1.6, 1.7, 1.7, 1.6, 1.6, 1.6, 1.6, 1.6]  mean 1.6   admitted 320/320   burst length median 0.00s
+  change nolock vs main in the mean of block medians: -1.1%   exact permutation p=0.53970  (n=8 v 8 blocks)
+  change relaxed vs main in the mean of block medians: -3.3%   exact permutation p=0.02813  (n=8 v 8 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock    relaxed
+    broker CPU ms per connection                     1.78       1.73       1.46
+    broker cores busy while bursting (limit 3)       0.25          -       0.16
+    broker periods throttled %                        0.0        0.0        0.0
+    broker time throttled (s)                        0.00       0.00       0.00
+    callout CPU ms per connection                    0.64       0.64       0.64
+    callout cores busy while bursting (limit 1)      0.10          -       0.06
+    callout periods throttled %                       0.0        0.0        0.0
+    callout time throttled (s)                       0.00       0.00       0.00
+    generator CPU ms per connection                  0.79       0.79       0.78
+    generator cores busy while bursting (limit 2)     0.12          -       0.08
+    generator periods throttled %                     0.0        0.0        0.0
+    generator time throttled (s)                     0.00       0.00       0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  main     median auth p50 per block (ms): [139.7, 150.0, 138.9, 141.4, 147.1, 149.0, 150.4, 146.2]  mean 145.3   admitted 51200/51200   burst length median 0.56s
+  nolock   median auth p50 per block (ms): [136.1, 133.9, 125.0, 117.3, 117.4, 99.5, 123.4, 132.5]  mean 123.1   admitted 51200/51200   burst length median 0.56s
+  relaxed  median auth p50 per block (ms): [108.6, 94.0, 114.0, 95.2, 126.2, 105.7, 112.3, 111.1]  mean 108.4   admitted 51200/51200   burst length median 0.56s
+  change nolock vs main in the mean of block medians: -15.3%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change nolock vs main: +0.0%
+  change relaxed vs main in the mean of block medians: -25.4%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change relaxed vs main: +0.0%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               main     nolock    relaxed
+    peak queue (connections)                    514        478        447
+    peak at (ms)                                304        335        358
+    90% of CONNECTs sent by (ms)                300        340        364
+    10% admitted by (ms)                        256        270        274
+    50% admitted by (ms)                        378        383        395
+    90% admitted by (ms)                        532        542        545
+    all admitted by (ms)                        570        576        577
+    drain rate 10-90% (connections/s)          2267       2394       2382
+    peak queue (connections): nolock vs main -7.2%   exact permutation p=0.03310  (n=8 v 8 blocks)
+    90% admitted by (ms): nolock vs main +1.9%   exact permutation p=0.96053  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +5.6%   exact permutation p=0.03497  (n=8 v 8 blocks)
+    peak queue (connections): relaxed vs main -13.0%   exact permutation p=0.00171  (n=8 v 8 blocks)
+    90% admitted by (ms): relaxed vs main +2.5%   exact permutation p=0.49308  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): relaxed vs main +5.1%   exact permutation p=0.11049  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock    relaxed
+    broker CPU ms per connection                     1.59       1.57       1.50
+    broker cores busy while bursting (limit 3)       2.22       2.18       2.08
+    broker periods throttled %                        0.9        0.0        0.0
+    broker time throttled (s)                        0.00       0.00       0.00
+    callout CPU ms per connection                    0.57       0.58       0.59
+    callout cores busy while bursting (limit 1)      0.81       0.82       0.82
+    callout periods throttled %                      58.8       55.9       53.0
+    callout time throttled (s)                       0.21       0.19       0.18
+    generator CPU ms per connection                  0.83       0.93       1.00
+    generator cores busy while bursting (limit 2)     1.16       1.27       1.37
+    generator periods throttled %                    37.9       44.3       43.6
+    generator time throttled (s)                     0.10       0.12       0.12
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n1600
+  main     median auth p50 per block (ms): [288.5, 255.1, 283.5, 271.2, 269.9, 267.4, 277.2, 262.2]  mean 271.9   admitted 102400/102400   burst length median 1.12s
+  nolock   median auth p50 per block (ms): [229.9, 252.2, 237.0, 225.1, 242.8, 246.7, 220.9, 237.3]  mean 236.5   admitted 102400/102400   burst length median 1.10s
+  relaxed  median auth p50 per block (ms): [213.0, 249.2, 224.8, 223.7, 224.9, 212.1, 224.0, 221.3]  mean 224.1   admitted 102400/102400   burst length median 1.10s
+  change nolock vs main in the mean of block medians: -13.0%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change nolock vs main: -1.8%
+  change relaxed vs main in the mean of block medians: -17.6%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change relaxed vs main: -2.2%
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               main     nolock    relaxed
+    peak queue (connections)                   1012        982        940
+    peak at (ms)                                614        609        605
+    90% of CONNECTs sent by (ms)                604        601        600
+    10% admitted by (ms)                        421        395        396
+    50% admitted by (ms)                        750        721        688
+    90% admitted by (ms)                       1060       1014       1007
+    all admitted by (ms)                       1141       1103       1110
+    drain rate 10-90% (connections/s)          1994       2063       2037
+    peak queue (connections): nolock vs main -3.0%   exact permutation p=0.03621  (n=8 v 8 blocks)
+    90% admitted by (ms): nolock vs main -4.4%   exact permutation p=0.00031  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): nolock vs main +3.5%   exact permutation p=0.27366  (n=8 v 8 blocks)
+    peak queue (connections): relaxed vs main -7.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    90% admitted by (ms): relaxed vs main -5.1%   exact permutation p=0.00031  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): relaxed vs main +2.2%   exact permutation p=0.59643  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     main     nolock    relaxed
+    broker CPU ms per connection                     1.60       1.58       1.50
+    broker cores busy while bursting (limit 3)       2.24       2.28       2.16
+    broker periods throttled %                        1.3        2.7        2.8
+    broker time throttled (s)                        0.00       0.00       0.00
+    callout CPU ms per connection                    0.56       0.56       0.58
+    callout cores busy while bursting (limit 1)      0.80       0.81       0.83
+    callout periods throttled %                      55.6       55.0       57.3
+    callout time throttled (s)                       0.48       0.44       0.47
+    generator CPU ms per connection                  0.83       0.82       0.82
+    generator cores busy while bursting (limit 2)     1.16       1.18       1.18
+    generator periods throttled %                    43.5       44.8       43.0
+    generator time throttled (s)                     0.29       0.31       0.28
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+

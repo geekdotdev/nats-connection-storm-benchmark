@@ -1,0 +1,22 @@
+# The single-account idea: can accConnsUpdate be relaxed where one account carries the connections and no peer relies on its count?
+# `bench run --variants relaxed-variants.toml`. main (the read lock) and nolock (the atomic send-queue pointer) as before, and `relaxed`:
+# nolock plus images/nats-server/patches/relaxed-acc-conns.patch, which sends one connection-count update per account per 100 ms instead of
+# an event for every client added or removed, with no account lock on the connect path. `relaxed` differs from `nolock` by that and nothing else.
+# Prediction written before the run: relaxed is faster than nolock in auth p50 and in 90%-admitted-by at 800 and 1600. Falsifier: relaxed is
+# about equal to nolock (then the lock was the cost and the event is cheap). Images are the amd64 and arm64 lists pushed to GHCR on 2026-11-21.
+# Not profiled (no conf_file): timings are not perturbed. Cross-server limit enforcement is what is given up: the standalone stack has no peers.
+
+[[variant]]
+label = "main"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+
+[[variant]]
+label = "nolock"
+commit = "37260075e5313019b14a4550c668b7048a73fb92"
+image = "ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186"      # nats-server:37260075e531
+
+[[variant]]
+label = "relaxed"
+commit = "37260075e5313019b14a4550c668b7048a73fb92"
+image = "ghcr.io/cfedersp/nats-server@sha256:01b0f78412f07175657cf37c72455445858b72c17b6a914fc651b4e067b4f001"      # nats-server:37260075e531-relaxed-acc-conns, nolock + relaxed-acc-conns.patch

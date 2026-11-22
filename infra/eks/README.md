@@ -1,6 +1,6 @@
 # infra/eks
 
-The EKS cluster for runs that need real nodes. It was created once from this config and used for two runs (`results/eks-smoke-2026-11-18`, `results/eks-800-1600-2026-11-18`, Kubernetes 1.34, eksctl 0.231.0), both in the earlier password-callout configuration; **it has not been used since operator mode replaced that**. The driver now pins Kubernetes 1.37 (2026-11-20; the manifests have been run on 1.34 only). The dry run calls AWS read-only (it needs credentials) and rejects `--kubeconfig`, so check a config with `eksctl create cluster --config-file F --dry-run`.
+The EKS cluster for runs that need real nodes. It was created once from this config and used for two runs (`results/cfedersp/eks-smoke-2026-11-18`, `results/cfedersp/eks-800-1600-2026-11-18`, Kubernetes 1.34, eksctl 0.231.0), both in the earlier password-callout configuration; **it has not been used since operator mode replaced that**. The driver now pins Kubernetes 1.37 (2026-11-20; the manifests have been run on 1.34 only). The dry run calls AWS read-only (it needs credentials) and rejects `--kubeconfig`, so check a config with `eksctl create cluster --config-file F --dry-run`.
 
 There is no cluster file to edit. eksctl does not expand environment variables in its config, so the driver renders the ClusterConfig from parameters (`driver/stormbench/eks.py`) and hands it to eksctl:
 

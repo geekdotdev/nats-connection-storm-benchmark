@@ -15,7 +15,7 @@ import re
 import statistics as st
 from pathlib import Path
 
-from . import cpu, cpuchart, qualify, queue
+from . import cpu, cpuchart, profiling, qualify, queue
 from .ab import runs_of
 
 
@@ -71,22 +71,40 @@ def write(run_dir: Path) -> str:
         stale.unlink()  # a chart from an earlier report of the same directory must not outlive its data
     env = json.loads((run_dir / "environment.json").read_text())
     q = qualify.from_env(env)
-    queue.write_charts(run_dir, by_phase, labels, env.get("date", ""), run_id=env.get("run_id", ""), cluster=q["cluster"], namespace=q["namespace"])
+    user = env.get("github_user", "")   # a run from before logins were recorded draws no "run by" on its charts, and its summary says "not recorded"
+    queue.write_charts(run_dir, by_phase, labels, env.get("date", ""), run_id=env.get("run_id", ""), cluster=q["cluster"], namespace=q["namespace"], github_user=user)
     cpuchart.write(run_dir, run_date=env.get("date", ""), generated=dt.datetime.now().astimezone().isoformat(timespec="seconds"),
-                   run_id=env.get("run_id", ""), cluster=q["cluster"], namespace=q["namespace"])
+                   run_id=env.get("run_id", ""), cluster=q["cluster"], namespace=q["namespace"], github_user=user)
     return text
 
 
-def summarize(run_dir: Path) -> str:
+def with_baseline(labels: list[str], described: list[dict], baseline: str | None) -> tuple[list[str], list[dict]]:
+    """The labels and descriptions with `baseline` first: every change in the report is measured against the first one. The run's own order
+    (its first variant is its baseline) is what the stored summary and charts use; another baseline is a different question about the same data."""
+    if baseline is None:
+        return labels, described
+    if baseline not in labels:
+        raise ValueError(f"--baseline {baseline!r} is not a variant of this run (it has: {', '.join(labels)})")
+    order = [baseline] + [l for l in labels if l != baseline]
+    by = {a["label"]: a for a in described}
+    return order, [by[l] for l in order]
+
+
+def summarize(run_dir: Path, baseline: str | None = None) -> str:
     env, described, labels, raw, blocks, phases = _load(run_dir)
+    own = labels[0]
+    labels, described = with_baseline(labels, described, baseline)
     base = labels[0]
     out = [qualify.header(env, run_dir.name), f"blocks found: {blocks}"]
+    if base != own:
+        out.append(f"baseline {base} (chosen with --baseline; the run's own baseline is {own}, and summary.txt is against that)")
     for a in described:
         extras = {k: v for k, v in a.items() if k not in ("label", "commit", "image")}
         what = f"commit {a['commit'][:12]}, " if a.get("commit") else ""
         out.append(f"{a['label']}: {what}image {a['image']}" + (f"   settings {json.dumps(extras, sort_keys=True)}" if extras else ""))
     if len(labels) > 2:
-        out.append(f"baseline {base}; {len(labels) - 1} comparisons with it, not corrected for the number of them")
+        out.append(f"baseline {base}; {len(labels) - 1} comparisons with it, not corrected for the number of them" + (
+            "; the run has other baselines too, so there are more comparisons than these" if len(labels) > 2 and base != own else ""))
     out.append("")
     for phase in phases:
         res: dict[str, tuple[list[float], list[float], int, int]] = {}
@@ -119,4 +137,7 @@ def summarize(run_dir: Path) -> str:
         out.extend(q if q else (["  (no per-connection samples in this phase, so no queue curve; runs before the samples were recorded have none)"] if phase != "idle" else []))
         out.extend(cpu.summarize({label: {b: _storms(raw, label, b, phase) for b in blocks} for label in labels}, labels))
         out.append("")
+    prof = profiling.summarize(run_dir)
+    if prof:
+        out += ["", *prof]
     return "\n".join(out)

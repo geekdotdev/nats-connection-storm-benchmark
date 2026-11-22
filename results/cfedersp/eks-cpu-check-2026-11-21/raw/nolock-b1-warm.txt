@@ -1,0 +1,23 @@
+tickets signed by scoped key ABAXSCNCN5ARQ5JHD6HC5N3CEV7HGFDXH3L22OMRVFGURS7FRY4FLVB3 for roles ["app-feed-publish-orders", "app-feed-subscribe-alarms"], valid 3600 s
+run "nolock-b1-warm": 200 connections x 3 run(s) to wss://broker:8443, all at once, 4 worker thread(s)
+
+run 1/3: admitted 200   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (898 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 200     35.0      49.1      56.1      60.9
+total (start->PONG)  200    179.6     213.7     220.7     222.0
+generator scheduling delay p99: 44.7 ms (large means the generator, not the broker, is the limit)
+
+run 2/3: admitted 200   refused 0   timeout 0   error 0   success 100.0%   in 0.1 s (1546 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 200     41.7      72.5      79.1      80.1
+total (start->PONG)  200     88.5     121.4     126.8     127.7
+generator scheduling delay p99: 2.7 ms (large means the generator, not the broker, is the limit)
+
+run 3/3: admitted 200   refused 0   timeout 0   error 0   success 100.0%   in 0.1 s (1581 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 200     39.8      66.2      73.7      74.1
+total (start->PONG)  200     85.9     118.0     124.6     124.8
+generator scheduling delay p99: 3.3 ms (large means the generator, not the broker, is the limit)
+
+across 3 runs, the median auth time: mean 38.8 ms, middle 39.8 ms, from 35.0 to 41.7 ms
+STORM_REPORT_JSON {"run":"nolock-b1-warm","runs":[{"authMs":{"max":60.908228,"n":200,"p50":34.953335,"p90":49.134738,"p99":56.130918},"cgroupCpu":{"limitCores":2.0,"periods":2,"systemUsec":83952,"throttledPeriods":0,"throttledUsec":0,"usageUsec":186996,"userUsec":103044},"connections":200,"failures":{},"generatorSchedulingDelayP99Ms":44.686,"index":1,"outcomes":{"admitted":200,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"nolock-b1-warm","seconds":0.22,"successRate":1.0,"totalMs":{"max":222.009724,"n":200,"p50":179.573886,"p90":213.673704,"p99":220.734924}},{"authMs":{"max":80.058347,"n":200,"p50":41.699392,"p90":72.50314200000001,"p99":79.11958},"cgroupCpu":{"limitCores":2.0,"periods":1,"systemUsec":93734,"throttledPeriods":0,"throttledUsec":0,"usageUsec":175486,"userUsec":81752},"connections":200,"failures":{},"generatorSchedulingDelayP99Ms":2.691,"index":2,"outcomes":{"admitted":200,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"nolock-b1-warm","seconds":0.13,"successRate":1.0,"totalMs":{"max":127.70922700000001,"n":200,"p50":88.519008,"p90":121.383515,"p99":126.80008500000001}},{"authMs":{"max":74.10522999999999,"n":200,"p50":39.830544,"p90":66.22610800000001,"p99":73.660892},"cgroupCpu":{"limitCores":2.0,"periods":1,"systemUsec":99095,"throttledPeriods":0,"throttledUsec":0,"usageUsec":180888,"userUsec":81794},"connections":200,"failures":{},"generatorSchedulingDelayP99Ms":3.297,"index":3,"outcomes":{"admitted":200,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"nolock-b1-warm","seconds":0.13,"successRate":1.0,"totalMs":{"max":124.795566,"n":200,"p50":85.882988,"p90":117.953556,"p99":124.55376799999999}}]}

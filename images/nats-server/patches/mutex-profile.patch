@@ -1,0 +1,12 @@
+--- a/server/server.go
++++ b/server/server.go
+@@ -3053,6 +3053,9 @@
+ 	s.profilingServer = srv
+ 
+ 	s.setBlockProfileRate(opts.ProfBlockRate)
++	// Benchmark patch (images/nats-server/patches/mutex-profile.patch): nats-server never turns the mutex profile on, so /debug/pprof/mutex is
++	// empty. 1 records every contended Unlock with the time the waiters lost: the profile names the code that HELD a lock others waited for.
++	runtime.SetMutexProfileFraction(1)
+ 
+ 	go func() {
+ 		// if this errors out, it's probably because the server is being shutdown

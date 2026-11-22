@@ -1,0 +1,23 @@
+tickets signed by scoped key ABAXSCNCN5ARQ5JHD6HC5N3CEV7HGFDXH3L22OMRVFGURS7FRY4FLVB3 for roles ["app-feed-publish-orders", "app-feed-subscribe-alarms"], valid 3600 s
+run "mux_main-b2-warm": 200 connections x 3 run(s) to wss://broker:8443, all at once, 4 worker thread(s)
+
+run 1/3: admitted 200   refused 0   timeout 0   error 0   success 100.0%   in 0.2 s (958 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 200     41.0      48.7      54.7      55.5
+total (start->PONG)  200    163.6     202.6     206.0     206.5
+generator scheduling delay p99: 34.3 ms (large means the generator, not the broker, is the limit)
+
+run 2/3: admitted 200   refused 0   timeout 0   error 0   success 100.0%   in 0.1 s (1473 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 200     43.2      75.0      78.7      78.8
+total (start->PONG)  200     91.9     130.2     134.2     134.8
+generator scheduling delay p99: 3.7 ms (large means the generator, not the broker, is the limit)
+
+run 3/3: admitted 200   refused 0   timeout 0   error 0   success 100.0%   in 0.1 s (1490 connections/s)
+                      n       p50       p90       p99       max   (ms)
+auth (CONNECT->PONG) 200     51.3      80.5      86.5      88.1
+total (start->PONG)  200     96.4     128.8     132.3     132.6
+generator scheduling delay p99: 3.0 ms (large means the generator, not the broker, is the limit)
+
+across 3 runs, the median auth time: mean 45.2 ms, middle 43.2 ms, from 41.0 to 51.3 ms
+STORM_REPORT_JSON {"run":"mux_main-b2-warm","runs":[{"authMs":{"max":55.498767,"n":200,"p50":40.994027,"p90":48.669250999999996,"p99":54.692318},"connections":200,"failures":{},"generatorSchedulingDelayP99Ms":34.258,"index":1,"outcomes":{"admitted":200,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"mux_main-b2-warm","seconds":0.21,"successRate":1.0,"totalMs":{"max":206.50127500000002,"n":200,"p50":163.607877,"p90":202.578225,"p99":206.023352}},{"authMs":{"max":78.828419,"n":200,"p50":43.249393,"p90":75.040251,"p99":78.679791},"connections":200,"failures":{},"generatorSchedulingDelayP99Ms":3.67,"index":2,"outcomes":{"admitted":200,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"mux_main-b2-warm","seconds":0.14,"successRate":1.0,"totalMs":{"max":134.778658,"n":200,"p50":91.947617,"p90":130.22081599999999,"p99":134.175123}},{"authMs":{"max":88.090747,"n":200,"p50":51.276427,"p90":80.536227,"p99":86.461384},"connections":200,"failures":{},"generatorSchedulingDelayP99Ms":2.968,"index":3,"outcomes":{"admitted":200,"error":0,"refused":0,"timeout":0},"rampMs":0,"run":"mux_main-b2-warm","seconds":0.13,"successRate":1.0,"totalMs":{"max":132.61561999999998,"n":200,"p50":96.40117,"p90":128.81411300000002,"p99":132.288033}}]}

@@ -45,10 +45,22 @@ def parse_platforms(text: str | None) -> tuple[str, ...]:
     return out
 
 
-def broker_tag(ref: str) -> str:
+def broker_tag(ref: str, patch: str | None = None) -> str:
+    """nats-server:<12 of the sha>, or, with a patch applied on top, nats-server:<12 of the sha>-<patch>: the tag says what is in the image."""
     if not _SHA.match(ref):
         raise ValueError(f"ref must be a full 40 character commit sha, got {ref!r}")
-    return f"nats-server:{ref[:12]}"
+    return f"nats-server:{ref[:12]}" + (f"-{patch}" if patch else "")
+
+
+def patch_file(patch: str, root: Path = REPO_ROOT) -> Path:
+    """The patch's file under images/nats-server/patches. Named by letters, digits and hyphens, so a name cannot reach another path."""
+    if not re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", patch):
+        raise ValueError(f"a patch is named in lowercase letters, digits and hyphens, got {patch!r}")
+    path = root / "images/nats-server/patches" / f"{patch}.patch"
+    if not path.is_file():
+        have = sorted(p.stem for p in (root / "images/nats-server/patches").glob("*.patch"))
+        raise ValueError(f"no patch {patch!r} in images/nats-server/patches (have: {', '.join(have) or 'none'})")
+    return path
 
 
 REF_NAME_LABEL = "org.opencontainers.image.ref.name"
@@ -113,7 +125,7 @@ IMAGE_NAMES = ("nats-server", "callout", "loadgen", "provision", "cpuprobe")
 
 def build_commands(ref: str | None, repo: str = DEFAULT_REPO, tool: str | None = None,
                    root: Path = REPO_ROOT, platforms: tuple[str, ...] = (),
-                   ref_name: str | None = None, only: tuple[str, ...] = ()) -> list[list[str]]:
+                   ref_name: str | None = None, only: tuple[str, ...] = (), patch: str | None = None) -> list[list[str]]:
     """The build commands. `only` limits them to the named images (nats-server, callout, loadgen, provision, cpuprobe); the
     commit is needed only when nats-server is among them. The broker image is always tagged with the commit (the identity). With
     ref_name (a branch or tag name) it also gets that name as a label, org.opencontainers.image.ref.name,
@@ -128,11 +140,14 @@ def build_commands(ref: str | None, repo: str = DEFAULT_REPO, tool: str | None =
     cmds: list[list[str]] = []
     args = ["--build-arg", f"REPO={repo}", "--build-arg", f"REF={ref}"]
     extra: tuple[str, ...] = ()
+    if patch:
+        digest = hashlib.sha256(patch_file(patch, root).read_bytes()).hexdigest()
+        args += ["--build-arg", f"PATCH={patch}", "--label", f"benchmark.patch.sha256={digest}"]
     if ref_name is not None:
-        extra = (f"nats-server:{ref_name_tag(ref_name)}",)
+        extra = (f"nats-server:{ref_name_tag(ref_name)}" + (f"-{patch}" if patch else ""),)
         args += ["--label", f"{REF_NAME_LABEL}={ref_name}"]
     if want("nats-server"):
-        cmds += _build(tool, "images/nats-server/Dockerfile", broker_tag(ref or ""), "images/nats-server", platforms,
+        cmds += _build(tool, "images/nats-server/Dockerfile", broker_tag(ref or "", patch), "images/nats-server", platforms,
                        tuple(args), extra)
     dev = (lambda name: (f"{name}:dev",) if len(platforms) <= 1 else ())  # the local flow builds for one platform
     if want("callout") and (root / "components/callout/go.mod").is_file():
@@ -161,9 +176,9 @@ def drop_command(run: Runner, tool: str, tag: str) -> list[str] | None:
 
 
 def build(run: Runner, ref: str | None, repo: str = DEFAULT_REPO, platforms: tuple[str, ...] = (),
-          ref_name: str | None = None, only: tuple[str, ...] = ()) -> None:
+          ref_name: str | None = None, only: tuple[str, ...] = (), patch: str | None = None) -> None:
     tool = container_tool()
-    for cmd in build_commands(ref, repo, tool, platforms=platforms, ref_name=ref_name, only=only):
+    for cmd in build_commands(ref, repo, tool, platforms=platforms, ref_name=ref_name, only=only, patch=patch):
         if "--manifest" in cmd:  # a multi-platform build: start from an empty tag, never append to an old list
             drop = drop_command(run, tool, cmd[cmd.index("--manifest") + 1])
             if drop:

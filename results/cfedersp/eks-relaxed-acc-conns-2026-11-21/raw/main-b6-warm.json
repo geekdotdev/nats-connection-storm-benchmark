@@ -1,0 +1,251 @@
+{
+ "run": "main-b6-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 79.95789500000001,
+    "n": 200,
+    "p50": 51.492633000000005,
+    "p90": 75.676213,
+    "p99": 78.780709
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 3,
+    "systemUsec": 58246,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 189696,
+    "userUsec": 131451
+   },
+   "connections": 200,
+   "endedAtMs": 1795312287226,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 51.226,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 2,
+      "pod": "callout-6d5f74b994-4jwpw",
+      "systemUsec": 36734,
+      "throttledPeriods": 1,
+      "throttledUsec": 7551,
+      "usageUsec": 108337,
+      "userUsec": 71604
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 2,
+      "pod": "broker-0",
+      "systemUsec": 49679,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 321597,
+      "userUsec": 271918
+     }
+    ],
+    "errors": [],
+    "probes": 5
+   },
+   "rampMs": 0,
+   "run": "main-b6-warm",
+   "seconds": 0.23,
+   "startedAtMs": 1795312286998,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 226.783402,
+    "n": 200,
+    "p50": 189.701773,
+    "p90": 222.578599,
+    "p99": 226.172522
+   }
+  },
+  {
+   "authMs": {
+    "max": 88.807359,
+    "n": 200,
+    "p50": 58.7241,
+    "p90": 83.305983,
+    "p99": 87.383421
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 46567,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 177320,
+    "userUsec": 130753
+   },
+   "connections": 200,
+   "endedAtMs": 1795312289888,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 3.819,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 1,
+      "pod": "broker-0",
+      "systemUsec": 96196,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 316900,
+      "userUsec": 220704
+     },
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-6d5f74b994-4jwpw",
+      "systemUsec": 12093,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 102250,
+      "userUsec": 90157
+     },
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 1,
+      "pod": "loadgen-main-b6-warm-37b955-48hdm",
+      "systemUsec": 46894,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 178339,
+      "userUsec": 131446
+     }
+    ],
+    "errors": [],
+    "probes": 5
+   },
+   "rampMs": 0,
+   "run": "main-b6-warm",
+   "seconds": 0.14,
+   "startedAtMs": 1795312289748,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 138.988047,
+    "n": 200,
+    "p50": 103.26114799999999,
+    "p90": 135.20166799999998,
+    "p99": 138.677309
+   }
+  },
+  {
+   "authMs": {
+    "max": 82.587036,
+    "n": 200,
+    "p50": 45.047734999999996,
+    "p90": 80.39339299999999,
+    "p99": 82.09058499999999
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 41511,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 172563,
+    "userUsec": 131052
+   },
+   "connections": 200,
+   "endedAtMs": 1795312292547,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 2.307,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-6d5f74b994-4jwpw",
+      "systemUsec": 11202,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 110294,
+      "userUsec": 99092
+     },
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 2,
+      "pod": "loadgen-main-b6-warm-37b955-48hdm",
+      "systemUsec": 41829,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 173585,
+      "userUsec": 131757
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 2,
+      "pod": "broker-0",
+      "systemUsec": 53014,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 316435,
+      "userUsec": 263421
+     }
+    ],
+    "errors": [],
+    "probes": 5
+   },
+   "rampMs": 0,
+   "run": "main-b6-warm",
+   "seconds": 0.14,
+   "startedAtMs": 1795312292412,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 134.37563699999998,
+    "n": 200,
+    "p50": 91.510481,
+    "p90": 130.171028,
+    "p99": 133.894992
+   }
+  }
+ ],
+ "qualifiers": {
+  "run_id": "6bd3204a85ad",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-21T17:11:52-08:00",
+  "unit": "main-b6",
+  "storm": "main-b6-warm"
+ }
+}

@@ -188,7 +188,7 @@ def _fmt(v: float) -> str:
 
 
 def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int], run_date: str = "", generated: str = "",
-          clipped: tuple[int, int] | None = None, run_id: str = "", cluster: str = "", namespace: str = "") -> str:
+          clipped: tuple[int, int] | None = None, run_id: str = "", cluster: str = "", namespace: str = "", github_user: str = "") -> str:
     """One SVG for a phase: the queue depth above and the admitted share below, one line per variant with its band. curves maps a
     variant label to pooled_curves(); blocks says how many blocks each variant ran. The footer carries run_date (when the run
     was made, from its environment.json) and generated (when this chart was drawn: the same data can be drawn again later).
@@ -208,7 +208,7 @@ def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int], run_date:
         legend.append((i, text, lx, row))
         lx += width
     TOP = 112 + 18 * row
-    H = TOP + 2 * PH + GAP + 66 + (16 if cluster or namespace else 0)
+    H = TOP + 2 * PH + GAP + 66 + (16 if cluster or namespace or github_user else 0)
     xstep = _nice_step(xmax, 8)
     xend = math.ceil(xmax / xstep) * xstep
 
@@ -285,8 +285,9 @@ def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int], run_date:
     panel(TOP, "depth", float(ymax_depth), "connections waiting for an answer", False)
     panel(TOP + PH + GAP, "share", 1.0, "share of the burst admitted", True)
     cut = f" (the axis ends at {_fmt(xend)} ms; {clipped[0]} of {clipped[1]} bursts ran longer and are cut off)" if clipped and clipped[0] else ""
-    o.append(f'<text class="t2" x="{(ML + W - MR) / 2:.0f}" y="{H - (46 if cluster or namespace else 30)}" text-anchor="middle">milliseconds since the burst began{html.escape(cut)}</text>')
-    where = [f"cluster {cluster}" if cluster else "", f"namespace {namespace}" if namespace else "", f"run id {run_id}" if run_id else ""]
+    o.append(f'<text class="t2" x="{(ML + W - MR) / 2:.0f}" y="{H - (46 if cluster or namespace or github_user else 30)}" text-anchor="middle">milliseconds since the burst began{html.escape(cut)}</text>')
+    where = [f"cluster {cluster}" if cluster else "", f"namespace {namespace}" if namespace else "", f"run id {run_id}" if run_id else "",
+             f"run by {github_user}" if github_user else ""]
     stamps = [f"run started {run_date}" if run_date else "", f"chart generated {generated}" if generated else ""]
     if any(where):
         o.append(f'<text class="t2" x="{ML}" y="{H - 24}" font-size="11">{html.escape("  ·  ".join(x for x in where if x))}</text>')
@@ -297,7 +298,7 @@ def chart(phase: str, curves: dict[str, dict], blocks: dict[str, int], run_date:
 
 
 def write_charts(run_dir: Path, raw_bursts: dict[str, dict[str, dict[int, list[dict]]]], labels: list[str], run_date: str = "",
-                 now: dt.datetime | None = None, run_id: str = "", cluster: str = "", namespace: str = "") -> list[Path]:
+                 now: dt.datetime | None = None, run_id: str = "", cluster: str = "", namespace: str = "", github_user: str = "") -> list[Path]:
     """queue-<phase>.svg for every phase whose bursts have samples. raw_bursts[phase][label][block] is a list of bursts. Each chart
     is stamped with the run's date and the time it was drawn (`now`, in the local time zone, unless given)."""
     generated = (now or dt.datetime.now().astimezone()).isoformat(timespec="seconds")
@@ -321,6 +322,6 @@ def write_charts(run_dir: Path, raw_bursts: dict[str, dict[str, dict[int, list[d
                 blocks[label] = sum(1 for blk in by_label[label].values() if any(has_samples(b) for b in blk))
         if curves:
             path = run_dir / f"queue-{phase}.svg"
-            path.write_text(chart(phase, curves, blocks, run_date, generated, clipped, run_id, cluster, namespace))
+            path.write_text(chart(phase, curves, blocks, run_date, generated, clipped, run_id, cluster, namespace, github_user))
             written.append(path)
     return written

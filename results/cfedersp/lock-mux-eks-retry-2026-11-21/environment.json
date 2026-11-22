@@ -1,0 +1,261 @@
+{
+ "target": "eks",
+ "auth": {
+  "mode": "operator",
+  "resolver": "memory",
+  "tenant_accounts": 1,
+  "ticket": "signed by the AUTH account's scoped key, pre-signed before each run",
+  "callout": "role-name mapper, user JWT valid 1 hour"
+ },
+ "date": "2026-11-21T11:44:36-08:00",
+ "variants": [
+  {
+   "label": "main",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"
+  },
+  {
+   "label": "nolock",
+   "commit": "37260075e5313019b14a4550c668b7048a73fb92",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:4214ee07b2bbf7098cbccdaccc8dc1eaf2c67d1999dfa95f1b220eff264f3186"
+  },
+  {
+   "label": "mux_main",
+   "commit": "ec9244c3444df361675dd49f72f73d685c30964d",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:0676f13113d55867c00c5a1cb76bffc6057896a9adb461892a0570354355e0aa"
+  },
+  {
+   "label": "mux_nolock",
+   "commit": "7ea787e2b5ee956f54a396fdea9ce3810a50c7bd",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:d35b480b8d136f25d83e5eabba251b15147772a1672c4bd4158c766f7ae9f5cb"
+  }
+ ],
+ "design": {
+  "blocks": 8,
+  "order": "rotating by block",
+  "phases": [
+   "warm",
+   "idle",
+   "n800",
+   "n1600"
+  ],
+  "sizes": [
+   800,
+   1600
+  ],
+  "threads": 4,
+  "settle_s": 8.0,
+  "per_phase": {
+   "warm": {
+    "connections": 200,
+    "runs": 3,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "idle": {
+    "connections": 1,
+    "runs": 40,
+    "pause_ms": 100,
+    "hold_ms": 100
+   },
+   "n800": {
+    "connections": 800,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "n1600": {
+    "connections": 1600,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   }
+  }
+ },
+ "cluster": {
+  "nodes": [
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966016Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966028Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   }
+  ]
+ },
+ "driver_host": {
+  "system": "Darwin",
+  "machine": "arm64",
+  "cpus": 16
+ },
+ "driver_version": "0.0.0",
+ "run_id": "b18d36028497",
+ "variants_file": {
+  "path": "lock-variants.toml",
+  "sha256": "f352327aedc6ce02bca8144a6ce054b18a131a71c62b1ed8843cd641cd0ad702"
+ },
+ "adopted": {
+  "time": "2026-11-21T12:48:35-08:00",
+  "driver_revision": "b04ae90c3ed2+dirty",
+  "units_done": [
+   "main-b1",
+   "nolock-b1",
+   "mux_main-b1",
+   "mux_nolock-b1",
+   "nolock-b2",
+   "mux_main-b2",
+   "mux_nolock-b2",
+   "main-b2",
+   "mux_main-b3",
+   "mux_nolock-b3",
+   "main-b3",
+   "nolock-b3",
+   "mux_nolock-b4",
+   "nolock-b4",
+   "mux_main-b4",
+   "main-b5",
+   "nolock-b5",
+   "mux_main-b5",
+   "mux_nolock-b5",
+   "nolock-b6",
+   "mux_main-b6",
+   "mux_nolock-b6"
+  ],
+  "redo": [
+   {
+    "unit": "main-b4",
+    "files_moved_to": "discarded/main-b4-20261121T124833",
+    "files": [
+     "main-b4.meta.json",
+     "main-b4-idle.json",
+     "main-b4-n1600.json",
+     "main-b4-n800.json",
+     "main-b4-warm.json",
+     "main-b4-warm.txt",
+     "main-b4-n1600.txt",
+     "main-b4-n800.txt",
+     "main-b4-idle.txt"
+    ],
+    "problems": [
+     "main-b4-n1600: 6400 of 12800 connections admitted (error: Connection refused (os error 111) x4731, error: failed to lookup address information: Name has no usable address x1600)"
+    ],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "main-b6",
+    "files_moved_to": "discarded/main-b6-20261121T124833",
+    "files": [
+     "main-b6.meta.json",
+     "main-b6-idle.json",
+     "main-b6-n800.json",
+     "main-b6-warm.json",
+     "main-b6-idle.txt",
+     "main-b6-warm.txt",
+     "main-b6-n800.txt"
+    ],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "main-b7",
+    "files_moved_to": "discarded/main-b7-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "main-b8",
+    "files_moved_to": "discarded/main-b8-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "mux_main-b7",
+    "files_moved_to": "discarded/mux_main-b7-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "mux_main-b8",
+    "files_moved_to": "discarded/mux_main-b8-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "mux_nolock-b7",
+    "files_moved_to": "discarded/mux_nolock-b7-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "mux_nolock-b8",
+    "files_moved_to": "discarded/mux_nolock-b8-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "nolock-b7",
+    "files_moved_to": "discarded/nolock-b7-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   },
+   {
+    "unit": "nolock-b8",
+    "files_moved_to": "discarded/nolock-b8-20261121T124833",
+    "files": [],
+    "problems": [],
+    "reason": "main-b4-n1600: the broker was replaced mid-storm at about 12:13:37 by a test that reached this cluster through a driver bug (4731 connections refused, 1600 not resolved); the unit is run again from a fresh broker"
+   }
+  ]
+ },
+ "resumes": [
+  {
+   "time": "2026-11-21T12:49:04-08:00",
+   "driver_revision": "b04ae90c3ed2+dirty",
+   "units_done": 22
+  }
+ ],
+ "cluster_kind": "eks",
+ "namespace": "storm-bench",
+ "backfilled": {
+  "time": "2026-11-21T13:35:59-08:00",
+  "keys": {
+   "cluster_kind": "eks",
+   "namespace": "storm-bench",
+   "github_user": "cfedersp"
+  },
+  "note": "written after the run, not by the driver that made it: that driver did not record them. Both are certain: the run was on the EKS cluster, whose components were in the namespace storm-bench (the manifests and every version of the driver used that one). github_user was added afterwards, not by the driver that made the run (it did not record one): it is the GitHub login that published the images these runs used (ghcr.io/cfedersp) and owns the fork their commits come from; this project had one runner then."
+ },
+ "github_user": "cfedersp"
+}
