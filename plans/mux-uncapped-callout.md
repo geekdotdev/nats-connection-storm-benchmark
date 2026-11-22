@@ -29,3 +29,8 @@ One extra `c6i.xlarge` for about 1.5 hours (about $0.17/h, on top of the cluster
 ## Outcome
 
 Not yet.
+
+### Note, 2026-11-21 (later): the cap is already quantified
+
+The config-mode runs (`eks-800-1600`, `eks-smoke`, `kind-main-vs-lockfree`) could not stand in for this run: they have no CPU readings and no per-connection samples, and they did different work (a password callout, an older generator). The operator-mode runs already show the callout is the pacing stage. From `probeCpu`, the callout spends 0.56-0.57 ms of CPU per connection in every variant, so 800 connections need 0.46 core-seconds and 1600 need 0.90. At a 1 CPU limit that is a floor on burst length, and the observed bursts (0.56 s and 1.12 s) are within 80-82% of it, with the callout throttled in 53-59% of its periods. That also explains why `nolock`, `relaxed` and `mux_nolock` move the median auth time but not the time to admit the burst. So the run's manipulation check is already predicted to matter, and its only remaining use is to see whether mux shows once the cap is lifted. That matters for a future mux PR and not for PR 8908, which does not include mux. Status left as planned; deferred unless a mux PR is wanted.
+
