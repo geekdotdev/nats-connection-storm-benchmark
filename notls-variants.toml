@@ -1,0 +1,16 @@
+# What does TLS cost a connection's setup? Same image digest, same callout, generator and broker CPU; the only difference is that the second
+# variant's broker listens on its WebSocket port without TLS and the generator goes to ws:// (`no_tls = true` sets both together).
+# A DIAGNOSTIC, never a production setting: it attributes setup time between the TLS handshake and everything else.
+# `bench run --variants notls-variants.toml --blocks 8 --sizes 800,1600` (plans/tls-cost.md). `tls` is first and is the overlay's own setting,
+# so the report's baseline is the default and `notls` is measured against it. Prediction and falsifier are in the plan, written before the run.
+
+[[variant]]
+label = "tls"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+
+[[variant]]
+label = "notls"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+no_tls = true

@@ -15,7 +15,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from . import __version__, config, k8s, monitoring, notes, preflight, profiling, qualify, report, state as state_mod, variants as variants_mod
+from . import __version__, config, k8s, monitoring, notes, preflight, profiling, qualify, report, secrets_cmd, state as state_mod, variants as variants_mod
 from .ab import Plan, Variant, run_blocks, schedule, units
 from .config import REPO_ROOT
 from .images import broker_tag
@@ -136,9 +136,36 @@ def use_monitoring(run: Runner, args) -> bool:
         print("monitoring: the CPU probes and Prometheus are installed: the generator reads CPU from the probes at every burst and Prometheus "
               "keeps the series", flush=True)
         return True
+    if args.target == "eks":
+        # A run without them has no per-burst CPU for the broker and callout, no Prometheus series and no broker profiles: data that
+        # cannot be had afterwards. On a cluster that costs money by the hour that is not a default to fall into by forgetting a command.
+        raise ValueError("monitoring is not installed on this eks cluster, and a run without it has no per-burst CPU for the broker and callout, "
+                         "no Prometheus series and no broker profiles. Install it with `bench --target eks monitoring up` (`bench cluster up` "
+                         "does this itself), or pass --no-monitoring to run without it on purpose")
     print(f"monitoring: not installed (`bench --target {args.target} monitoring up` adds it); CPU of the broker and callout is read by the "
           "driver, whole storms only", flush=True)
     return False
+
+
+def prepare_cluster(run: Runner, target: str, with_monitoring: bool = True) -> None:
+    """What a new cluster needs before a run, done by `bench cluster up` so that it is not a list of commands to remember: the TLS Secret, and
+    the CPU probes with Prometheus (after the same checks `bench monitoring up` makes: the nodes, the StorageClass, the images). A failure here
+    leaves the cluster up (and billing): the message says so and what to run to finish."""
+    names = secrets_cmd.create(run, target)
+    print("created Secret " + ", ".join(names) + f" in namespace {config.NAMESPACE} (values not shown)", flush=True)
+    if not with_monitoring:
+        print("monitoring: not installed (--no-monitoring); runs on this cluster will need --no-monitoring too", flush=True)
+        return
+    checks = preflight.monitoring_checks(run, target, monitoring.overlay_for(target))
+    print(f"preflight ({target}):\n{preflight.format_checks(checks)}", flush=True)
+    if preflight.failed(checks):
+        raise MonitoringNotInstalled(f"the cluster is up (and billing) but monitoring was not installed: fix what failed and run `bench --target {target} monitoring up`")
+    monitoring.up(run, target)
+    print(f"monitoring is up: the probes on every node, Prometheus scraping them every {monitoring.STEP_S} s", flush=True)
+
+
+class MonitoringNotInstalled(RuntimeError):
+    pass
 
 
 def note_probe_fallback(out: Path) -> None:

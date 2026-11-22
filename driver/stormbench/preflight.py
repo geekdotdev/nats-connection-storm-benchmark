@@ -330,24 +330,10 @@ def fit_together(name: str, objs: list[dict], nodes: list[dict], load: dict[str,
 
 # -- the whole preflight ---------------------------------------------------------------------------------------
 
-def json_stream(text: str) -> list[dict]:
-    """The objects in kubectl's JSON output: it prints one JSON value per resource, one after another (a single value, a List
-    of them, or several in a row), not one document."""
-    decoder, pos, objs = json.JSONDecoder(), 0, []
-    text = text.strip()
-    while pos < len(text):
-        obj, end = decoder.raw_decode(text, pos)
-        objs += obj["items"] if obj.get("kind") == "List" else [obj]
-        pos = end
-        while pos < len(text) and text[pos].isspace():
-            pos += 1
-    return objs
-
-
 def _objects(run: Runner, target: str, overlay: str) -> list[dict]:
     rendered = run.output(k8s.kubectl_command("kustomize", overlay, target=target), quiet=True)
-    return json_stream(run.output(k8s.kubectl_command("create", "--dry-run=client", "-o", "json", "-f", "-", target=target),
-                                  input=rendered, quiet=True))
+    return k8s.json_stream(run.output(k8s.kubectl_command("create", "--dry-run=client", "-o", "json", "-f", "-", target=target),
+                                       input=rendered, quiet=True))
 
 
 def monitoring_checks(run: Runner, target: str, overlay: str, fetch: Fetch = fetch_manifest) -> list[Check]:

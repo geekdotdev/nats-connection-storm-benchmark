@@ -1,0 +1,33 @@
+# Does the broker's CPU pace a connection's setup (TCP, TLS, the WebSocket upgrade, INFO)? Same image digest, same callout and generator; the
+# only difference is the broker's CPU limit (requests = limits). `bench run --variants broker-cpu-variants.toml --blocks 8 --sizes 800,1600`
+# (plans/broker-cpu-dose-response.md). No extra nodes: it runs on the usual cluster (3 broker nodes of 4 vCPU; a broker's memory stays as the overlay has it).
+# cpu3 is first and is the overlay's own setting, so the report's baseline is the default and the others are measured against it.
+# Prediction and falsifier are in the plan, written before the run. Read the broker's throttled share first (the manipulation check).
+
+[[variant]]
+label = "cpu3"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+[variant.broker_resources]
+cpu = "3"
+
+[[variant]]
+label = "cpu15"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+[variant.broker_resources]
+cpu = "1500m"
+
+[[variant]]
+label = "cpu2"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+[variant.broker_resources]
+cpu = "2"
+
+[[variant]]
+label = "cpu35"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+[variant.broker_resources]
+cpu = "3500m"

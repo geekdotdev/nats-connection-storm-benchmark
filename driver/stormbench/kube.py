@@ -164,7 +164,13 @@ class KubeBackend:
                 self._wait_rollout(d)
         rendered = self.run.output(self._k("kustomize", self.loadgen))
         as_json = self.run.output(self._k("create", "--dry-run=client", "-o", "json", "-f", "-"), input=rendered)
-        self._job = json.loads(as_json)
+        # The overlay may render more than the Job (eks-restricted also adds a NetworkPolicy): kubectl prints each resource as
+        # its own JSON value, one after another, not a single document, so this must pick the Job out rather than assume it's
+        # the only thing there.
+        objs = [o for o in k8s.json_stream(as_json) if o.get("kind") == "Job"]
+        if len(objs) != 1:
+            raise RuntimeError(f"{self.loadgen} must render exactly one Job, found {len(objs)}")
+        self._job = objs[0]
 
     # -- Backend -------------------------------------------------------------------------------------------
     def start_variant(self, variant: Variant) -> dict:

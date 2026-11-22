@@ -108,13 +108,20 @@ def summarize(run_dir: Path, baseline: str | None = None) -> str:
     out.append("")
     for phase in phases:
         res: dict[str, tuple[list[float], list[float], int, int]] = {}
+        whole: dict[str, list[float]] = {}   # per block, the median over bursts of the whole connection's p50 (start of the connection to the answer)
+        setup: dict[str, list[float]] = {}   # and of that minus the auth p50: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT is sent
         for label in labels:
             medians, secs, adm, tot = [], [], 0, 0
+            whole[label], setup[label] = [], []
             for b in blocks:
                 bursts = _bursts(raw, label, b, phase)
                 if not bursts:
                     continue
                 medians.append(st.median(r["authMs"]["p50"] for r in bursts if r["authMs"]["p50"] is not None))
+                both = [(r["totalMs"]["p50"], r["authMs"]["p50"]) for r in bursts if (r.get("totalMs") or {}).get("p50") is not None and r["authMs"]["p50"] is not None]
+                if both:
+                    whole[label].append(st.median(t for t, _ in both))
+                    setup[label].append(st.median(t - a for t, a in both))
                 secs += [r["seconds"] for r in bursts]
                 adm += sum(r["outcomes"]["admitted"] for r in bursts)
                 tot += sum(r["connections"] for r in bursts)
@@ -133,6 +140,15 @@ def summarize(run_dir: Path, baseline: str | None = None) -> str:
             out.append(f"  change {label} vs {base} in the mean of block medians: {100 * (mb - ma) / ma:+.1f}%   exact permutation p={perm_p(am, bm):.5f}  (n={len(am)} v {len(bm)} blocks)")
             if phase != "idle":
                 out.append(f"  burst length (throughput proxy) change {label} vs {base}: {100 * (st.median(bsecs) - st.median(asecs)) / st.median(asecs):+.1f}%")
+        if phase != "idle" and all(len(whole[l]) == len(res[l][0]) and whole[l] for l in labels):   # runs from before total was recorded have none
+            out.append("  where a connection's time goes (median over blocks of each block's median; total = start of the connection to the answer; "
+                       "setup = total minus auth: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT):")
+            for label in labels:
+                out.append(f"  {label:<8} total p50 {st.mean(whole[label]):6.1f} ms = setup {st.mean(setup[label]):6.1f} ms ({100 * st.mean(setup[label]) / st.mean(whole[label]):.0f}%) + auth {st.mean(res[label][0]):6.1f} ms")
+            for label in labels[1:]:
+                for name, series in (("total p50", whole), ("setup", setup)):
+                    ma, mb = st.mean(series[base]), st.mean(series[label])
+                    out.append(f"  change {label} vs {base} in {name}: {100 * (mb - ma) / ma:+.1f}%   exact permutation p={perm_p(series[base], series[label]):.5f}  (n={len(series[base])} v {len(series[label])} blocks)")
         q = queue.summarize({label: {b: _bursts(raw, label, b, phase) for b in blocks} for label in labels}, labels, perm_p)
         out.extend(q if q else (["  (no per-connection samples in this phase, so no queue curve; runs before the samples were recorded have none)"] if phase != "idle" else []))
         out.extend(cpu.summarize({label: {b: _storms(raw, label, b, phase) for b in blocks} for label in labels}, labels))

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# eks, with the generator's own egress restricted to DNS, the broker and the CPU probe: deny-by-default for everything else (the public
+# internet included). Layers on ../eks unchanged (same digest, same resources, same node placement): only this NetworkPolicy is added.
+# Needs vpc-cni's NetworkPolicy enforcement turned on (`bench cluster network-policy --target eks --yes`), done once per cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../eks
+  - networkpolicy.yaml

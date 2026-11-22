@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # EKS: the load generator runs on the clients node group, away from the brokers. The image is pinned by digest (the list pushed on
-# 2026-11-21 for loadgen:src-a3d7265ebd6e, amd64 and arm64: it records every connection's timings, each burst's own CPU use and throttling, and asks the CPU probes (STORM_CPUPROBE) at each burst's start and end); rebuild, push and replace it when the source changes. EDIT `newName` to your
-# registry account.
+# 2026-11-22 for loadgen:src-699acf4c7c39, amd64 and arm64: adds bad-faith connections, STORM_INVALID_FRACTION etc, plans/bad-faith-storm.md;
+# it also records every connection's timings, each burst's own CPU use and throttling, and asks the CPU probes (STORM_CPUPROBE) at each
+# burst's start and end); rebuild, push and replace it when the source changes. EDIT `newName` to your registry account.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -9,7 +10,7 @@ resources:
 images:
   - name: loadgen
     newName: ghcr.io/cfedersp/loadgen
-    digest: sha256:c82321826578f33bddd790c1ad2e297b2a8381398e884b544305ffabba3a6099   # loadgen:src-a3d7265ebd6e, amd64 and arm64
+    digest: sha256:35ad2f3aa8dfcfdef43e466a181d83ec4b4993cf2c3e06eb149c1fe236352673   # loadgen:src-699acf4c7c39, amd64 and arm64
 patches:
   - target: {kind: Job, name: loadgen}
     patch: |-

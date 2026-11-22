@@ -1,0 +1,105 @@
+eks-callout-replicas-2026-11-22: cluster eks · namespace storm-bench · run id 728a37b9ec03 · started 2026-11-22T08:20:13-08:00 · run by cfedersp
+blocks found: [1, 2, 3, 4, 5, 6, 7, 8]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+main_callout3: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"callout_replicas": 3}
+
+idle
+  main     median auth p50 per block (ms): [1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8]  mean 1.8   admitted 320/320   burst length median 0.00s
+  main_callout3 median auth p50 per block (ms): [1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8]  mean 1.8   admitted 320/320   burst length median 0.00s
+  change main_callout3 vs main in the mean of block medians: -0.1%   exact permutation p=0.66325  (n=8 v 8 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                         main  main_callout3
+    broker CPU ms per connection                         1.74           1.75
+    broker cores busy while bursting (limit 3)           0.19           0.59
+    broker periods throttled %                            0.0            0.0
+    broker time throttled (s)                            0.00           0.00
+    callout CPU ms per connection                        0.65           0.66
+    callout cores busy while bursting (limit 1)          0.06           0.09
+    callout periods throttled %                           0.0            0.0
+    callout time throttled (s)                           0.00           0.00
+    generator CPU ms per connection                      0.82           0.84
+    generator cores busy while bursting (limit 2)         0.08           0.10
+    generator periods throttled %                         0.0            0.0
+    generator time throttled (s)                         0.00           0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  main     median auth p50 per block (ms): [128.0, 131.7, 131.1, 135.9, 133.8, 129.8, 137.6, 143.5]  mean 133.9   admitted 51200/51200   burst length median 0.53s
+  main_callout3 median auth p50 per block (ms): [92.8, 120.7, 116.9, 123.5, 114.5, 129.5, 117.7, 113.6]  mean 116.1   admitted 51200/51200   burst length median 0.53s
+  change main_callout3 vs main in the mean of block medians: -13.3%   exact permutation p=0.00031  (n=8 v 8 blocks)
+  burst length (throughput proxy) change main_callout3 vs main: +0.0%
+  where a connection's time goes (median over blocks of each block's median; total = start of the connection to the answer; setup = total minus auth: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT):
+  main     total p50  344.6 ms = setup  213.2 ms (62%) + auth  133.9 ms
+  main_callout3 total p50  357.4 ms = setup  241.7 ms (68%) + auth  116.1 ms
+  change main_callout3 vs main in total p50: +3.7%   exact permutation p=0.94312  (n=8 v 8 blocks)
+  change main_callout3 vs main in setup: +13.4%   exact permutation p=0.00653  (n=8 v 8 blocks)
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                                   main  main_callout3
+    peak queue (connections)                        513            490
+    peak at (ms)                                    283            315
+    90% of CONNECTs sent by (ms)                    282            317
+    10% admitted by (ms)                            231            257
+    50% admitted by (ms)                            350            364
+    90% admitted by (ms)                            510            499
+    all admitted by (ms)                            536            537
+    drain rate 10-90% (connections/s)              2310           2636
+    peak queue (connections): main_callout3 vs main -4.5%   exact permutation p=0.12867  (n=8 v 8 blocks)
+    90% admitted by (ms): main_callout3 vs main -2.2%   exact permutation p=0.50769  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): main_callout3 vs main +14.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                         main  main_callout3
+    broker CPU ms per connection                         1.57           1.61
+    broker cores busy while bursting (limit 3)           2.36           2.39
+    broker periods throttled %                            0.0            0.0
+    broker time throttled (s)                            0.00           0.00
+    callout CPU ms per connection                        0.50           0.61
+    callout cores busy while bursting (limit 1)          0.75           0.90
+    callout periods throttled %                          42.5            0.0
+    callout time throttled (s)                           0.09           0.00
+    generator CPU ms per connection                      0.82           0.89
+    generator cores busy while bursting (limit 2)         1.21           1.32
+    generator periods throttled %                        39.2           46.7
+    generator time throttled (s)                         0.16           0.16
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n1600
+  main     median auth p50 per block (ms): [226.3, 243.1, 227.8, 245.3, 221.0, 245.7, 234.9, 245.3]  mean 236.2   admitted 102400/102400   burst length median 1.19s
+  main_callout3 median auth p50 per block (ms): [228.3, 220.4, 221.6, 144.5, 223.1, 225.1, 230.9, 139.9]  mean 204.2   admitted 102400/102400   burst length median 1.04s
+  change main_callout3 vs main in the mean of block medians: -13.5%   exact permutation p=0.00684  (n=8 v 8 blocks)
+  burst length (throughput proxy) change main_callout3 vs main: -12.2%
+  where a connection's time goes (median over blocks of each block's median; total = start of the connection to the answer; setup = total minus auth: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT):
+  main     total p50  679.1 ms = setup  440.7 ms (65%) + auth  236.2 ms
+  main_callout3 total p50  752.3 ms = setup  548.2 ms (73%) + auth  204.2 ms
+  change main_callout3 vs main in total p50: +10.8%   exact permutation p=0.41880  (n=8 v 8 blocks)
+  change main_callout3 vs main in setup: +24.4%   exact permutation p=0.00963  (n=8 v 8 blocks)
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                                   main  main_callout3
+    peak queue (connections)                        977            894
+    peak at (ms)                                    572            704
+    90% of CONNECTs sent by (ms)                    580            706
+    10% admitted by (ms)                            406            453
+    50% admitted by (ms)                            693            767
+    90% admitted by (ms)                           1009           1012
+    all admitted by (ms)                           1412           1084
+    drain rate 10-90% (connections/s)              2113           2297
+    peak queue (connections): main_callout3 vs main -8.5%   exact permutation p=0.43590  (n=8 v 8 blocks)
+    90% admitted by (ms): main_callout3 vs main +0.3%   exact permutation p=0.91981  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): main_callout3 vs main +8.7%   exact permutation p=0.18042  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                         main  main_callout3
+    broker CPU ms per connection                         1.62           1.60
+    broker cores busy while bursting (limit 3)           2.01           2.37
+    broker periods throttled %                            1.0            1.4
+    broker time throttled (s)                            0.00           0.00
+    callout CPU ms per connection                        0.49           0.61
+    callout cores busy while bursting (limit 1)          0.61           0.91
+    callout periods throttled %                          44.0            0.0
+    callout time throttled (s)                           0.27           0.00
+    generator CPU ms per connection                      0.85           0.97
+    generator cores busy while bursting (limit 2)         1.04           1.41
+    generator periods throttled %                        36.9           56.9
+    generator time throttled (s)                         0.36           0.45
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+

@@ -8,6 +8,7 @@ silent fallback to ~/.kube/config). Each target has its own file: local (kind) u
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from . import eks, kind
@@ -36,3 +37,18 @@ def require_kubeconfig(target: str = "local") -> str:
 
 def kubectl_command(*args: str, target: str = "local") -> list[str]:
     return ["kubectl", "--kubeconfig", require_kubeconfig(target), *args]
+
+
+def json_stream(text: str) -> list[dict]:
+    """The objects in kubectl's JSON output: it prints one JSON value per resource, one after another (a single value, a List
+    of them, or several in a row), not one document. An overlay with more than one resource (e.g. a Job alongside a
+    NetworkPolicy) renders as more than one value here, so callers that want a specific kind must pick it out themselves."""
+    decoder, pos, objs = json.JSONDecoder(), 0, []
+    text = text.strip()
+    while pos < len(text):
+        obj, end = decoder.raw_decode(text, pos)
+        objs += obj["items"] if obj.get("kind") == "List" else [obj]
+        pos = end
+        while pos < len(text) and text[pos].isspace():
+            pos += 1
+    return objs

@@ -1,9 +1,19 @@
 # GITHUB_USER=<your GitHub login> (in .env or the environment; or --github-user) is required by `run`: results go to results/<login>/<name>-<date>/
+Start up, run, and shut down (eks):
+aws sso login --profile AwsProfileName-AccountNum          # when the AWS login has expired
 export AWS_PROFILE=AwsProfileName-AccountNum
 export AWS_REGION=us-east-1
 uv run bench cluster up --target eks --region us-east-1 --yes
+# `cluster up` also creates the TLS Secret and installs the CPU probes and Prometheus, so the cluster is ready to run. Add --no-monitoring to skip
+# monitoring (a run then needs `run --no-monitoring` too), and --client-nodes 2 when a variant needs a second client node (callout_replicas, bigger callout and generator).
+# A cluster made another way, or whose monitoring failed to install, gets them with:
+uv run bench --target eks secrets create
+uv run bench --target eks monitoring up
 uv run bench --target eks preflight --variants cluster-variants.toml
 uv run bench --target eks run --variants cluster-variants.toml --name eks-800-1600 --sizes 800,1600
+# an eks run refuses to start when monitoring is not installed (pass --no-monitoring to run without it on purpose)
+uv run bench --target eks status
+# the run's results are written to results/<<github login>>/<<name>>-<<date>>/ with NOTES.md; fill in its three sections and add a line to results/INDEX.md
 uv run bench --target eks cluster down
 eksctl get cluster --name storm-bench --region us-east-1
 

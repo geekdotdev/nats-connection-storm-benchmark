@@ -28,7 +28,8 @@ The branches are in `github.com/cfedersp/nats-server` (build with `--repo https:
 |---|---|---|---|---|
 | `callout` | `src-3cff67e67dd2` | `sha256:21ca37a09635ed93f8ef7ef55c841e003dea3795ebdddfcfdf20b99a1f49ed23` | current | the auth callout responder (Go) |
 | `provision` | `src-c1a3acc650f6` | `sha256:b01b5bc532eac54cd7b0e97f9fd60266527f8e54158138628d3e2f0122ae81f1` | current | the callout pod's init container: operator, keys, resolver (Go) |
-| `loadgen` | `src-a3d7265ebd6e` | `sha256:c82321826578f33bddd790c1ad2e297b2a8381398e884b544305ffabba3a6099` | **current** | the load generator (Rust): per-connection timings, its own cgroup CPU, and it asks the CPU probes (`STORM_CPUPROBE`) at each burst's start and end |
+| `loadgen` | `src-699acf4c7c39` | `sha256:35ad2f3aa8dfcfdef43e466a181d83ec4b4993cf2c3e06eb149c1fe236352673` | **current** | the load generator (Rust): adds bad-faith connections (`STORM_INVALID_FRACTION` etc, `plans/bad-faith-storm.md`); per-connection timings, its own cgroup CPU, and it asks the CPU probes (`STORM_CPUPROBE`) at each burst's start and end |
+| `loadgen` | `src-a3d7265ebd6e` | `sha256:c82321826578f33bddd790c1ad2e297b2a8381398e884b544305ffabba3a6099` | retired | the same, before bad-faith connections existed |
 | `loadgen` | `src-16759d90c2a9` | `sha256:93d0fc352a2ac997b1554de429bf29840135c7b256a86759fa3964f95db73cf9` | retired | timings and its own CPU, but **does not ask the probes**: a run with monitoring on has no `probeCpu` (found in `eks-monitoring-check`) |
 | `loadgen` | `src-f92df7b220d0`, `src-d4e091f900ab` | not recorded here | retired | timings only; neither (the older ones are in the earliest runs) |
 | `cpuprobe` | `src-4682f1886471` | `sha256:305ae94ea239ba26cd9f8d018e0861353f5c6f8a60b12bed195f49ce1cca242d` | **current** | the CPU probe DaemonSet (Go): cgroup counters on request and `/metrics`, and the broker's **block and mutex** pprof profiles every 2 s |

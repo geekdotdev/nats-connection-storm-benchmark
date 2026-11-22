@@ -223,6 +223,23 @@ def infra_command(config_file: Path) -> list[str]:
     return ["eksctl", "create", "nodegroup", "--config-file", str(config_file), "--include", "infra"]
 
 
+# eksctl installs vpc-cni (the default CNI) on every cluster already, as an EKS-managed add-on: this is always an *update* of it
+# (`eksctl update addon`, not `create addon`: eksctl's "force" flag is for migrating a self-managed add-on to a managed one, which does
+# not apply here and is not a ClusterConfig field at all -- confirmed against eksctl's own --help, not assumed), never a fresh add-on, so
+# it is kept separate from ADDONS (which add_addons applies once, for add-ons that do not exist yet). Off by default: a bare NetworkPolicy
+# object is accepted by the API server either way, but nothing enforces it until this is turned on.
+NETWORK_POLICY_CONFIG = '{"enableNetworkPolicy":"true"}'
+
+
+def network_policy_config(p: Params) -> dict:
+    return {"apiVersion": "eksctl.io/v1alpha5", "kind": "ClusterConfig", "metadata": {"name": p.cluster, "region": p.region},
+            "addons": [{"name": "vpc-cni", "configurationValues": NETWORK_POLICY_CONFIG}]}
+
+
+def network_policy_command(config_file: Path) -> list[str]:
+    return ["eksctl", "update", "addon", "--config-file", str(config_file)]
+
+
 def scale_command(p: Params, nodegroup: str, nodes: int) -> list[str]:
     """Resize a managed node group of an existing cluster. The groups here have a fixed size (min = max = desired), so all three are set."""
     return ["eksctl", "scale", "nodegroup", "--cluster", p.cluster, "--name", nodegroup, "--nodes", str(nodes),
@@ -267,6 +284,23 @@ def add_addons(run: Runner, p: Params, confirm: bool) -> None:
         run(addons_command(cfg))
     if not run.dry_run:
         run(storageclass_command())
+
+
+def add_network_policy(run: Runner, p: Params, confirm: bool) -> None:
+    """Turn on the VPC CNI's own enforcement of Kubernetes NetworkPolicy objects. Without this, a NetworkPolicy is valid YAML the API
+    server accepts and nothing more: no pod is actually restricted by it. This reconfigures vpc-cni, which eksctl installs on every
+    cluster by default (not one of ADDONS: that list is for add-ons that do not exist yet, and vpc-cni always does), adding a
+    network-policy-agent to every node's aws-node pod. It changes how EVERY pod on the cluster may talk, not only the one a NetworkPolicy
+    selects: a policy still has to name what it restricts (deploy/loadgen/overlays/*-restricted). One-time per cluster; `bench cluster down`
+    throws it away with everything else, so it is needed again after every `cluster up`."""
+    if not confirm and not run.dry_run:
+        raise NotConfirmed("this reconfigures the vpc-cni add-on so Kubernetes NetworkPolicy objects are enforced on every node (a "
+                           "network-policy-agent joins every aws-node pod): it changes how every pod on the cluster may talk, not only "
+                           "a workload a policy selects. Run again with --yes.")
+    with tempfile.TemporaryDirectory(prefix="storm-eks-") as tmp:
+        cfg = Path(tmp) / "network-policy.yaml"
+        cfg.write_text(to_yaml(network_policy_config(p)) + "\n")
+        run(network_policy_command(cfg))
 
 
 def add_infra(run: Runner, p: Params, confirm: bool) -> None:

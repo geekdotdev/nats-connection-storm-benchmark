@@ -39,8 +39,11 @@ RESERVED_STORM = frozenset({"STORM_CONNECTIONS", "STORM_RUNS", "STORM_PAUSE_MS",
 # Variables the manifests fill from Secrets or the pod itself: a plain value on top of one would be an invalid container.
 PROTECTED_BROKER_ENV = frozenset({"POD_NAME"})
 PROTECTED_CALLOUT_ENV = frozenset({"CALLOUT_CREDS", "CALLOUT_AUTH_SIGNING_SEED", "CALLOUT_TENANT_SIGNING_SEED", "CALLOUT_TENANT_PUBLIC"})
+# extra.conf is included last, and a later websocket block replaces the base one (checked against nats-server: it then reports ws://, not wss://).
+NO_TLS_CONF = "\n# no_tls (a diagnostic): the WebSocket listener without TLS\nwebsocket {\n  listen: 0.0.0.0:8443\n  no_tls: true\n}\n"
+MAX_CALLOUT_REPLICAS = 10   # a typo should not start fifty pods
 _KEYS = {"label", "commit", "image", "stack", "conf", "conf_file", "callout_args", "broker_env", "broker_resources", "callout_resources",
-         "generator_resources", "callout_env", "storm"}
+         "generator_resources", "callout_env", "callout_replicas", "no_tls", "storm"}
 
 
 def from_commits(a: str, b: str, a_label: str, b_label: str, image_prefix: str) -> tuple[Variant, Variant]:
@@ -121,6 +124,14 @@ def _one(n: int, item: object, image_prefix: str, base_dir: Path) -> Variant:
     args = item.get("callout_args", [])
     if not isinstance(args, list) or not all(isinstance(a, str) and a for a in args):
         raise ValueError(f"{where}: callout_args must be a list of non-empty strings (it replaces the whole argument list)")
+    no_tls = item.get("no_tls", False)
+    if not isinstance(no_tls, bool):
+        raise ValueError(f"{where}: no_tls must be true or false (it turns TLS off on the broker's WebSocket port and points the generator at ws://: a diagnostic, never a production setting)")
+    if no_tls and "websocket" in conf:
+        raise ValueError(f"{where}: no_tls writes the broker's websocket block itself; remove the websocket block from this variant's conf")
+    replicas = item.get("callout_replicas", 0)
+    if isinstance(replicas, bool) or not isinstance(replicas, int) or not 0 <= replicas <= MAX_CALLOUT_REPLICAS:
+        raise ValueError(f"{where}: callout_replicas must be a whole number from 1 to {MAX_CALLOUT_REPLICAS} (it is how many callout pods run; leave it out for the overlay's)")
     storm = _text_map(f"{where}.storm", item.get("storm", {}), lambda k: bool(_STORM_NAME.match(k)))
     for k in storm:
         if k in RESERVED_STORM:
@@ -131,7 +142,7 @@ def _one(n: int, item: object, image_prefix: str, base_dir: Path) -> Variant:
         broker_resources=resources, callout_resources=_resources(where, "callout_resources", item),
         generator_resources=_resources(where, "generator_resources", item),
         callout_env=_text_map(f"{where}.callout_env", item.get("callout_env", {}), lambda k: bool(_ENV_NAME.match(k)), PROTECTED_CALLOUT_ENV),
-        callout_args=tuple(args), storm=storm)
+        callout_args=tuple(args), callout_replicas=replicas, no_tls=no_tls, storm=storm)
 
 
 def _resources(where: str, key: str, item: dict) -> dict[str, str]:
@@ -177,8 +188,9 @@ def kustomization(v: Variant, overlay: Path, directory: Path, stamp: str = "") -
         broker["resources"] = {"requests": dict(v.broker_resources), "limits": dict(v.broker_resources)}  # equal: Guaranteed QoS
     template: dict = {"metadata": {"annotations": {RESTARTED_AT: stamp}}} if stamp else {}
     patches.append(_patch("StatefulSet", "apps/v1", "broker", {"spec": {"template": {**template, "spec": {"containers": [broker]}}}}))
-    if v.conf:
-        patches.append(_patch("ConfigMap", "v1", "storm-broker-config", {"data": {"extra.conf": v.conf}}))
+    conf = v.conf + (NO_TLS_CONF if v.no_tls else "")
+    if conf:
+        patches.append(_patch("ConfigMap", "v1", "storm-broker-config", {"data": {"extra.conf": conf}}))
     callout: dict = {"name": "callout"}
     if v.callout_env:
         callout["env"] = [{"name": k, "value": val} for k, val in v.callout_env.items()]
@@ -186,9 +198,11 @@ def kustomization(v: Variant, overlay: Path, directory: Path, stamp: str = "") -
         callout["args"] = list(v.callout_args)
     if v.callout_resources:
         callout["resources"] = {"requests": dict(v.callout_resources), "limits": dict(v.callout_resources)}  # equal, like the broker's
-    if len(callout) > 1 or stamp:
-        patches.append(_patch("Deployment", "apps/v1", "callout",
-                              {"spec": {"template": {**template, **({"spec": {"containers": [callout]}} if len(callout) > 1 else {})}}}))
+    if len(callout) > 1 or stamp or v.callout_replicas:
+        spec: dict = {"template": {**template, **({"spec": {"containers": [callout]}} if len(callout) > 1 else {})}}
+        if v.callout_replicas:
+            spec["replicas"] = v.callout_replicas   # the next variant that leaves it out gets the overlay's 1 back when its stack is applied
+        patches.append(_patch("Deployment", "apps/v1", "callout", {"spec": spec}))
     doc: dict = {"apiVersion": "kustomize.config.k8s.io/v1beta1", "kind": "Kustomization", "resources": [rel]}
     if patches:
         doc["patches"] = patches

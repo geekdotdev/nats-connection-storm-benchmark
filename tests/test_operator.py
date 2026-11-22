@@ -311,3 +311,27 @@ def test_a_rollout_that_succeeds_prints_nothing(kubeconfig, capsys):
     run = Recording()
     kube.KubeBackend(run, sleep=lambda s: None)._wait_rollout("statefulset/broker")
     assert capsys.readouterr().err == "" and "rollout" in run.cmds[0] and "statefulset/broker" in run.cmds[0]
+
+
+# -- the restricted loadgen overlay (NetworkPolicy): deny-by-default for the generator's own pod ---------------------------------------------
+def test_the_restricted_overlay_adds_only_a_networkpolicy_to_the_eks_overlays_own_objects():
+    base = render(REPO_ROOT / "deploy/loadgen/overlays/eks")
+    restricted = render(REPO_ROOT / "deploy/loadgen/overlays/eks-restricted")
+    base_docs = [d for d in base.split("\n---\n") if d.strip()]
+    restricted_docs = [d for d in restricted.split("\n---\n") if d.strip()]
+    assert len(restricted_docs) == len(base_docs) + 1                                       # exactly one object added
+    assert all(d in restricted for d in base_docs)                                           # the Job and its image/resources are unchanged
+    assert "kind: NetworkPolicy" in restricted and restricted.count("kind: NetworkPolicy") == 1
+
+
+def test_the_networkpolicy_denies_all_ingress_and_only_names_dns_the_broker_and_the_probe_for_egress():
+    text = render(REPO_ROOT / "deploy/loadgen/overlays/eks-restricted")
+    doc = next(d for d in text.split("\n---\n") if "kind: NetworkPolicy" in d)
+    assert "podSelector" in doc and "app.kubernetes.io/name: loadgen" in doc                 # selects only the generator's own pod
+    assert "ingress: []" in doc                                                              # nothing may initiate a connection to it
+    assert "Ingress" in doc and "Egress" in doc                                              # both default to deny, not just egress
+    for must in ("k8s-app: kube-dns", "kubernetes.io/metadata.name: kube-system",             # DNS, in kube-system specifically
+                 "app.kubernetes.io/name: broker", "port: 8443",                              # the broker's wss port, never 4222
+                 "app.kubernetes.io/name: cpuprobe", "port: 9100"):                            # the CPU probe, for monitoring
+        assert must in doc, must
+    assert "port: 4222" not in doc                                                           # this generator only ever uses wss://, not nats://

@@ -302,3 +302,33 @@ def test_the_command_line_scales_only_with_a_size_and_a_yes_and_only_for_eks(mon
     assert cli.main(["cluster", "scale", "--target", "eks"]) == 2 and "--client-nodes N" in capsys.readouterr().err   # no size: never a silent shrink to 1
     assert cli.main(["cluster", "scale", "--target", "eks", "--client-nodes", "2"]) == 2                    # no --yes
     assert cli.main(["--dry-run", "cluster", "scale", "--target", "eks", "--client-nodes", "2"]) == 0
+
+
+# -- turning on NetworkPolicy enforcement (vpc-cni) -----------------------------------------------------------------------------------------
+def test_the_network_policy_config_names_only_vpc_cni_and_leaves_the_other_addons_alone():
+    cfg = eks.network_policy_config(params())
+    assert [a["name"] for a in cfg["addons"]] == ["vpc-cni"]                                 # not eks-pod-identity-agent or aws-ebs-csi-driver
+    assert cfg["addons"][0]["configurationValues"] == '{"enableNetworkPolicy":"true"}' and "force" not in cfg["addons"][0]           # not a ClusterConfig field
+    assert cfg["metadata"]["name"] == "storm-bench" and cfg["metadata"]["region"] == "us-east-1"
+
+
+def test_the_network_policy_command_updates_the_existing_addon_not_create():
+    # vpc-cni is already an EKS-managed add-on on every cluster eksctl makes: `update`, not `create` (which would refuse, it already
+    # exists), and no --force (that flag is for migrating a self-managed add-on to managed, not relevant here).
+    assert eks.network_policy_command(Path("/t/c.yaml")) == ["eksctl", "update", "addon", "--config-file", "/t/c.yaml"]
+
+
+def test_turning_on_network_policy_enforcement_needs_a_yes_and_says_what_it_changes(capsys):
+    with pytest.raises(eks.NotConfirmed, match="every pod on the cluster may talk"):
+        eks.add_network_policy(Runner(), params(), confirm=False)
+    eks.add_network_policy(Runner(dry_run=True), params(), confirm=False)
+    out = capsys.readouterr().err
+    assert out.startswith("+ eksctl update addon --config-file ")
+
+
+def test_the_command_line_exposes_network_policy_only_for_eks(monkeypatch, capsys):
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    assert cli.main(["cluster", "network-policy", "--target", "local"]) == 2
+    assert "only for --target eks" in capsys.readouterr().err
+    assert cli.main(["cluster", "network-policy", "--target", "eks"]) == 2                  # needs --yes
+    assert "network-policy" in capsys.readouterr().err

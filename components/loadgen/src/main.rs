@@ -36,6 +36,18 @@
 //   STORM_JSON          write the report to this file, or to stdout as one line starting STORM_REPORT_JSON when set to -; STORM_SAMPLES=1 adds every connection's timings
 //   STORM_METRICS_PORT  serve Prometheus metrics on this port (default 0: off); STORM_METRICS_HOLD_S keeps serving this many seconds after the last run
 //   STORM_CA_FILE       PEM file with the CA that signed the broker's certificate (required for wss://)
+//
+// Bad-faith connections (default 0.0, every existing run unaffected): each fraction is of STORM_CONNECTIONS, exact counts (rounded, not
+// probabilistic), assigned in the fixed order below; whatever is left over is good faith, exactly as today. See plans/bad-faith-storm.md.
+// The existing outcomes/authMs/totalMs/samples fields (and the Prometheus metrics) stay scoped to good-faith connections only, unchanged
+// in meaning whether or not any bad faith is configured; a report with any configured carries a new "badFaith" object, one entry per
+// kind actually present, with its own n/outcomes/authMs. None of the four is ever expected to be admitted: if one is, that is a finding.
+//   STORM_INVALID_FRACTION               a garbage string where the JWT goes: fails to decode, the cheapest rejection
+//   STORM_NONEXISTENT_ACCOUNT_FRACTION   a structurally perfect JWT whose issuer account was never provisioned: fails at account lookup
+//   STORM_FORGED_FRACTION                a real, untouched, validly-issued ticket, but the nonce signed by an unrelated key: fails the
+//                                        broker's LAST check, after every cheaper one already passed -- the costliest of the four
+//   STORM_INCOMPLETE_HANDSHAKE_FRACTION  completes the WebSocket upgrade, receives INFO, then never sends CONNECT at all: the only kind
+//                                        that gets no reply; silent until the broker's own authorization timeout closes it
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -59,6 +71,69 @@ use ticket::{Issuer, Ticket};
 
 /// The line that starts the JSON report when STORM_JSON=- (stdout).
 const REPORT_PREFIX: &str = "STORM_REPORT_JSON ";
+
+// ---- bad-faith connections: invalid, forged, non-existent-account credentials, and a handshake with no CONNECT at all ---------------------
+//
+// Every kind here is confirmed against the broker's own source (nats-server 582fb8e939a7, server/auth.go and server/client.go), not assumed:
+// every one of them ends at `c.authViolation()`, which sends `-ERR 'Authorization Violation'` then closes, EXCEPT incomplete-handshake,
+// which is silent until the broker's own authorization timeout (10 s in these manifests) closes it with nothing sent at all. They are
+// ordered here, as in plans/bad-faith-storm.md, from the cheapest rejection to the costliest:
+//   invalid              a garbage string where the JWT goes: fails to decode, inside the broker's server lock, before anything else runs.
+//   nonexistent-account  a structurally perfect, self-consistent JWT whose issuer account was never provisioned: fails at the broker's
+//                        account lookup, after the lock is released.
+//   forged               a genuinely real, untouched, validly-issued ticket -- the same JWT a good-faith connection presents -- but the
+//                        CONNECT frame's nonce challenge is signed with an unrelated key instead of the one the ticket actually names.
+//                        Every check ahead of the nonce-signature check (decode, account lookup, the scope's signature chain) succeeds;
+//                        it fails at the LAST check in the whole chain, so it is the costliest of the four.
+//   incomplete-handshake completes the WebSocket upgrade and receives the broker's INFO, then never sends CONNECT at all.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Kind {
+    Invalid,
+    NonexistentAccount,
+    Forged,
+    IncompleteHandshake,
+    GoodFaith,
+}
+impl Kind {
+    /// The order they are assigned in a burst (bad-faith first, by ascending cost, good-faith last) and the key a bad-faith kind's
+    /// own stats are reported under (`badFaith`); `GoodFaith` has none, since it is what the existing top-level fields already mean.
+    const BAD_FAITH_ORDER: [Kind; 4] = [Kind::Invalid, Kind::NonexistentAccount, Kind::Forged, Kind::IncompleteHandshake];
+    fn report_key(&self) -> Option<&'static str> {
+        match self {
+            Kind::Invalid => Some("invalid"),
+            Kind::NonexistentAccount => Some("nonexistentAccount"),
+            Kind::Forged => Some("forged"),
+            Kind::IncompleteHandshake => Some("incompleteHandshake"),
+            Kind::GoodFaith => None,
+        }
+    }
+}
+
+/// How many of `total` connections are each bad-faith kind, from the configured fractions: rounded independently, then shrunk from the
+/// costliest kind backwards if rounding would overshoot `total` (so the four kinds, plus whatever is left for good faith, always sum to
+/// exactly `total`; none of this is probabilistic, so a configured fraction is also the exact count, not an average over many bursts).
+fn bad_faith_counts(total: usize, fractions: [f64; 4]) -> [usize; 4] {
+    let mut counts = fractions.map(|f| (total as f64 * f).round() as usize);
+    let mut sum: usize = counts.iter().sum();
+    let mut i = counts.len();
+    while sum > total && i > 0 {
+        i -= 1;
+        if counts[i] > 0 {
+            counts[i] -= 1;
+            sum -= 1;
+        }
+    }
+    counts
+}
+
+/// What one connection presents in CONNECT, decided before the burst starts (so deciding is not part of what is timed): a real ticket,
+/// correctly or incorrectly signed (good-faith and nonexistent-account sign correctly, with their own ticket's key; forged does not), a
+/// garbage string that is not a JWT at all (invalid), or nothing -- never send CONNECT (incomplete-handshake).
+enum Credential {
+    Ticket { ticket: Ticket, correct_signature: bool },
+    Garbage,
+    NoConnect,
+}
 
 type Res<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -103,6 +178,7 @@ struct Cfg {
     auth_account: String,
     roles: Vec<String>,
     ticket_ttl_s: u64,
+    bad_faith: [f64; 4], // order: Kind::BAD_FAITH_ORDER (invalid, nonexistent-account, forged, incomplete-handshake)
 }
 
 fn cfg() -> Res<Cfg> {
@@ -126,12 +202,26 @@ fn cfg() -> Res<Cfg> {
         auth_account: secret("STORM_AUTH_ACCOUNT")?,
         roles: env("STORM_ROLES", "app-feed-publish-orders,app-feed-subscribe-alarms").split(',').map(|r| r.trim().to_string()).filter(|r| !r.is_empty()).collect(),
         ticket_ttl_s: env_num("STORM_TICKET_TTL_S", 3600),
+        bad_faith: [
+            env_num("STORM_INVALID_FRACTION", 0.0),
+            env_num("STORM_NONEXISTENT_ACCOUNT_FRACTION", 0.0),
+            env_num("STORM_FORGED_FRACTION", 0.0),
+            env_num("STORM_INCOMPLETE_HANDSHAKE_FRACTION", 0.0),
+        ],
     };
     if c.url.is_empty() {
         return Err("set STORM_URL, the broker's WebSocket URL (ws:// or wss://)".into());
     }
     if c.scoped_seed.is_empty() || c.auth_account.is_empty() {
         return Err("set STORM_SCOPED_SEED (or STORM_SCOPED_SEED_FILE) and STORM_AUTH_ACCOUNT (or STORM_AUTH_ACCOUNT_FILE): the AUTH account's scoped signing seed and public key (components/provision makes them)".into());
+    }
+    for f in c.bad_faith {
+        if !(0.0..=1.0).contains(&f) {
+            return Err("STORM_INVALID_FRACTION, STORM_NONEXISTENT_ACCOUNT_FRACTION, STORM_FORGED_FRACTION and STORM_INCOMPLETE_HANDSHAKE_FRACTION must each be 0.0 to 1.0".into());
+        }
+    }
+    if c.bad_faith.iter().sum::<f64>() > 1.0 {
+        return Err("STORM_INVALID_FRACTION + STORM_NONEXISTENT_ACCOUNT_FRACTION + STORM_FORGED_FRACTION + STORM_INCOMPLETE_HANDSHAKE_FRACTION must not exceed 1.0: whatever is left over is good faith".into());
     }
     Ok(c)
 }
@@ -247,21 +337,26 @@ async fn serve_metrics(port: u16, m: Arc<Metrics>) -> Res<()> {
 // ---- one connection ---------------------------------------------------------------------------------------------------------------------------------------------------------------
 struct Ctx {
     url: String,
-    /// Makes each connection's ticket.
+    /// Makes each good-faith (and forged, which presents a real ticket too) connection's ticket.
     issuer: Issuer,
+    /// Makes a nonexistent-account connection's ticket: self-consistent, but never the real AUTH account.
+    rogue_issuer: Issuer,
     connector: Connector,
     timeout: Duration,
     metrics: Arc<Metrics>,
 }
 
 struct Rec {
+    kind: Kind,
     outcome: &'static str,
     detail: String,
     auth_ms: Option<f64>,
     total_ms: Option<f64>,
     open_ms: Option<f64>,
     /// When the connection started, when its CONNECT went out (None if it never did) and when its answer came, all in ms since the run began.
-    /// With these a run's queue can be drawn: CONNECTs sent and not yet answered, over time.
+    /// With these a run's queue can be drawn: CONNECTs sent and not yet answered, over time. For `incomplete-handshake`, which never sends
+    /// CONNECT, `sent_ms` is set anyway, to when INFO arrived: so `auth_ms` (answer time minus sent time) means, for that kind only, how
+    /// long the broker held the connection open after the point CONNECT would have gone out -- the quantity that kind exists to measure.
     start_ms: f64,
     sent_ms: Option<f64>,
     done_ms: f64,
@@ -475,7 +570,7 @@ fn connect_frame(jwt: &str, sig: &str) -> String {
     format!("CONNECT {c}\r\nPING\r\n")
 }
 
-async fn attempt(ctx: &Ctx, ticket: &Ticket, start: Instant, sent_at: &Mutex<Option<Instant>>, open_ms: &Mutex<Option<f64>>) -> Res<(&'static str, String, Option<Ws>)> {
+async fn attempt(ctx: &Ctx, cred: &Credential, start: Instant, sent_at: &Mutex<Option<Instant>>, open_ms: &Mutex<Option<f64>>) -> Res<(&'static str, String, Option<Ws>)> {
     let req = ctx.url.as_str().into_client_request()?;
     let uri = req.uri().clone();
     let host = uri.host().ok_or("no host in the broker URL")?.to_string();
@@ -505,10 +600,29 @@ async fn attempt(ctx: &Ctx, ticket: &Ticket, start: Instant, sent_at: &Mutex<Opt
                 return Ok(("error", "the broker sent no nonce: is it in operator mode?".into(), None));
             };
             buf.drain(..nl + 2);
-            let frame = connect_frame(&ticket.jwt, &ticket.sign_nonce(&nonce));
-            *sent_at.lock().unwrap() = Some(Instant::now());
-            sent = true;
-            ws.send(Message::text(frame)).await?;
+            match cred {
+                Credential::NoConnect => {
+                    // Deliberately never send CONNECT (incomplete-handshake): mark the point it would have gone out, so `auth_ms` below
+                    // ends up measuring how long the broker holds this connection open afterward, and keep reading (nothing further is
+                    // expected but the broker's own eventual close), without setting `sent`.
+                    *sent_at.lock().unwrap() = Some(Instant::now());
+                    continue;
+                }
+                Credential::Garbage => {
+                    // The signature is never checked here: the broker fails to decode the JWT first, before it ever looks at `sig`.
+                    let frame = connect_frame("not-a-jwt-at-all", &ticket::sign_nonce_with_unrelated_key(&nonce)?);
+                    *sent_at.lock().unwrap() = Some(Instant::now());
+                    sent = true;
+                    ws.send(Message::text(frame)).await?;
+                }
+                Credential::Ticket { ticket, correct_signature } => {
+                    let sig = if *correct_signature { ticket.sign_nonce(&nonce) } else { ticket::sign_nonce_with_unrelated_key(&nonce)? };
+                    let frame = connect_frame(&ticket.jwt, &sig);
+                    *sent_at.lock().unwrap() = Some(Instant::now());
+                    sent = true;
+                    ws.send(Message::text(frame)).await?;
+                }
+            }
             continue;
         }
         if let Some(i) = buf.find("-ERR") {
@@ -522,15 +636,18 @@ async fn attempt(ctx: &Ctx, ticket: &Ticket, start: Instant, sent_at: &Mutex<Opt
     Ok(("error", "closed before the broker answered".into(), None))
 }
 
-async fn connect_once(ctx: Arc<Ctx>, ticket: Ticket, start: Instant, began: Instant) -> (Rec, Option<Ws>) {
+async fn connect_once(ctx: Arc<Ctx>, kind: Kind, cred: Credential, start: Instant, began: Instant) -> (Rec, Option<Ws>) {
     let m = &ctx.metrics;
-    m.in_flight.fetch_add(1, Ordering::Relaxed);
+    let good_faith = kind == Kind::GoodFaith;
+    if good_faith {
+        m.in_flight.fetch_add(1, Ordering::Relaxed);
+    }
     let sent_at = Mutex::new(None);
     let open_ms = Mutex::new(None);
-    let result = tokio::time::timeout(ctx.timeout, attempt(&ctx, &ticket, start, &sent_at, &open_ms)).await;
+    let result = tokio::time::timeout(ctx.timeout, attempt(&ctx, &cred, start, &sent_at, &open_ms)).await;
     let now = Instant::now();
     let sent = *sent_at.lock().unwrap();
-    let mut rec = Rec { outcome: "error", detail: String::new(), auth_ms: None, total_ms: Some(now.duration_since(start).as_secs_f64() * 1000.0), open_ms: *open_ms.lock().unwrap(),
+    let mut rec = Rec { kind, outcome: "error", detail: String::new(), auth_ms: None, total_ms: Some(now.duration_since(start).as_secs_f64() * 1000.0), open_ms: *open_ms.lock().unwrap(),
                        start_ms: ms_since(start, began), sent_ms: sent.map(|s| ms_since(s, began)), done_ms: ms_since(now, began) };
     let mut ws = None;
     match result {
@@ -542,19 +659,27 @@ async fn connect_once(ctx: Arc<Ctx>, ticket: Ticket, start: Instant, began: Inst
         Ok(Err(e)) => rec.detail = e.to_string(),
         Err(_) => {
             rec.outcome = "timeout";
-            rec.detail = if sent.is_some() { "no PONG or -ERR" } else { "no INFO" }.into();
+            rec.detail = if kind == Kind::IncompleteHandshake {
+                "no response within the generator's own timeout (the broker's authorization timeout did not close it first)"
+            } else if sent.is_some() {
+                "no PONG or -ERR"
+            } else {
+                "no INFO"
+            }.into();
         }
     }
     if let Some(s) = sent {
         rec.auth_ms = Some(now.duration_since(s).as_secs_f64() * 1000.0);
     }
-    m.in_flight.fetch_sub(1, Ordering::Relaxed);
-    m.counter(rec.outcome).fetch_add(1, Ordering::Relaxed);
-    if let (Some(a), true) = (rec.auth_ms, rec.outcome == "admitted" || rec.outcome == "refused") {
-        m.auth.observe(a / 1000.0);
-    }
-    if let (Some(t), "admitted") = (rec.total_ms, rec.outcome) {
-        m.total.observe(t / 1000.0);
+    if good_faith {
+        m.in_flight.fetch_sub(1, Ordering::Relaxed);
+        m.counter(rec.outcome).fetch_add(1, Ordering::Relaxed);
+        if let (Some(a), true) = (rec.auth_ms, rec.outcome == "admitted" || rec.outcome == "refused") {
+            m.auth.observe(a / 1000.0);
+        }
+        if let (Some(t), "admitted") = (rec.total_ms, rec.outcome) {
+            m.total.observe(t / 1000.0);
+        }
     }
     (rec, ws)
 }
@@ -576,25 +701,72 @@ fn fmt(v: &Value) -> String {
     v.as_f64().map_or("     n/a".into(), |f| format!("{f:8.1}"))
 }
 
+/// Outcome counts, failure reasons, and auth/total percentiles and the success rate, over whichever records are passed in: the
+/// good-faith subset for the report's own top-level fields, or one bad-faith kind's subset for its entry in `badFaith`.
+fn outcome_stats(records: &[&Rec]) -> (BTreeMap<&'static str, usize>, BTreeMap<String, usize>, Value, Value, f64) {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut reasons: BTreeMap<String, usize> = BTreeMap::new();
+    for r in records {
+        *counts.entry(r.outcome).or_default() += 1;
+        if r.outcome != "admitted" {
+            *reasons.entry(format!("{}: {}", r.outcome, r.detail)).or_default() += 1;
+        }
+    }
+    let n = |k: &str| counts.get(k).copied().unwrap_or(0);
+    let auth: Vec<f64> = records.iter().filter_map(|r| r.auth_ms).collect();
+    let total: Vec<f64> = records.iter().filter(|r| r.outcome == "admitted").filter_map(|r| r.total_ms).collect();
+    let success = if records.is_empty() { 0.0 } else { n("admitted") as f64 / records.len() as f64 };
+    (counts, reasons, stats(&auth), stats(&total), success)
+}
+
+/// The kind of each of `total` connections, in the fixed order (bad faith first, ascending cost; good faith fills the rest) and the
+/// real or rogue ticket each needs -- or none, for `invalid` and `incomplete-handshake`. Built before the clock starts, like the real
+/// tickets always were: making a ticket, or deciding there is none to make, is never part of what a burst measures.
+fn kinds_and_credentials(c: &Cfg, ctx: &Ctx, now: u64) -> Res<Vec<(Kind, Credential)>> {
+    let counts = bad_faith_counts(c.connections, c.bad_faith);
+    let mut out = Vec::with_capacity(c.connections);
+    for (kind, count) in Kind::BAD_FAITH_ORDER.into_iter().zip(counts) {
+        for i in 0..count {
+            let cred = match kind {
+                Kind::Invalid => Credential::Garbage,
+                Kind::IncompleteHandshake => Credential::NoConnect,
+                Kind::NonexistentAccount => Credential::Ticket { ticket: ctx.rogue_issuer.ticket(&format!("storm-bad-{i}"), now)?, correct_signature: true },
+                Kind::Forged => Credential::Ticket { ticket: ctx.issuer.ticket(&format!("storm-bad-{i}"), now)?, correct_signature: false },
+                Kind::GoodFaith => unreachable!("not in BAD_FAITH_ORDER"),
+            };
+            out.push((kind, cred));
+        }
+    }
+    for i in out.len()..c.connections {
+        out.push((Kind::GoodFaith, Credential::Ticket { ticket: ctx.issuer.ticket(&format!("storm-{i}"), now)?, correct_signature: true }));
+    }
+    Ok(out)
+}
+
+/// Whether the burst's own clock and CPU reading should be taken now: once the good-faith subset has all answered (`good_faith_total >
+/// 0`, regardless of how many bad-faith stragglers are still outstanding -- `records_so_far` can be less than `total`), or, when no
+/// good faith was configured at all, once everything has (a bad-faith-only calibration burst, where there is no earlier point to use).
+fn ready_to_snapshot(good_faith_seen: usize, good_faith_total: usize, records_so_far: usize, total: usize) -> bool {
+    if good_faith_total > 0 { good_faith_seen == good_faith_total } else { records_so_far == total }
+}
+
 async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
     let (tx, mut rx) = mpsc::unbounded_channel::<Rec>();
     ctx.metrics.target.store(c.connections as u64, Ordering::Relaxed);
     let hold = Duration::from_millis(c.hold_ms);
 
-    // Every ticket is made now, before the clock starts and before the scheduling-delay ticker, so signing a JWT is neither in the
-    // measured interval nor in the generator's own delay.
+    // Every connection's credential is made now, before the clock starts and before the scheduling-delay ticker, so making it (a real
+    // ticket's signing, or deciding a bad-faith connection needs none) is neither in the measured interval nor in the generator's own delay.
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-    let mut tickets = Vec::with_capacity(c.connections);
-    for i in 0..c.connections {
-        match ctx.issuer.ticket(&format!("storm-{i}"), now) {
-            Ok(t) => tickets.push(t),
-            Err(e) => {
-                eprintln!("cannot make a ticket: {e}");
-                std::process::exit(2);
-            }
+    let mut creds = match kinds_and_credentials(c, ctx, now) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("cannot make a ticket: {e}");
+            std::process::exit(2);
         }
-    }
-    let mut tickets = tickets.into_iter();
+    };
+    let good_faith_total = creds.iter().filter(|(k, _)| *k == Kind::GoodFaith).count();
+    let mut creds = creds.drain(..);
 
     // How late the runtime wakes a timer that asked for 10 ms: when this is large, the generator is the limit.
     let lags = Arc::new(Mutex::new(Vec::<u64>::new()));
@@ -617,7 +789,7 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
     let mut tasks = Vec::with_capacity(c.connections);
     for i in 0..c.connections {
         let (ctx, tx) = (ctx.clone(), tx.clone());
-        let ticket = tickets.next().expect("one ticket per connection");
+        let (kind, cred) = creds.next().expect("one credential per connection");
         let delay = if c.ramp_ms > 0 { Duration::from_millis(i as u64 * c.ramp_ms / c.connections as u64) } else { Duration::ZERO };
         let start_hint = Instant::now();
         tasks.push(tokio::spawn(async move {
@@ -627,7 +799,7 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
                 tokio::time::sleep(delay).await;
                 Instant::now()
             };
-            let (rec, ws) = connect_once(ctx, ticket, start, began).await;
+            let (rec, ws) = connect_once(ctx, kind, cred, start, began).await;
             let _ = tx.send(rec);
             drop(tx); // the run's clock stops when the last answer is in, not when the last connection has been held and closed
             if let Some(mut ws) = ws {
@@ -637,14 +809,28 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
         }));
     }
     drop(tx);
+    // The burst's own clock, and the CPU it is measured against, stop when the good-faith subset has all answered -- not when every
+    // bad-faith straggler has (an incomplete-handshake connection can sit for the broker's whole 10 s authorization timeout, which
+    // would otherwise balloon "seconds" regardless of how fast real traffic was actually served, breaking comparability with every
+    // run before bad faith existed). With no good faith configured at all (a bad-faith-only calibration burst), the old meaning --
+    // after everything -- is what is left to use.
     let mut records = Vec::with_capacity(c.connections);
+    let mut good_faith_seen = 0usize;
+    let mut snapshot: Option<(f64, Value, u64, Value)> = None;
     while let Some(r) = rx.recv().await {
+        if r.kind == Kind::GoodFaith {
+            good_faith_seen += 1;
+        }
         records.push(r);
+        if snapshot.is_none() && ready_to_snapshot(good_faith_seen, good_faith_total, records.len(), c.connections) {
+            let seconds = began.elapsed().as_secs_f64();
+            let cpu = cpu_delta_json(cpu_before, read_cgroup_cpu());
+            let ended_at_ms = epoch_ms();
+            let probe_cpu = probe_delta_json(&probe_before, &read_probes(&c.cpuprobe).await);
+            snapshot = Some((seconds, cpu, ended_at_ms, probe_cpu));
+        }
     }
-    let seconds = began.elapsed().as_secs_f64();
-    let cpu = cpu_delta_json(cpu_before, read_cgroup_cpu());   // the burst itself: until the last answer, before the connections are held and closed
-    let ended_at_ms = epoch_ms();
-    let probe_cpu = probe_delta_json(&probe_before, &read_probes(&c.cpuprobe).await);
+    let (seconds, cpu, ended_at_ms, probe_cpu) = snapshot.unwrap_or_else(|| (began.elapsed().as_secs_f64(), Value::Null, epoch_ms(), Value::Null));
     ticker.abort();
     for t in tasks {
         let _ = t.await;
@@ -655,27 +841,39 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
     let lag_p99_ms = if lag.is_empty() { 0.0 } else { lag[((lag.len() as f64 * 0.99).ceil() as usize).clamp(1, lag.len()) - 1] as f64 / 1000.0 };
     ctx.metrics.sched_p99_us.store((lag_p99_ms * 1000.0) as u64, Ordering::Relaxed);
 
-    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    let mut reasons: BTreeMap<String, usize> = BTreeMap::new();
-    for r in &records {
-        *counts.entry(r.outcome).or_default() += 1;
-        if r.outcome != "admitted" {
-            *reasons.entry(format!("{}: {}", r.outcome, r.detail)).or_default() += 1;
-        }
-    }
+    // Every existing field below (outcomes, authMs, totalMs, successRate, failures, samples) is scoped to good faith only, whether or
+    // not any bad faith was configured: a plain run's report is unchanged, byte for byte, down to the absence of the new fields below.
+    let good: Vec<&Rec> = records.iter().filter(|r| r.kind == Kind::GoodFaith).collect();
+    let (counts, reasons, auth_s, total_s, success) = outcome_stats(&good);
     let n = |k: &str| counts.get(k).copied().unwrap_or(0);
-    let auth: Vec<f64> = records.iter().filter_map(|r| r.auth_ms).collect();
-    let total: Vec<f64> = records.iter().filter(|r| r.outcome == "admitted").filter_map(|r| r.total_ms).collect();
-    let (auth_s, total_s) = (stats(&auth), stats(&total));
-    let success = if records.is_empty() { 0.0 } else { n("admitted") as f64 / records.len() as f64 };
 
-    println!("\nrun {}/{}: admitted {}   refused {}   timeout {}   error {}   success {:.1}%   in {:.1} s ({:.0} connections/s)", index + 1, c.runs, n("admitted"), n("refused"), n("timeout"), n("error"), success * 100.0, seconds, c.connections as f64 / seconds);
+    println!("\nrun {}/{}: admitted {}   refused {}   timeout {}   error {}   success {:.1}%   in {:.1} s ({:.0} connections/s)", index + 1, c.runs, n("admitted"), n("refused"), n("timeout"), n("error"), success * 100.0, seconds, good.len() as f64 / seconds);
     println!("                      n       p50       p90       p99       max   (ms)");
     println!("auth (CONNECT->PONG) {:4} {}  {}  {}  {}", auth_s["n"], fmt(&auth_s["p50"]), fmt(&auth_s["p90"]), fmt(&auth_s["p99"]), fmt(&auth_s["max"]));
     println!("total (start->PONG)  {:4} {}  {}  {}  {}", total_s["n"], fmt(&total_s["p50"]), fmt(&total_s["p90"]), fmt(&total_s["p99"]), fmt(&total_s["max"]));
     println!("generator scheduling delay p99: {lag_p99_ms:.1} ms (large means the generator, not the broker, is the limit)");
     for (reason, k) in &reasons {
         println!("  {k} x {reason}");
+    }
+
+    let bad_faith_present: Vec<Kind> = Kind::BAD_FAITH_ORDER.into_iter().filter(|k| records.iter().any(|r| r.kind == *k)).collect();
+    let mut bad_faith_report = serde_json::Map::new();
+    if !bad_faith_present.is_empty() {
+        println!("bad faith (none of these are expected to be admitted):");
+        println!("  {:<19}  n       p50       p90       p99       max   (ms)   admitted refused timeout error", "");
+        for kind in &bad_faith_present {
+            let subset: Vec<&Rec> = records.iter().filter(|r| r.kind == *kind).collect();
+            let (k_counts, k_reasons, k_auth, k_total, _) = outcome_stats(&subset);
+            let kn = |o: &str| k_counts.get(o).copied().unwrap_or(0);
+            println!("  {:<19} {:4} {}  {}  {}  {}      {:8} {:7} {:7} {:5}", kind.report_key().unwrap(), k_auth["n"], fmt(&k_auth["p50"]), fmt(&k_auth["p90"]), fmt(&k_auth["p99"]), fmt(&k_auth["max"]), kn("admitted"), kn("refused"), kn("timeout"), kn("error"));
+            if kn("admitted") > 0 {
+                println!("  ^ {} of {} {} connections were ADMITTED: that should never happen", kn("admitted"), subset.len(), kind.report_key().unwrap());
+            }
+            bad_faith_report.insert(kind.report_key().unwrap().to_string(), json!({
+                "n": subset.len(), "outcomes": {"admitted": kn("admitted"), "refused": kn("refused"), "timeout": kn("timeout"), "error": kn("error")},
+                "authMs": k_auth, "totalMs": k_total, "reasons": k_reasons,
+            }));
+        }
     }
 
     let mut report = json!({
@@ -687,8 +885,13 @@ async fn run_once(c: &Cfg, ctx: &Arc<Ctx>, index: usize) -> Value {
     report["probeCpu"] = probe_cpu;
     report["startedAtMs"] = json!(started_at_ms);   // wall clock, so the burst can be found in Prometheus's series
     report["endedAtMs"] = json!(ended_at_ms);
+    if !bad_faith_present.is_empty() {
+        report["goodFaithConnections"] = json!(good.len());
+        report["badFaithConnections"] = json!(c.connections - good.len());
+        report["badFaith"] = Value::Object(bad_faith_report);
+    }
     if c.samples {
-        report["samples"] = records.iter().map(sample_json).collect();
+        report["samples"] = good.iter().map(|r| sample_json(r)).collect();
     }
     report
 }
@@ -713,7 +916,14 @@ async fn real_main(c: Cfg) -> Res<i32> {
     let tls = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
     let issuer = Issuer::new(&c.scoped_seed, &c.auth_account, &c.roles, c.ticket_ttl_s)?;
     println!("tickets signed by scoped key {} for roles {:?}, valid {} s", issuer.public(), c.roles, c.ticket_ttl_s);
-    let ctx = Arc::new(Ctx { url: c.url.clone(), issuer, connector: Connector::Rustls(Arc::new(tls)), timeout: Duration::from_millis(c.timeout_ms), metrics: metrics.clone() });
+    // Built once and reused for every nonexistent-account connection in every burst: one account the broker will never find, not a
+    // fresh one per connection (that would work too, but there is nothing to gain from it and it would cost a key generation each time).
+    let rogue_issuer = Issuer::random(&c.roles, c.ticket_ttl_s)?;
+    if c.bad_faith.iter().any(|f| *f > 0.0) {
+        println!("bad faith configured: invalid {:.2}, nonexistent-account {:.2} (account {}), forged {:.2}, incomplete-handshake {:.2}",
+                c.bad_faith[0], c.bad_faith[1], rogue_issuer.public(), c.bad_faith[2], c.bad_faith[3]);
+    }
+    let ctx = Arc::new(Ctx { url: c.url.clone(), issuer, rogue_issuer, connector: Connector::Rustls(Arc::new(tls)), timeout: Duration::from_millis(c.timeout_ms), metrics: metrics.clone() });
 
     println!("run \"{}\": {} connections x {} run(s) to {}, {}, {} worker thread(s)", c.label, c.connections, c.runs, c.url, if c.ramp_ms > 0 { format!("ramped over {} ms", c.ramp_ms) } else { "all at once".into() }, c.threads);
 
@@ -777,7 +987,7 @@ mod tests {
 
     #[test]
     fn a_sample_carries_run_relative_times_to_a_tenth_of_a_millisecond() {
-        let r = Rec { outcome: "admitted", detail: String::new(), auth_ms: Some(123.456), total_ms: Some(300.04), open_ms: Some(10.0),
+        let r = Rec { kind: Kind::GoodFaith, outcome: "admitted", detail: String::new(), auth_ms: Some(123.456), total_ms: Some(300.04), open_ms: Some(10.0),
                       start_ms: 0.04, sent_ms: Some(180.55), done_ms: 304.0 };
         let j = sample_json(&r);
         assert_eq!(j["startMs"], 0.0);
@@ -785,7 +995,7 @@ mod tests {
         assert_eq!(j["doneMs"], 304.0);
         assert_eq!(j["authMs"], 123.5);
         assert!(j.get("detail").is_none(), "an empty detail is left out");
-        let never_sent = Rec { outcome: "error", detail: "closed before the broker answered".into(), auth_ms: None, total_ms: Some(5.0), open_ms: None,
+        let never_sent = Rec { kind: Kind::GoodFaith, outcome: "error", detail: "closed before the broker answered".into(), auth_ms: None, total_ms: Some(5.0), open_ms: None,
                                start_ms: 1.0, sent_ms: None, done_ms: 6.0 };
         let j = sample_json(&never_sent);
         assert!(j["sentMs"].is_null() && j["authMs"].is_null());
@@ -955,5 +1165,148 @@ mod tests {
     fn metrics_render_never_includes_a_seed() {
         let m = Metrics::new("run".into());
         assert!(!m.render().contains("SA"));
+    }
+
+    // -- bad-faith connections ------------------------------------------------------------------------------------------------------
+
+    #[test]
+    fn bad_faith_counts_matches_the_configured_fractions_exactly() {
+        assert_eq!(bad_faith_counts(1000, [0.0, 0.0, 0.0, 0.0]), [0, 0, 0, 0], "the default: every existing run's math is untouched");
+        assert_eq!(bad_faith_counts(1000, [0.1, 0.2, 0.3, 0.0]), [100, 200, 300, 0]);
+        assert_eq!(bad_faith_counts(1000, [0.25, 0.25, 0.25, 0.25]), [250, 250, 250, 250], "nothing left for good faith, and that is allowed");
+        assert_eq!(bad_faith_counts(10, [0.0, 0.0, 0.0, 1.0]), [0, 0, 0, 10]);
+    }
+
+    #[test]
+    fn bad_faith_counts_never_exceeds_total_even_when_rounding_would_overshoot() {
+        // Four fractions of 0.3 each round to 3 of 9 connections: 12 in all, 3 more than there are. Shrunk from the costliest kind
+        // backwards (incomplete-handshake, then forged, then nonexistent-account), one at a time, until it fits.
+        let counts = bad_faith_counts(9, [0.3, 0.3, 0.3, 0.3]);
+        assert_eq!(counts.iter().sum::<usize>(), 9);
+        assert_eq!(counts, [3, 2, 2, 2]);
+        // A smaller overshoot (1, not 3) takes only one away, from the costliest kind that has anything to give.
+        assert_eq!(bad_faith_counts(3, [0.5, 0.5, 0.0, 0.0]), [2, 1, 0, 0]);
+    }
+
+    #[test]
+    fn ready_to_snapshot_fires_on_good_faith_alone_not_on_bad_faith_stragglers() {
+        // 100 good faith of 150 total (50 bad faith, still outstanding): fires the moment the 100th good-faith record is in, with
+        // only 100 of 150 records seen so far -- it must not wait for the rest.
+        assert!(!ready_to_snapshot(99, 100, 99, 150));
+        assert!(ready_to_snapshot(100, 100, 100, 150));
+        assert!(ready_to_snapshot(100, 100, 120, 150), "still true once more (bad-faith) records arrive after it already fired once");
+    }
+
+    #[test]
+    fn ready_to_snapshot_waits_for_everything_when_there_is_no_good_faith_at_all() {
+        // A bad-faith-only calibration burst: there is no earlier point to use, so it falls back to the old meaning, after everything.
+        assert!(!ready_to_snapshot(0, 0, 49, 50));
+        assert!(ready_to_snapshot(0, 0, 50, 50));
+    }
+
+    fn test_ctx() -> Ctx {
+        Ctx {
+            url: "ws://127.0.0.1:1".into(),
+            issuer: issuer_for_tests(),
+            rogue_issuer: Issuer::random(&["app-feed-publish-orders".to_string()], 60).unwrap(),
+            connector: Connector::Plain,
+            timeout: Duration::from_millis(1000),
+            metrics: Arc::new(Metrics::new("test".into())),
+        }
+    }
+    fn issuer_for_tests() -> Issuer {
+        // The same golden-vector account the ticket:: tests use, not exported from there: construct it the same way main.rs always
+        // does, from whatever a real deployment's STORM_SCOPED_SEED/STORM_AUTH_ACCOUNT would be.
+        Issuer::new(
+            "SAAG4OGNC2HOEDRURUJXZBIP66IQVBGUVT5RUS5HQUOPS7MJTGVLUEPGXE",
+            "AB6RUQE7JN26UCECUZRWGQUZOCHDLET5GAYX5MG26XYZLKNUJFOZ7ISB",
+            &["app-feed-publish-orders".to_string()],
+            3600,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn kinds_and_credentials_assigns_the_configured_counts_in_the_fixed_order() {
+        let c = Cfg {
+            connections: 10, runs: 1, pause_ms: 0, ramp_ms: 0, timeout_ms: 1000, hold_ms: 0, threads: 1, label: "t".into(), report: String::new(),
+            samples: false, cpuprobe: String::new(), metrics_port: 0, metrics_hold_s: 0, ca_file: String::new(), url: "ws://x".into(),
+            scoped_seed: String::new(), auth_account: String::new(), roles: vec![], ticket_ttl_s: 60,
+            bad_faith: [0.1, 0.2, 0.3, 0.1], // invalid 1, nonexistent-account 2, forged 3, incomplete-handshake 1, good faith 3
+        };
+        let ctx = test_ctx();
+        let creds = kinds_and_credentials(&c, &ctx, 1_800_000_000).unwrap();
+        let kinds: Vec<Kind> = creds.iter().map(|(k, _)| *k).collect();
+        assert_eq!(kinds, vec![
+            Kind::Invalid,
+            Kind::NonexistentAccount, Kind::NonexistentAccount,
+            Kind::Forged, Kind::Forged, Kind::Forged,
+            Kind::IncompleteHandshake,
+            Kind::GoodFaith, Kind::GoodFaith, Kind::GoodFaith,
+        ]);
+    }
+
+    #[test]
+    fn invalid_is_not_a_jwt_at_all() {
+        let c_default = |bf: [f64; 4]| Cfg {
+            connections: 1, runs: 1, pause_ms: 0, ramp_ms: 0, timeout_ms: 1000, hold_ms: 0, threads: 1, label: "t".into(), report: String::new(),
+            samples: false, cpuprobe: String::new(), metrics_port: 0, metrics_hold_s: 0, ca_file: String::new(), url: "ws://x".into(),
+            scoped_seed: String::new(), auth_account: String::new(), roles: vec![], ticket_ttl_s: 60, bad_faith: bf,
+        };
+        let ctx = test_ctx();
+        let (kind, cred) = kinds_and_credentials(&c_default([1.0, 0.0, 0.0, 0.0]), &ctx, 1).unwrap().remove(0);
+        assert_eq!(kind, Kind::Invalid);
+        let Credential::Garbage = cred else { panic!("invalid must be Credential::Garbage") };
+    }
+
+    #[test]
+    fn incomplete_handshake_sends_nothing() {
+        let c_default = |bf: [f64; 4]| Cfg {
+            connections: 1, runs: 1, pause_ms: 0, ramp_ms: 0, timeout_ms: 1000, hold_ms: 0, threads: 1, label: "t".into(), report: String::new(),
+            samples: false, cpuprobe: String::new(), metrics_port: 0, metrics_hold_s: 0, ca_file: String::new(), url: "ws://x".into(),
+            scoped_seed: String::new(), auth_account: String::new(), roles: vec![], ticket_ttl_s: 60, bad_faith: bf,
+        };
+        let ctx = test_ctx();
+        let (kind, cred) = kinds_and_credentials(&c_default([0.0, 0.0, 0.0, 1.0]), &ctx, 1).unwrap().remove(0);
+        assert_eq!(kind, Kind::IncompleteHandshake);
+        let Credential::NoConnect = cred else { panic!("incomplete-handshake must be Credential::NoConnect") };
+    }
+
+    #[test]
+    fn forged_presents_a_real_ticket_signed_wrongly_and_nonexistent_account_a_rogue_one_signed_correctly() {
+        let c_default = |bf: [f64; 4]| Cfg {
+            connections: 1, runs: 1, pause_ms: 0, ramp_ms: 0, timeout_ms: 1000, hold_ms: 0, threads: 1, label: "t".into(), report: String::new(),
+            samples: false, cpuprobe: String::new(), metrics_port: 0, metrics_hold_s: 0, ca_file: String::new(), url: "ws://x".into(),
+            scoped_seed: String::new(), auth_account: String::new(), roles: vec![], ticket_ttl_s: 60, bad_faith: bf,
+        };
+        let ctx = test_ctx();
+
+        let (kind, cred) = kinds_and_credentials(&c_default([0.0, 0.0, 1.0, 0.0]), &ctx, 1).unwrap().remove(0);
+        assert_eq!(kind, Kind::Forged);
+        let Credential::Ticket { ticket, correct_signature } = cred else { panic!("forged must carry a real ticket") };
+        assert!(!correct_signature, "forged signs with the wrong key");
+        let claims: serde_json::Value = serde_json::from_slice(&data_encoding::BASE64URL_NOPAD.decode(ticket.jwt.split('.').nth(1).unwrap().as_bytes()).unwrap()).unwrap();
+        assert_eq!(claims["nats"]["issuer_account"], ctx.issuer.public(), "the real account, not a rogue one: this is a stolen real ticket, not a forged JWT");
+
+        let (kind, cred) = kinds_and_credentials(&c_default([0.0, 1.0, 0.0, 0.0]), &ctx, 1).unwrap().remove(0);
+        assert_eq!(kind, Kind::NonexistentAccount);
+        let Credential::Ticket { ticket, correct_signature } = cred else { panic!("nonexistent-account must carry a ticket") };
+        assert!(correct_signature, "the nonce signature itself is fine: only the account is the problem");
+        let claims: serde_json::Value = serde_json::from_slice(&data_encoding::BASE64URL_NOPAD.decode(ticket.jwt.split('.').nth(1).unwrap().as_bytes()).unwrap()).unwrap();
+        assert_eq!(claims["nats"]["issuer_account"], ctx.rogue_issuer.public());
+        assert_ne!(claims["nats"]["issuer_account"], ctx.issuer.public(), "never the real account");
+    }
+
+    #[test]
+    fn a_plain_run_with_no_bad_faith_configured_reports_exactly_as_before() {
+        // outcome_stats, which both the top-level fields and each badFaith entry are built from, gives the same numbers either way:
+        // this is what guarantees a report with nothing configured is unaffected by any of this.
+        let admitted = |kind| Rec { kind, outcome: "admitted", detail: String::new(), auth_ms: Some(10.0), total_ms: Some(20.0), open_ms: None, start_ms: 0.0, sent_ms: Some(1.0), done_ms: 11.0 };
+        let records = [admitted(Kind::GoodFaith), admitted(Kind::GoodFaith)];
+        let refs: Vec<&Rec> = records.iter().collect();
+        let (counts, _, auth_s, _, success) = outcome_stats(&refs);
+        assert_eq!(counts.get("admitted").copied(), Some(2));
+        assert_eq!(auth_s["n"], 2);
+        assert_eq!(success, 1.0);
     }
 }

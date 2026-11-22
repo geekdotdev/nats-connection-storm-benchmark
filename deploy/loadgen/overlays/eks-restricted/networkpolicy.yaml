@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+# Restricts the load generator's own pod network, nothing else: ingress denied entirely (nothing may initiate a connection to it), egress
+# allowed only to DNS (it resolves `broker` and `cpuprobe` by name), the broker's WebSocket port (TLS stays on: 8443, never 4222, which
+# this generator never uses), and the CPU probe (if monitoring is in use). Everything else, including the public internet, is denied for
+# this pod. This needs vpc-cni's own NetworkPolicy enforcement turned on first (`bench cluster network-policy --target eks --yes`): without
+# it the object below is valid YAML the API server accepts and nothing more, enforced by nothing. It does not touch image pulls (those
+# happen on the node, outside any pod's network namespace, so GHCR stays reachable) or any other pod's networking.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: loadgen-restricted
+  labels: {app.kubernetes.io/part-of: storm-bench}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: loadgen}}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: broker}}
+      ports:
+        - {protocol: TCP, port: 8443}
+    - to:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: cpuprobe}}
+      ports:
+        - {protocol: TCP, port: 9100}

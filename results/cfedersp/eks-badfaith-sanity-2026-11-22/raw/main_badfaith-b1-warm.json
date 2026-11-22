@@ -1,0 +1,576 @@
+{
+ "run": "main_badfaith-b1-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 47.03631,
+    "n": 120,
+    "p50": 26.722829,
+    "p90": 40.711486,
+    "p99": 46.946346
+   },
+   "badFaith": {
+    "forged": {
+     "authMs": {
+      "max": 10046.184175,
+      "n": 20,
+      "p50": 10017.54669,
+      "p90": 10033.171674,
+      "p99": 10046.184175
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "incompleteHandshake": {
+     "authMs": {
+      "max": 10008.08348,
+      "n": 20,
+      "p50": 10005.290344000001,
+      "p90": 10007.389417,
+      "p99": 10008.08348
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 20,
+      "refused": 0,
+      "timeout": 0
+     },
+     "reasons": {
+      "error: closed before the broker answered": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "invalid": {
+     "authMs": {
+      "max": 38.850944,
+      "n": 20,
+      "p50": 14.634724,
+      "p90": 36.620379,
+      "p99": 38.850944
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "nonexistentAccount": {
+     "authMs": {
+      "max": 44.288862,
+      "n": 20,
+      "p50": 16.055409,
+      "p90": 42.884391,
+      "p99": 44.288862
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    }
+   },
+   "badFaithConnections": 80,
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 61153,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 188210,
+    "userUsec": 127057
+   },
+   "connections": 200,
+   "endedAtMs": 1795382807008,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.396,
+   "goodFaithConnections": 120,
+   "index": 1,
+   "outcomes": {
+    "admitted": 120,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-767968c76-tk9b5",
+      "systemUsec": 0,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 73346,
+      "userUsec": 73346
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 2,
+      "pod": "broker-0",
+      "systemUsec": 33889,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 277282,
+      "userUsec": 243392
+     }
+    ],
+    "errors": [],
+    "probes": 6
+   },
+   "rampMs": 0,
+   "run": "main_badfaith-b1-warm",
+   "seconds": 0.18,
+   "startedAtMs": 1795382806826,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 178.20853,
+    "n": 120,
+    "p50": 151.082858,
+    "p90": 176.319683,
+    "p99": 177.833418
+   }
+  },
+  {
+   "authMs": {
+    "max": 62.164442,
+    "n": 120,
+    "p50": 38.400962,
+    "p90": 60.52483,
+    "p99": 62.110640000000004
+   },
+   "badFaith": {
+    "forged": {
+     "authMs": {
+      "max": 10054.194112,
+      "n": 20,
+      "p50": 10023.168743999999,
+      "p90": 10039.467736,
+      "p99": 10054.194112
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "incompleteHandshake": {
+     "authMs": {
+      "max": 10015.667378,
+      "n": 20,
+      "p50": 10006.589511,
+      "p90": 10013.247627,
+      "p99": 10015.667378
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 20,
+      "refused": 0,
+      "timeout": 0
+     },
+     "reasons": {
+      "error: closed before the broker answered": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "invalid": {
+     "authMs": {
+      "max": 59.461128,
+      "n": 20,
+      "p50": 25.085086,
+      "p90": 40.687867000000004,
+      "p99": 59.461128
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "nonexistentAccount": {
+     "authMs": {
+      "max": 56.442283,
+      "n": 20,
+      "p50": 22.710098000000002,
+      "p90": 54.926608,
+      "p99": 56.442283
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    }
+   },
+   "badFaithConnections": 80,
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 77338,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 177670,
+    "userUsec": 100333
+   },
+   "connections": 200,
+   "endedAtMs": 1795382819643,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.247,
+   "goodFaithConnections": 120,
+   "index": 2,
+   "outcomes": {
+    "admitted": 120,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-767968c76-tk9b5",
+      "systemUsec": 0,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 75146,
+      "userUsec": 75146
+     },
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 2,
+      "pod": "loadgen-main-badfaith-b1-warm-243ef9-xjzk5",
+      "systemUsec": 77888,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 179035,
+      "userUsec": 101147
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 2,
+      "pod": "broker-0",
+      "systemUsec": 44020,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 264117,
+      "userUsec": 220098
+     }
+    ],
+    "errors": [],
+    "probes": 6
+   },
+   "rampMs": 0,
+   "run": "main_badfaith-b1-warm",
+   "seconds": 0.12,
+   "startedAtMs": 1795382819526,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 115.20075100000001,
+    "n": 120,
+    "p50": 86.355638,
+    "p90": 112.68965899999999,
+    "p99": 115.019541
+   }
+  },
+  {
+   "authMs": {
+    "max": 57.667235,
+    "n": 120,
+    "p50": 33.986773,
+    "p90": 53.027153,
+    "p99": 57.381198000000005
+   },
+   "badFaith": {
+    "forged": {
+     "authMs": {
+      "max": 10054.31283,
+      "n": 20,
+      "p50": 10032.711666000001,
+      "p90": 10048.034118,
+      "p99": 10054.31283
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "incompleteHandshake": {
+     "authMs": {
+      "max": 10020.931385000002,
+      "n": 20,
+      "p50": 10001.53171,
+      "p90": 10018.008577999999,
+      "p99": 10020.931385000002
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 20,
+      "refused": 0,
+      "timeout": 0
+     },
+     "reasons": {
+      "error: closed before the broker answered": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "invalid": {
+     "authMs": {
+      "max": 52.975913999999996,
+      "n": 20,
+      "p50": 21.381858,
+      "p90": 44.235701,
+      "p99": 52.975913999999996
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    },
+    "nonexistentAccount": {
+     "authMs": {
+      "max": 44.48209,
+      "n": 20,
+      "p50": 24.873999,
+      "p90": 38.998916,
+      "p99": 44.48209
+     },
+     "n": 20,
+     "outcomes": {
+      "admitted": 0,
+      "error": 0,
+      "refused": 20,
+      "timeout": 0
+     },
+     "reasons": {
+      "refused: -ERR 'Authorization Violation'": 20
+     },
+     "totalMs": {
+      "max": null,
+      "n": 0,
+      "p50": null,
+      "p90": null,
+      "p99": null
+     }
+    }
+   },
+   "badFaithConnections": 80,
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 62197,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 172951,
+    "userUsec": 110753
+   },
+   "connections": 200,
+   "endedAtMs": 1795382832288,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.255,
+   "goodFaithConnections": 120,
+   "index": 3,
+   "outcomes": {
+    "admitted": 120,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-767968c76-tk9b5",
+      "systemUsec": 0,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 56262,
+      "userUsec": 56262
+     },
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 1,
+      "pod": "loadgen-main-badfaith-b1-warm-243ef9-xjzk5",
+      "systemUsec": 62681,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 174119,
+      "userUsec": 111437
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 1,
+      "pod": "broker-0",
+      "systemUsec": 30868,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 270387,
+      "userUsec": 239519
+     }
+    ],
+    "errors": [],
+    "probes": 6
+   },
+   "rampMs": 0,
+   "run": "main_badfaith-b1-warm",
+   "seconds": 0.12,
+   "startedAtMs": 1795382832171,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 115.178287,
+    "n": 120,
+    "p50": 82.731982,
+    "p90": 110.189157,
+    "p99": 114.624937
+   }
+  }
+ ],
+ "qualifiers": {
+  "run_id": "cd537d1a4771",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-22T13:24:48-08:00",
+  "github_user": "cfedersp",
+  "unit": "main_badfaith-b1",
+  "storm": "main_badfaith-b1-warm"
+ }
+}

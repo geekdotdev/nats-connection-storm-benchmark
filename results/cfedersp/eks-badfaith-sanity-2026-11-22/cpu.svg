@@ -1,0 +1,333 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 588" width="780" height="588" role="img" aria-labelledby="t d" font-family="system-ui, sans-serif" font-size="12">
+<title id="t">CPU use over the run, from Prometheus</title>
+<desc id="d">The cores each component used, second by second, and the share of its CPU scheduling periods in which it was throttled, with the bursts shaded.</desc>
+<style>:root{color-scheme:light dark;--bg:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--grid:#e3e2dd;--band:#9a9992;--s0:#2a78d6;--s1:#eb6834;--s2:#1baf7a;--s3:#eda100;--s4:#e87ba4;--s5:#008300;--s6:#6250d6;--s7:#e34948;}@media (prefers-color-scheme:dark){:root{--bg:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--grid:#34332f;--band:#8a897f;--s0:#3987e5;--s1:#d95926;--s2:#199e70;--s3:#c98500;--s4:#d55181;--s5:#0ca30c;--s6:#9085e9;--s7:#e66767;}}.t{fill:var(--ink)}.t2{fill:var(--ink2)}.g{stroke:var(--grid);stroke-width:1}.ax{stroke:var(--ink2);stroke-width:1}</style>
+<rect width="100%" height="100%" fill="var(--bg)"/>
+<text class="t" x="62" y="24" font-size="15" font-weight="600">CPU over the run</text>
+<text class="t2" x="62" y="44">Read from the probes once a second and kept in Prometheus. The shaded columns are the bursts.</text>
+<text class="t2" x="62" y="60">Throttling is the share of 100 ms scheduling periods in which a container had used its limit and was stopped until the next.</text>
+<line x1="62" y1="77" x2="84" y2="77" stroke="var(--s0)" stroke-width="2"/>
+<text class="t2" x="90" y="81">broker</text>
+<line x1="162" y1="77" x2="184" y2="77" stroke="var(--s1)" stroke-width="2" stroke-dasharray="7 4"/>
+<text class="t2" x="190" y="81">callout</text>
+<line x1="270" y1="77" x2="292" y2="77" stroke="var(--s2)" stroke-width="2" stroke-dasharray="2 3"/>
+<text class="t2" x="298" y="81">loadgen</text>
+<rect x="144.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="149.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="155.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="178.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="179.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="179.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="179.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="180.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="180.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="181.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="181.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="182.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="182.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="182.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="183.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="183.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="184.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="184.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="185.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="185.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="187.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="187.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="188.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="188.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="189.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="189.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="189.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="190.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="190.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="191.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="191.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="192.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="192.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="193.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="193.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="193.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="194.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="194.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="195.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="195.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="219.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="224.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="229.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="235.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="240.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="245.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="251.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="256.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="325.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="350.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="375.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="419.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="420.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="420.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="421.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="421.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="422.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="422.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="422.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="423.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="423.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="424.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="424.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="425.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="425.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="425.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="426.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="426.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="427.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="427.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="428.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="428.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="428.9" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="429.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="429.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="430.2" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="430.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="431.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="431.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="432.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="432.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="432.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="433.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="433.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="434.1" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="434.5" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="435.0" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="435.4" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="435.8" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="436.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="436.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="460.3" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="510.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="535.6" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="560.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="585.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="610.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="635.7" y="112" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<line class="g" x1="62" y1="282.0" x2="756" y2="282.0"/>
+<text class="t2" x="54" y="286.0" text-anchor="end">0</text>
+<line class="g" x1="62" y1="239.5" x2="756" y2="239.5"/>
+<text class="t2" x="54" y="243.5" text-anchor="end">0.1</text>
+<line class="g" x1="62" y1="197.0" x2="756" y2="197.0"/>
+<text class="t2" x="54" y="201.0" text-anchor="end">0.2</text>
+<line class="g" x1="62" y1="154.5" x2="756" y2="154.5"/>
+<text class="t2" x="54" y="158.5" text-anchor="end">0.3</text>
+<line class="g" x1="62" y1="112.0" x2="756" y2="112.0"/>
+<text class="t2" x="54" y="116.0" text-anchor="end">0.4</text>
+<text class="t2" x="62.0" y="298" text-anchor="middle">0</text>
+<text class="t2" x="161.1" y="298" text-anchor="middle">50</text>
+<text class="t2" x="260.3" y="298" text-anchor="middle">100</text>
+<text class="t2" x="359.4" y="298" text-anchor="middle">150</text>
+<text class="t2" x="458.6" y="298" text-anchor="middle">200</text>
+<text class="t2" x="557.7" y="298" text-anchor="middle">250</text>
+<text class="t2" x="656.9" y="298" text-anchor="middle">300</text>
+<text class="t2" x="756.0" y="298" text-anchor="middle">350</text>
+<line class="ax" x1="62" y1="282" x2="756" y2="282"/>
+<text class="t2" x="62" y="100">cores used (CPU seconds per second)</text>
+<polyline points="62.0,281.7 67.9,276.7 69.9,281.8 71.9,281.7 73.9,281.7 75.9,281.7 77.9,281.2 79.8,281.8 81.8,281.6 83.8,281.7 85.8,281.8 87.8,281.8 89.8,281.9 91.7,281.8 93.7,281.9 95.7,281.7 97.7,281.8 99.7,281.8 101.7,281.9 103.6,281.7 105.6,281.9 107.6,281.7 109.6,281.9 111.6,281.7 117.5,276.6 119.5,281.6 121.5,281.6 123.5,281.8 125.5,281.7 127.4,281.9 129.4,281.7 131.4,281.8 133.4,281.7 135.4,281.9 137.3,270.7 139.3,281.9 141.3,281.8 143.3,281.9 145.3,281.7 147.3,139.9 149.2,270.8 151.2,142.8 153.2,271.6 155.2,281.9 157.2,146.6 159.2,271.6 161.1,281.7 163.1,281.9 165.1,281.8 167.1,281.8 169.1,281.7 171.1,281.9 173.0,281.8 175.0,281.9 177.0,281.8 179.0,281.9 181.0,278.9 183.0,277.6 184.9,278.0 186.9,277.4 188.9,273.8 190.9,277.8 192.9,277.2 194.9,278.1 196.8,277.2 198.8,281.7 200.8,281.7 202.8,281.9 204.8,281.8 206.7,281.8 208.7,281.8 210.7,281.9 212.7,281.7 214.7,281.9 216.7,281.8 218.6,281.9 220.6,178.0 222.6,238.3 224.6,277.1 226.6,143.7 228.6,271.5 230.5,281.9 232.5,148.0 234.5,272.1 236.5,184.1 238.5,239.9 240.5,276.0 242.4,152.4 244.4,271.2 246.4,281.8 248.4,139.9 250.4,270.7 252.4,170.2 254.3,258.6 256.3,277.8 258.3,149.4 260.3,271.6 262.3,281.9 264.3,281.7 266.2,281.8 268.2,281.7 270.2,281.7 272.2,281.8 274.2,281.9 276.1,281.8 278.1,281.9 280.1,281.8 282.1,281.9 284.1,281.7 286.1,281.8 288.0,281.7 290.0,281.8 296.0,276.7 298.0,281.0 299.9,281.7 301.9,281.7 303.9,281.7 305.9,281.9 307.9,281.7 309.9,281.8 311.8,281.7 313.8,281.9 315.8,281.7 317.8,281.9 319.8,270.6 321.8,281.9 323.7,281.8 325.7,281.8 327.7,164.2 329.7,272.9 331.7,280.3 333.7,281.9 335.6,281.7 337.6,281.9 339.6,281.7 341.6,281.9 343.6,281.8 345.5,281.8 347.5,277.2 349.5,281.9 351.5,281.8 353.5,169.7 355.5,275.4 357.4,280.7 359.4,281.8 361.4,281.9 363.4,281.8 365.4,281.8 367.4,281.8 369.3,281.9 371.3,281.8 373.3,275.3 375.3,281.7 377.3,167.0 379.3,275.9 381.2,281.2 383.2,281.0 385.2,281.8 387.2,281.7 389.2,281.8 391.2,281.7 393.1,281.9 395.1,281.7 397.1,277.4 399.1,281.8 401.1,281.9 403.1,281.8 405.0,281.8 407.0,281.8 409.0,281.9 411.0,281.8 413.0,281.9 414.9,281.7 416.9,281.9 418.9,281.8 420.9,281.8 422.9,277.3 424.9,278.0 426.8,277.1 428.8,277.5 430.8,275.0 432.8,277.4 434.8,277.9 436.8,277.3 438.7,279.0 440.7,281.9 442.7,281.7 444.7,281.7 446.7,281.7 448.7,281.9 450.6,281.8 452.6,281.9 454.6,281.7 456.6,281.9 458.6,281.7 460.6,281.9 462.5,168.2 464.5,271.0 466.5,280.6 468.5,281.9 470.5,281.8 472.5,281.9 474.4,281.7 476.4,281.9 478.4,281.8 480.4,281.9 482.4,277.6 484.3,281.8 486.3,281.8 488.3,171.7 490.3,275.5 492.3,280.6 494.3,281.8 496.2,281.9 498.2,281.8 500.2,281.9 502.2,281.8 504.2,281.8 506.2,281.7 508.1,274.4 510.1,281.8 512.1,172.1 514.1,275.4 516.1,281.4 518.1,281.1 520.0,281.9 522.0,281.8 524.0,281.7 526.0,281.7 528.0,281.9 530.0,281.7 531.9,277.7 533.9,281.8 535.9,281.8 537.9,170.8 539.9,275.9 541.9,280.5 543.8,281.8 545.8,281.7 547.8,281.9 549.8,281.7 551.8,281.9 553.7,281.7 555.7,281.9 557.7,277.4 559.7,281.9 561.7,281.8 563.7,170.1 565.6,275.3 567.6,280.6 569.6,281.7 571.6,281.9 573.6,281.7 575.6,281.8 577.5,281.7 579.5,281.9 581.5,281.7 583.5,277.7 585.5,281.8 587.5,174.8 589.4,269.4 591.4,281.0 593.4,281.3 595.4,281.9 597.4,281.6 599.4,281.8 601.3,281.7 603.3,281.9 605.3,281.7 607.3,277.6 609.3,281.8 611.3,281.9 613.2,174.6 615.2,275.6 617.2,280.4 619.2,281.9 621.2,281.7 623.1,281.8 625.1,281.7 627.1,281.9 629.1,281.7 631.1,281.9 633.1,277.7 635.0,281.9 637.0,203.3 639.0,249.8 641.0,278.0 643.0,280.6 645.0,281.8 646.9,281.9 648.9,281.6 650.9,281.8 652.9,281.7 654.9,281.9 656.9,271.8 658.8,281.0 660.8,281.8 662.8,281.8 664.8,281.8 666.8,281.9 668.8,281.8 670.7,281.9 672.7,281.8 674.7,281.9 676.7,281.8 678.7,281.9 680.7,281.8 682.6,281.9 684.6,281.8 686.6,281.9 688.6,282.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="62.0,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="69.9,280.9 71.9,280.2 73.9,280.1 75.9,280.0 77.9,281.2 79.8,282.0 81.8,281.8 83.8,282.0 85.8,281.9 87.8,282.0 89.8,281.9 91.7,282.0 93.7,281.8 95.7,282.0 97.7,281.9 99.7,282.0 101.7,281.9 103.6,282.0 105.6,281.9 107.6,282.0 109.6,281.9 111.6,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="119.5,281.8 121.5,282.0 123.5,281.8 125.5,282.0 127.4,281.9 129.4,282.0 131.4,281.9 133.4,282.0 135.4,281.8 137.3,282.0 139.3,281.9 141.3,282.0 143.3,281.9 145.3,282.0 147.3,240.2 149.2,282.0 151.2,281.9 153.2,241.1 155.2,281.8 157.2,256.7 159.2,263.4 161.1,281.9 163.1,281.9 165.1,282.0 167.1,281.8 169.1,282.0 171.1,281.8 173.0,282.0 175.0,281.9 177.0,282.0 179.0,281.9 181.0,281.7 183.0,280.5 184.9,280.6 186.9,280.8 188.9,280.6 190.9,280.8 192.9,280.6 194.9,280.8 196.8,280.6 198.8,281.3 200.8,282.0 202.8,281.9 204.8,282.0 206.7,281.9 208.7,282.0 210.7,281.9 212.7,282.0 214.7,281.9 216.7,282.0 218.6,281.9 220.6,282.0 222.6,239.5 224.6,282.0 226.6,280.5 228.6,236.7 230.5,281.8 232.5,239.5 234.5,281.8 236.5,282.0 238.5,237.7 240.5,282.0 242.4,278.9 244.4,236.4 246.4,281.9 248.4,236.9 250.4,281.9 252.4,282.0 254.3,236.7 256.3,282.0 258.3,278.4 260.3,246.5 262.3,281.9 264.3,282.0 266.2,281.9 268.2,282.0 270.2,281.9 272.2,282.0 274.2,281.9 276.1,282.0 278.1,281.9 280.1,282.0 282.1,281.9 284.1,282.0 286.1,281.9 288.0,282.0 290.0,281.9" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="298.0,280.3 299.9,282.0 301.9,281.8 303.9,281.9 305.9,281.9 307.9,282.0 309.9,281.9 311.8,282.0 313.8,281.9 315.8,282.0 317.8,281.9 319.8,282.0 321.8,281.9 323.7,282.0 325.7,281.9 327.7,250.8 329.7,281.9 331.7,282.0 333.7,281.8 335.6,282.0 337.6,281.9 339.6,282.0 341.6,281.9 343.6,282.0 345.5,281.8 347.5,282.0 349.5,281.9 351.5,282.0 353.5,250.1 355.5,282.0 357.4,281.8 359.4,282.0 361.4,281.9 363.4,282.0 365.4,281.9 367.4,282.0 369.3,281.9 371.3,282.0 373.3,281.9 375.3,282.0 377.3,281.8 379.3,258.1 381.2,281.8 383.2,282.0 385.2,281.8 387.2,282.0 389.2,281.8 391.2,282.0 393.1,281.9 395.1,282.0 397.1,281.9 399.1,282.0 401.1,281.8 403.1,282.0 405.0,281.9 407.0,282.0 409.0,281.9 411.0,282.0 413.0,281.9 414.9,282.0 416.9,281.9 418.9,282.0 420.9,281.9 422.9,281.2 424.9,280.5 426.8,280.9 428.8,280.5 430.8,280.8 432.8,280.4 434.8,280.2 436.8,280.6 438.7,280.5 440.7,281.9 442.7,282.0 444.7,281.9 446.7,282.0 448.7,281.9 450.6,282.0 452.6,281.9 454.6,282.0 456.6,281.9 458.6,282.0 460.6,281.9 462.5,279.6 464.5,256.9 466.5,282.0 468.5,281.9 470.5,282.0 472.5,281.9 474.4,282.0 476.4,281.9 478.4,282.0 480.4,281.9 482.4,282.0 484.3,281.9 486.3,282.0 488.3,253.8 490.3,282.0 492.3,281.8 494.3,282.0 496.2,281.9 498.2,282.0 500.2,281.9 502.2,282.0 504.2,281.9 506.2,282.0 508.1,281.9 510.1,282.0 512.1,281.9 514.1,256.9 516.1,281.8 518.1,282.0 520.0,281.9 522.0,282.0 524.0,281.9 526.0,282.0 528.0,281.9 530.0,282.0 531.9,281.9 533.9,282.0 535.9,281.8 537.9,254.1 539.9,281.9 541.9,282.0 543.8,281.9 545.8,282.0 547.8,281.8 549.8,282.0 551.8,281.8 553.7,282.0 555.7,281.9 557.7,282.0 559.7,281.9 561.7,282.0 563.7,253.1 565.6,282.0 567.6,281.9 569.6,282.0 571.6,281.9 573.6,282.0 575.6,281.8 577.5,282.0 579.5,281.9 581.5,282.0 583.5,281.8 585.5,282.0 587.5,281.9 589.4,252.6 591.4,281.9 593.4,282.0 595.4,281.9 597.4,282.0 599.4,281.9 601.3,282.0 603.3,281.9 605.3,282.0 607.3,281.9 609.3,282.0 611.3,281.9 613.2,257.2 615.2,281.9 617.2,282.0 619.2,281.9 621.2,282.0 623.1,281.8 625.1,282.0 627.1,281.9 629.1,282.0 631.1,281.9 633.1,282.0 635.0,281.4 637.0,282.0 639.0,256.0 641.0,282.0 643.0,281.9 645.0,282.0 646.9,281.9 648.9,282.0 650.9,281.9 652.9,282.0 654.9,281.9 656.9,282.0 658.8,281.9 660.8,282.0 662.8,281.9 664.8,282.0 666.8,281.9 668.8,282.0 670.7,281.9 672.7,282.0 674.7,281.9 676.7,282.0 678.7,281.9 680.7,282.0 682.6,281.9 684.6,282.0 686.6,281.9 688.6,282.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="147.3,273.3 149.2,282.0 151.2,203.3 153.2,273.1 155.2,282.0 157.2,202.9" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="181.0,275.7 183.0,274.5 184.9,275.6 186.9,274.5 188.9,274.0 190.9,275.7 192.9,274.0 194.9,275.6" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="222.6,273.6 224.6,282.0 226.6,200.1 228.6,272.7 230.5,203.1 232.5,272.5 234.5,282.0 236.5,204.2 238.5,272.6 240.5,282.0 242.4,199.7 244.4,272.4 246.4,202.3 248.4,273.0 250.4,282.0 252.4,205.6 254.3,272.1 256.3,282.0 258.3,203.9" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="327.7,215.9 329.7,275.5 331.7,280.9 333.7,281.4 335.6,281.3 337.6,281.4 339.6,281.4 341.6,281.5 343.6,281.5 345.5,279.0 347.5,279.9 349.5,280.4 351.5,200.7 353.5,275.2 355.5,280.9 357.4,281.3 359.4,281.4 361.4,281.4 363.4,281.4 365.4,281.4 367.4,281.4 369.3,281.4 371.3,277.4 373.3,280.9 375.3,282.0 377.3,202.4 379.3,275.5 381.2,281.0 383.2,281.4 385.2,281.4 387.2,281.5 389.2,281.4 391.2,281.4 393.1,281.4 395.1,281.4 397.1,277.9" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="422.9,274.5 424.9,274.0 426.8,275.8 428.8,274.2 430.8,275.8 432.8,274.4 434.8,275.2 436.8,274.7" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="464.5,274.9 466.5,280.9 468.5,281.4 470.5,281.4 472.5,281.4 474.4,281.4 476.4,281.4 478.4,281.4 480.4,281.4 482.4,278.3 484.3,280.8 486.3,203.2 488.3,274.8 490.3,281.0 492.3,281.3 494.3,281.4 496.2,281.4 498.2,281.4 500.2,281.5 502.2,281.4 504.2,281.5 506.2,278.4 508.1,280.5 510.1,282.0 512.1,201.8 514.1,275.0 516.1,281.0 518.1,281.4 520.0,281.3 522.0,281.5 524.0,281.4 526.0,281.4 528.0,281.4 530.0,281.4 531.9,278.0 533.9,280.5 535.9,251.1 537.9,232.0 539.9,275.4 541.9,280.9 543.8,281.4 545.8,281.4 547.8,281.4 549.8,281.4 551.8,281.4 553.7,281.4 555.7,279.8 557.7,280.1 559.7,280.5 561.7,196.5 563.7,275.0 565.6,280.9 567.6,281.3 569.6,281.5 571.6,281.4 573.6,281.3 575.6,281.4 577.5,281.4 579.5,281.4 581.5,278.5 583.5,280.7 585.5,282.0 587.5,200.3 589.4,275.6 591.4,280.9 593.4,281.4 595.4,281.4 597.4,281.4 599.4,281.4 601.3,281.4 603.3,281.4 605.3,281.4 607.3,278.2 609.3,280.4 611.3,200.5 613.2,275.1 615.2,281.3 617.2,281.0 619.2,281.4 621.2,281.4 623.1,281.4 625.1,281.4 627.1,281.4 629.1,281.4 631.1,277.4 633.1,280.6 635.0,282.0 637.0,203.6 639.0,275.4 641.0,281.0 643.0,281.4 645.0,281.4 646.9,281.4 648.9,281.4 650.9,281.4 652.9,281.4 654.9,281.5 656.9,277.6" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<rect x="144.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="149.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="155.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="178.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="179.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="179.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="179.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="180.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="180.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="181.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="181.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="182.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="182.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="182.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="183.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="183.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="184.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="184.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="185.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="185.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="186.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="187.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="187.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="188.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="188.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="189.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="189.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="189.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="190.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="190.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="191.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="191.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="192.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="192.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="193.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="193.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="193.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="194.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="194.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="195.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="195.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="219.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="224.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="229.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="235.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="240.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="245.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="251.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="256.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="325.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="350.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="375.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="419.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="420.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="420.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="421.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="421.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="422.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="422.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="422.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="423.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="423.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="424.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="424.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="425.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="425.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="425.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="426.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="426.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="427.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="427.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="428.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="428.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="428.9" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="429.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="429.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="430.2" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="430.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="431.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="431.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="432.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="432.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="432.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="433.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="433.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="434.1" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="434.5" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="435.0" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="435.4" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="435.8" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="436.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="436.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="460.3" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="485.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="510.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="535.6" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="560.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="585.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="610.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<rect x="635.7" y="336" width="1.0" height="170" fill="var(--band)" fill-opacity="0.18"/>
+<line class="g" x1="62" y1="506.0" x2="756" y2="506.0"/>
+<text class="t2" x="54" y="510.0" text-anchor="end">0%</text>
+<line class="g" x1="62" y1="463.5" x2="756" y2="463.5"/>
+<text class="t2" x="54" y="467.5" text-anchor="end">25%</text>
+<line class="g" x1="62" y1="421.0" x2="756" y2="421.0"/>
+<text class="t2" x="54" y="425.0" text-anchor="end">50%</text>
+<line class="g" x1="62" y1="378.5" x2="756" y2="378.5"/>
+<text class="t2" x="54" y="382.5" text-anchor="end">75%</text>
+<line class="g" x1="62" y1="336.0" x2="756" y2="336.0"/>
+<text class="t2" x="54" y="340.0" text-anchor="end">100%</text>
+<text class="t2" x="62.0" y="522" text-anchor="middle">0</text>
+<text class="t2" x="161.1" y="522" text-anchor="middle">50</text>
+<text class="t2" x="260.3" y="522" text-anchor="middle">100</text>
+<text class="t2" x="359.4" y="522" text-anchor="middle">150</text>
+<text class="t2" x="458.6" y="522" text-anchor="middle">200</text>
+<text class="t2" x="557.7" y="522" text-anchor="middle">250</text>
+<text class="t2" x="656.9" y="522" text-anchor="middle">300</text>
+<text class="t2" x="756.0" y="522" text-anchor="middle">350</text>
+<line class="ax" x1="62" y1="506" x2="756" y2="506"/>
+<text class="t2" x="62" y="324">share of scheduling periods throttled</text>
+<polyline points="67.9,506.0 69.9,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="77.9,506.0 81.8,506.0 85.8,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="95.7,506.0 97.7,506.0 99.7,506.0 103.6,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="111.6,506.0 117.5,506.0 119.5,506.0 125.5,506.0 131.4,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="139.3,506.0 145.3,506.0 147.3,506.0 149.2,506.0 151.2,506.0 153.2,506.0 155.2,506.0 157.2,506.0 159.2,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="169.1,506.0 175.0,506.0 181.0,506.0 183.0,506.0 184.9,506.0 186.9,506.0 188.9,506.0 190.9,506.0 192.9,506.0 194.9,506.0 196.8,506.0 198.8,506.0 204.8,506.0 206.7,506.0 212.7,506.0 216.7,506.0 220.6,506.0 222.6,506.0 224.6,506.0 226.6,506.0 228.6,506.0 232.5,506.0 234.5,506.0 236.5,506.0 238.5,506.0 240.5,506.0 242.4,506.0 244.4,506.0 248.4,506.0 250.4,506.0 252.4,506.0 254.3,506.0 256.3,506.0 258.3,506.0 260.3,506.0 264.3,506.0 270.2,506.0 272.2,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="282.1,506.0 284.1,506.0 288.0,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="296.0,506.0 299.9,506.0 301.9,506.0 303.9,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="313.8,506.0 319.8,506.0 321.8,506.0 325.7,506.0 327.7,506.0 329.7,506.0 331.7,506.0 333.7,506.0 335.6,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="345.5,506.0 347.5,506.0 353.5,506.0 355.5,506.0 357.4,506.0 359.4,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="367.4,506.0 373.3,506.0 377.3,506.0 379.3,506.0 381.2,506.0 383.2,506.0 385.2,506.0 389.2,506.0 391.2,506.0 393.1,506.0 395.1,506.0 397.1,506.0 399.1,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="407.0,506.0 411.0,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="418.9,506.0 420.9,506.0 422.9,506.0 424.9,506.0 426.8,506.0 428.8,506.0 430.8,506.0 432.8,506.0 434.8,506.0 436.8,506.0 438.7,506.0 442.7,506.0 444.7,506.0 450.6,506.0 454.6,506.0 458.6,506.0 462.5,506.0 464.5,506.0 466.5,506.0 468.5,506.0 470.5,506.0 472.5,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="482.4,506.0 486.3,506.0 488.3,506.0 490.3,506.0 492.3,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="502.2,506.0 504.2,506.0 506.2,506.0 508.1,506.0 512.1,506.0 514.1,506.0 516.1,506.0 518.1,506.0 522.0,506.0 526.0,506.0 530.0,506.0 531.9,506.0 533.9,506.0 535.9,506.0 537.9,506.0 539.9,506.0 541.9,506.0 545.8,506.0 549.8,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="557.7,506.0 561.7,506.0 563.7,506.0 565.6,506.0 567.6,506.0 573.6,506.0 575.6,506.0 581.5,506.0 583.5,506.0 587.5,506.0 589.4,506.0 593.4,506.0 599.4,506.0 601.3,506.0 605.3,506.0 607.3,506.0 609.3,506.0 613.2,506.0 615.2,506.0 617.2,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="625.1,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="633.1,506.0 639.0,506.0 641.0,506.0 643.0,506.0 645.0,506.0 646.9,506.0 648.9,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="658.8,506.0 664.8,506.0 668.8,506.0 674.7,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="686.6,506.0" fill="none" stroke="var(--s0)" stroke-width="1.5" stroke-linejoin="round"><title>broker</title></polyline>
+<polyline points="69.9,506.0 71.9,506.0 73.9,506.0 75.9,506.0 77.9,506.0 81.8,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="93.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="119.5,506.0 123.5,506.0 127.4,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="147.3,506.0 153.2,506.0 155.2,506.0 157.2,506.0 159.2,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="171.1,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="181.0,506.0 183.0,506.0 184.9,506.0 186.9,506.0 188.9,506.0 190.9,506.0 192.9,506.0 194.9,506.0 196.8,506.0 198.8,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="206.7,506.0 210.7,506.0 214.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="222.6,506.0 228.6,506.0 230.5,506.0 232.5,506.0 238.5,463.5 242.4,506.0 244.4,506.0 246.4,506.0 248.4,506.0 254.3,506.0 260.3,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="278.1,506.0 282.1,506.0 286.1,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="298.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="313.8,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="321.8,506.0 327.7,506.0 329.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="345.5,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="353.5,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="365.4,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="379.3,506.0 381.2,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="405.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="413.0,506.0 416.9,506.0 422.9,506.0 424.9,506.0 426.8,506.0 428.8,506.0 430.8,506.0 432.8,506.0 434.8,506.0 436.8,506.0 438.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="452.6,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="464.5,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="472.5,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="480.4,506.0 484.3,506.0 488.3,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="504.2,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="514.1,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="535.9,506.0 537.9,506.0 539.9,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="551.8,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="559.7,506.0 563.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="571.6,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="589.4,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="607.3,506.0 613.2,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="635.0,506.0 639.0,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="654.9,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="670.7,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="678.7,506.0 682.6,506.0" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="7 4"><title>callout</title></polyline>
+<polyline points="147.3,506.0 149.2,506.0 151.2,506.0 153.2,506.0 157.2,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="181.0,506.0 183.0,506.0 184.9,506.0 186.9,506.0 188.9,506.0 190.9,506.0 192.9,506.0 194.9,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="222.6,506.0 226.6,506.0 228.6,506.0 230.5,506.0 232.5,506.0 234.5,506.0 236.5,506.0 238.5,506.0 242.4,506.0 244.4,506.0 246.4,506.0 248.4,506.0 250.4,506.0 252.4,506.0 254.3,506.0 258.3,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="327.7,506.0 329.7,506.0 331.7,506.0 333.7,506.0 335.6,506.0 337.6,506.0 339.6,506.0 341.6,506.0 343.6,506.0 345.5,506.0 347.5,506.0 349.5,506.0 351.5,506.0 353.5,506.0 355.5,506.0 357.4,506.0 359.4,506.0 361.4,506.0 363.4,506.0 365.4,506.0 367.4,506.0 369.3,506.0 371.3,506.0 373.3,506.0 377.3,506.0 379.3,506.0 381.2,506.0 383.2,506.0 385.2,506.0 387.2,506.0 389.2,506.0 391.2,506.0 393.1,506.0 395.1,506.0 397.1,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="422.9,506.0 424.9,506.0 426.8,506.0 428.8,506.0 430.8,506.0 432.8,506.0 434.8,506.0 436.8,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<polyline points="464.5,506.0 466.5,506.0 468.5,506.0 472.5,506.0 474.4,506.0 476.4,506.0 480.4,506.0 482.4,506.0 484.3,506.0 486.3,506.0 488.3,506.0 490.3,506.0 492.3,506.0 494.3,506.0 496.2,506.0 498.2,506.0 500.2,506.0 502.2,506.0 504.2,506.0 506.2,506.0 508.1,506.0 510.1,506.0 512.1,506.0 514.1,506.0 516.1,506.0 518.1,506.0 520.0,506.0 522.0,506.0 524.0,506.0 526.0,506.0 528.0,506.0 530.0,506.0 531.9,506.0 533.9,506.0 537.9,506.0 539.9,506.0 541.9,506.0 543.8,506.0 545.8,506.0 547.8,506.0 549.8,506.0 551.8,506.0 553.7,506.0 555.7,506.0 557.7,506.0 559.7,506.0 561.7,506.0 563.7,506.0 565.6,506.0 567.6,506.0 569.6,506.0 571.6,506.0 573.6,506.0 575.6,506.0 577.5,506.0 579.5,506.0 581.5,506.0 583.5,506.0 587.5,506.0 589.4,506.0 591.4,506.0 593.4,506.0 595.4,506.0 597.4,506.0 599.4,506.0 601.3,506.0 603.3,506.0 605.3,506.0 607.3,506.0 609.3,506.0 611.3,506.0 613.2,506.0 615.2,506.0 617.2,506.0 619.2,506.0 621.2,506.0 623.1,506.0 625.1,506.0 627.1,506.0 629.1,506.0 631.1,506.0 633.1,506.0 635.0,506.0 637.0,506.0 639.0,506.0 641.0,506.0 643.0,506.0 645.0,506.0 646.9,506.0 648.9,506.0 650.9,506.0 652.9,506.0 656.9,506.0" fill="none" stroke="var(--s2)" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="2 3"><title>loadgen</title></polyline>
+<text class="t2" x="409" y="542" text-anchor="middle">seconds since the first sample</text>
+<text class="t2" x="62" y="564" font-size="11">cluster eks  ·  namespace storm-bench  ·  run id cd537d1a4771  ·  run by cfedersp</text>
+<text class="t2" x="62" y="580" font-size="11">run started 2026-11-22T13:24:48-08:00  ·  chart generated 2026-11-22T13:29:56-08:00</text>
+</svg>

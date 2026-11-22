@@ -323,3 +323,115 @@ def test_the_kind_overlay_maps_the_local_probe_image_and_uses_the_local_storage_
     out = render("local")
     assert "image: localhost/cpuprobe:dev" in out and "storageClassName: standard" in out
     assert out.count("namespace: storm-bench") >= 8 and "kind: StatefulSet" in out
+
+
+# -- a new cluster is ready to run, and an eks run does not go without monitoring by forgetting -----------------------------------------------
+def eks_args(tmp_path, *extra):
+    return cli.build_parser().parse_args(["--target", "eks", "run", "--a", "a" * 40, "--b", "b" * 40, "--blocks", "1", "--sizes", "800", "--out", str(tmp_path / "out"),
+                                          "--no-preflight", "--image-prefix", "ghcr.io/o/", *extra])
+
+
+def test_an_eks_run_refuses_to_start_without_monitoring_and_says_how_to_fix_it(tmp_path, monkeypatch):
+    monkeypatch.setattr(monitoring, "installed", lambda run, target: False)
+
+    def no_backend(*a, **k):
+        pytest.fail("nothing may be applied to the cluster after the refusal")
+    with pytest.raises(ValueError) as e:
+        runcmd.execute(Runner(), eks_args(tmp_path), make_store=lambda t: state.MemoryStore(), backend_factory=no_backend)
+    assert "monitoring is not installed on this eks cluster" in str(e.value) and "monitoring up" in str(e.value) and "--no-monitoring" in str(e.value)
+    assert not (tmp_path / "out").exists()                                                         # nothing was written either
+
+
+def test_the_command_line_turns_that_refusal_into_exit_2(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("REGISTRY", "ghcr.io/o")                                                   # an eks run names its images by registry
+    monkeypatch.setattr(monitoring, "installed", lambda run, target: False)
+    monkeypatch.setattr(runcmd.state_mod, "KubeStore", lambda run, target: state.MemoryStore())
+    monkeypatch.setattr(runcmd, "KubeBackend", lambda *a, **k: pytest.fail("nothing may be applied"))
+    assert cli.main(["--target", "eks", "run", "--a", "a" * 40, "--b", "b" * 40, "--out", str(tmp_path / "out"), "--no-preflight"]) == 2
+    assert "bench: monitoring is not installed on this eks cluster" in capsys.readouterr().err
+
+
+def test_an_eks_run_goes_without_monitoring_only_when_asked_to(tmp_path, monkeypatch):
+    monkeypatch.setattr(monitoring, "installed", lambda run, target: False)
+    cluster = FakeCluster()
+    assert runcmd.execute(Runner(), eks_args(tmp_path, "--no-monitoring"), make_store=lambda t: state.MemoryStore(), backend_factory=cluster.factory()) == 0
+    assert env_of(tmp_path / "out")["cpu_source"] == "exec"                                         # said, not guessed
+
+
+def test_an_eks_run_with_monitoring_installed_uses_it_as_before(tmp_path, monkeypatch):
+    monkeypatch.setattr(monitoring, "installed", lambda run, target: True)
+    monkeypatch.setattr(monitoring, "export", lambda *a, **k: {})
+    monkeypatch.setattr(runcmd.profiling, "export", lambda *a, **k: [])
+    monkeypatch.setattr(runcmd.profiling, "clear", lambda *a, **k: None)
+    assert runcmd.execute(Runner(), eks_args(tmp_path), make_store=lambda t: state.MemoryStore(), backend_factory=FakeCluster().factory()) == 0
+    assert env_of(tmp_path / "out")["cpu_source"] == "probe"
+
+
+def test_kind_keeps_monitoring_optional_because_its_images_are_built_by_hand(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(monitoring, "installed", lambda run, target: False)
+    assert go(run_args(tmp_path), state.MemoryStore(), FakeCluster()) == 0
+    assert "monitoring: not installed" in capsys.readouterr().out
+
+
+def test_resuming_an_eks_run_also_refuses_when_monitoring_has_gone(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(monitoring, "installed", lambda run, target: False)
+    store = state.MemoryStore()
+    with pytest.raises(ab.StormFailed):
+        runcmd.execute(Runner(), eks_args(tmp_path, "--no-monitoring"), make_store=lambda t: store, backend_factory=FakeCluster(fail_on="b-b1-warm").factory())
+    resume = cli.build_parser().parse_args(["--target", "eks", "run", "--resume", "--no-preflight", "--out", str(tmp_path / "out")])
+    with pytest.raises(ValueError, match="monitoring is not installed on this eks cluster"):
+        runcmd.execute(Runner(), resume, make_store=lambda t: store, backend_factory=FakeCluster().factory())
+
+
+class Calls:
+    def __init__(self):
+        self.seen = []
+
+
+def prepare(monkeypatch, *, checks_fail=False):
+    calls = Calls()
+    monkeypatch.setattr(runcmd.secrets_cmd, "create", lambda run, target: calls.seen.append("secrets") or ["storm-tls"])
+    monkeypatch.setattr(runcmd.preflight, "monitoring_checks", lambda *a, **k: calls.seen.append("checks") or [runcmd.preflight.Check("storageclass gp3", not checks_fail, "x")])
+    monkeypatch.setattr(runcmd.monitoring, "up", lambda run, target: calls.seen.append("monitoring up"))
+    return calls
+
+
+def test_a_new_cluster_gets_its_secret_then_monitoring_after_the_checks(monkeypatch, capsys):
+    calls = prepare(monkeypatch)
+    runcmd.prepare_cluster(Runner(), "eks")
+    assert calls.seen == ["secrets", "checks", "monitoring up"]
+    assert "monitoring is up" in capsys.readouterr().out
+
+
+def test_without_monitoring_a_new_cluster_still_gets_its_secret_and_the_run_will_need_the_flag(monkeypatch, capsys):
+    calls = prepare(monkeypatch)
+    runcmd.prepare_cluster(Runner(), "eks", with_monitoring=False)
+    assert calls.seen == ["secrets"] and "runs on this cluster will need --no-monitoring too" in capsys.readouterr().out
+
+
+def test_failed_checks_install_nothing_and_say_the_cluster_is_still_up(monkeypatch):
+    calls = prepare(monkeypatch, checks_fail=True)
+    with pytest.raises(runcmd.MonitoringNotInstalled, match="the cluster is up \\(and billing\\).*monitoring up"):
+        runcmd.prepare_cluster(Runner(), "eks")
+    assert calls.seen == ["secrets", "checks"]
+
+
+def test_cluster_up_prepares_the_cluster_and_a_failure_to_do_so_is_exit_1(monkeypatch, capsys):
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    done = []
+    monkeypatch.setattr(cli.eks, "up", lambda run, params, yes: Path("/k/config"))
+    monkeypatch.setattr(cli.runcmd, "prepare_cluster", lambda run, target, with_monitoring=True: done.append(with_monitoring))
+    assert cli.main(["cluster", "up", "--target", "eks", "--yes"]) == 0 and done == [True]
+    assert cli.main(["cluster", "up", "--target", "eks", "--yes", "--no-monitoring"]) == 0 and done == [True, False]
+    def fail(run, target, with_monitoring=True):
+        raise runcmd.MonitoringNotInstalled("the cluster is up (and billing) but monitoring was not installed")
+    monkeypatch.setattr(cli.runcmd, "prepare_cluster", fail)
+    assert cli.main(["cluster", "up", "--target", "eks", "--yes"]) == 1
+    assert "the cluster is up (and billing)" in capsys.readouterr().err
+
+
+def test_a_dry_run_of_cluster_up_prepares_nothing(monkeypatch, capsys):
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setattr(cli.runcmd, "prepare_cluster", lambda *a, **k: pytest.fail("a dry run must not touch the cluster"))
+    assert cli.main(["--dry-run", "cluster", "up", "--target", "eks", "--yes"]) == 0
+    assert "then it would create the TLS Secret and install the CPU probes and Prometheus" in capsys.readouterr().out

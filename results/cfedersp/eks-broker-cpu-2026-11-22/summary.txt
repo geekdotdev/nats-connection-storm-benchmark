@@ -1,0 +1,148 @@
+eks-broker-cpu-2026-11-22: cluster eks · namespace storm-bench · run id b2da4adbaaa1 · started 2026-11-22T10:03:45-08:00 · run by cfedersp
+blocks found: [1, 2, 3, 4, 5, 6, 7, 8]
+cpu3: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"broker_resources": {"cpu": "3"}}
+cpu15: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"broker_resources": {"cpu": "1500m"}}
+cpu2: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"broker_resources": {"cpu": "2"}}
+cpu35: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"broker_resources": {"cpu": "3500m"}}
+baseline cpu3; 3 comparisons with it, not corrected for the number of them
+
+idle
+  cpu3     median auth p50 per block (ms): [1.7, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  cpu15    median auth p50 per block (ms): [1.7, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  cpu2     median auth p50 per block (ms): [1.8, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  cpu35    median auth p50 per block (ms): [1.7, 1.7, 1.7, 1.7, 1.8, 1.7, 1.7, 1.7]  mean 1.7   admitted 320/320   burst length median 0.00s
+  change cpu15 vs cpu3 in the mean of block medians: +0.5%   exact permutation p=0.25517  (n=8 v 8 blocks)
+  change cpu2 vs cpu3 in the mean of block medians: +0.2%   exact permutation p=0.71904  (n=8 v 8 blocks)
+  change cpu35 vs cpu3 in the mean of block medians: +1.1%   exact permutation p=0.19301  (n=8 v 8 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     cpu3      cpu15       cpu2      cpu35
+    broker CPU ms per connection                     1.80       1.77       1.77       1.82
+    broker cores busy while bursting (limit 3)       0.18          -          -       0.57
+    broker periods throttled %                        0.0        0.0        0.0        0.0
+    broker time throttled (s)                        0.00       0.00       0.00       0.00
+    callout CPU ms per connection                    0.65       0.66       0.65       0.65
+    callout cores busy while bursting (limit 1)      0.07          -          -       0.07
+    callout periods throttled %                       0.0        0.0        0.0        0.0
+    callout time throttled (s)                       0.00       0.00       0.00       0.00
+    generator CPU ms per connection                  0.82       0.82       0.82       0.83
+    generator cores busy while bursting (limit 2)     0.09          -          -       0.10
+    generator periods throttled %                     0.0        0.0        0.0        0.0
+    generator time throttled (s)                     0.00       0.00       0.00       0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n800
+  cpu3     median auth p50 per block (ms): [132.6, 99.6, 146.4, 102.3, 131.2, 142.6, 136.7, 130.4]  mean 127.7   admitted 51200/51200   burst length median 0.56s
+  cpu15    median auth p50 per block (ms): [224.9, 208.6, 242.0, 239.9, 162.8, 139.3, 220.0, 218.6]  mean 207.0   admitted 51200/51200   burst length median 0.76s
+  cpu2     median auth p50 per block (ms): [191.5, 154.4, 172.4, 166.6, 179.2, 169.3, 178.1, 180.6]  mean 174.0   admitted 51200/51200   burst length median 0.63s
+  cpu35    median auth p50 per block (ms): [123.5, 130.1, 124.1, 121.7, 133.3, 122.8, 126.1, 128.1]  mean 126.2   admitted 51200/51200   burst length median 0.53s
+  change cpu15 vs cpu3 in the mean of block medians: +62.1%   exact permutation p=0.00047  (n=8 v 8 blocks)
+  burst length (throughput proxy) change cpu15 vs cpu3: +36.9%
+  change cpu2 vs cpu3 in the mean of block medians: +36.3%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change cpu2 vs cpu3: +13.5%
+  change cpu35 vs cpu3 in the mean of block medians: -1.2%   exact permutation p=0.80870  (n=8 v 8 blocks)
+  burst length (throughput proxy) change cpu35 vs cpu3: -4.5%
+  where a connection's time goes (median over blocks of each block's median; total = start of the connection to the answer; setup = total minus auth: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT):
+  cpu3     total p50  404.7 ms = setup  276.7 ms (68%) + auth  127.7 ms
+  cpu15    total p50  511.9 ms = setup  300.1 ms (59%) + auth  207.0 ms
+  cpu2     total p50  418.2 ms = setup  242.9 ms (58%) + auth  174.0 ms
+  cpu35    total p50  337.5 ms = setup  210.3 ms (62%) + auth  126.2 ms
+  change cpu15 vs cpu3 in total p50: +26.5%   exact permutation p=0.00886  (n=8 v 8 blocks)
+  change cpu15 vs cpu3 in setup: +8.4%   exact permutation p=0.61616  (n=8 v 8 blocks)
+  change cpu2 vs cpu3 in total p50: +3.3%   exact permutation p=0.70754  (n=8 v 8 blocks)
+  change cpu2 vs cpu3 in setup: -12.2%   exact permutation p=0.46667  (n=8 v 8 blocks)
+  change cpu35 vs cpu3 in total p50: -16.6%   exact permutation p=0.00093  (n=8 v 8 blocks)
+  change cpu35 vs cpu3 in setup: -24.0%   exact permutation p=0.10940  (n=8 v 8 blocks)
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               cpu3      cpu15       cpu2      cpu35
+    peak queue (connections)                    476        616        623        504
+    peak at (ms)                                351        365        301        278
+    90% of CONNECTs sent by (ms)                357        364        298        281
+    10% admitted by (ms)                        274        319        266        214
+    50% admitted by (ms)                        412        519        424        343
+    90% admitted by (ms)                        558        704        597        502
+    all admitted by (ms)                        601        759        630        551
+    drain rate 10-90% (connections/s)          2269       1642       1941       2222
+    peak queue (connections): cpu15 vs cpu3 +29.5%   exact permutation p=0.01445  (n=8 v 8 blocks)
+    90% admitted by (ms): cpu15 vs cpu3 +26.2%   exact permutation p=0.00264  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): cpu15 vs cpu3 -27.6%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    peak queue (connections): cpu2 vs cpu3 +31.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    90% admitted by (ms): cpu2 vs cpu3 +7.0%   exact permutation p=0.24973  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): cpu2 vs cpu3 -14.5%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    peak queue (connections): cpu35 vs cpu3 +6.1%   exact permutation p=0.45206  (n=8 v 8 blocks)
+    90% admitted by (ms): cpu35 vs cpu3 -10.0%   exact permutation p=0.00653  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): cpu35 vs cpu3 -2.1%   exact permutation p=0.31406  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     cpu3      cpu15       cpu2      cpu35
+    broker CPU ms per connection                     1.61       1.37       1.38       1.82
+    broker cores busy while bursting (limit 3)       2.17       1.45       1.77       2.63
+    broker periods throttled %                        0.0       69.5        7.0        4.0
+    broker time throttled (s)                        0.00       0.13       0.00       0.00
+    callout CPU ms per connection                    0.51       0.52       0.51       0.51
+    callout cores busy while bursting (limit 1)      0.69       0.55       0.65       0.74
+    callout periods throttled %                      37.7       13.1       34.3       43.2
+    callout time throttled (s)                       0.08       0.01       0.06       0.10
+    generator CPU ms per connection                  1.02       0.98       0.85       0.82
+    generator cores busy while bursting (limit 2)     1.34       1.03       1.07       1.18
+    generator periods throttled %                    49.4       26.1       34.6       37.3
+    generator time throttled (s)                     0.24       0.14       0.09       0.17
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n1600
+  cpu3     median auth p50 per block (ms): [243.4, 252.6, 236.8, 252.1, 238.9, 245.8, 249.8, 238.5]  mean 244.8   admitted 102400/102400   burst length median 1.10s
+  cpu15    median auth p50 per block (ms): [418.1, 397.7, 416.4, 417.0, 428.8, 426.9, 450.8, 432.0]  mean 423.5   admitted 102400/102400   burst length median 1.54s
+  cpu2     median auth p50 per block (ms): [334.6, 322.9, 302.4, 322.6, 284.7, 306.2, 321.2, 301.8]  mean 312.0   admitted 102400/102400   burst length median 1.27s
+  cpu35    median auth p50 per block (ms): [241.3, 224.8, 179.3, 235.5, 184.5, 241.5, 249.9, 233.2]  mean 223.8   admitted 102400/102400   burst length median 1.23s
+  change cpu15 vs cpu3 in the mean of block medians: +73.0%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change cpu15 vs cpu3: +40.0%
+  change cpu2 vs cpu3 in the mean of block medians: +27.5%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  burst length (throughput proxy) change cpu2 vs cpu3: +15.5%
+  change cpu35 vs cpu3 in the mean of block medians: -8.6%   exact permutation p=0.02409  (n=8 v 8 blocks)
+  burst length (throughput proxy) change cpu35 vs cpu3: +11.4%
+  where a connection's time goes (median over blocks of each block's median; total = start of the connection to the answer; setup = total minus auth: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT):
+  cpu3     total p50  689.4 ms = setup  444.8 ms (65%) + auth  244.8 ms
+  cpu15    total p50  992.9 ms = setup  552.1 ms (56%) + auth  423.5 ms
+  cpu2     total p50  820.1 ms = setup  497.9 ms (61%) + auth  312.0 ms
+  cpu35    total p50  816.9 ms = setup  600.3 ms (73%) + auth  223.8 ms
+  change cpu15 vs cpu3 in total p50: +44.0%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  change cpu15 vs cpu3 in setup: +24.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  change cpu2 vs cpu3 in total p50: +18.9%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  change cpu2 vs cpu3 in setup: +11.9%   exact permutation p=0.00016  (n=8 v 8 blocks)
+  change cpu35 vs cpu3 in total p50: +18.5%   exact permutation p=0.46620  (n=8 v 8 blocks)
+  change cpu35 vs cpu3 in setup: +35.0%   exact permutation p=0.46418  (n=8 v 8 blocks)
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                               cpu3      cpu15       cpu2      cpu35
+    peak queue (connections)                    994       1283       1163        875
+    peak at (ms)                                580        667        608        755
+    90% of CONNECTs sent by (ms)                585        649        601        763
+    10% admitted by (ms)                        412        579        515        424
+    50% admitted by (ms)                        702       1006        833        835
+    90% admitted by (ms)                       1028       1384       1168       1119
+    all admitted by (ms)                       1208       1710       1432       1384
+    drain rate 10-90% (connections/s)          2081       1608       1961       1912
+    peak queue (connections): cpu15 vs cpu3 +29.1%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    90% admitted by (ms): cpu15 vs cpu3 +34.7%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): cpu15 vs cpu3 -22.7%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    peak queue (connections): cpu2 vs cpu3 +17.0%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    90% admitted by (ms): cpu2 vs cpu3 +13.6%   exact permutation p=0.00016  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): cpu2 vs cpu3 -5.8%   exact permutation p=0.03077  (n=8 v 8 blocks)
+    peak queue (connections): cpu35 vs cpu3 -12.0%   exact permutation p=0.00062  (n=8 v 8 blocks)
+    90% admitted by (ms): cpu35 vs cpu3 +8.8%   exact permutation p=0.46667  (n=8 v 8 blocks)
+    drain rate 10-90% (connections/s): cpu35 vs cpu3 -8.1%   exact permutation p=0.26962  (n=8 v 8 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                     cpu3      cpu15       cpu2      cpu35
+    broker CPU ms per connection                     1.61       1.38       1.39       1.85
+    broker cores busy while bursting (limit 3)       2.22       1.36       1.66       2.30
+    broker periods throttled %                        1.9       75.8        8.2        9.5
+    broker time throttled (s)                        0.00       0.29       0.00       0.01
+    callout CPU ms per connection                    0.49       0.52       0.51       0.50
+    callout cores busy while bursting (limit 1)      0.68       0.51       0.60       0.63
+    callout periods throttled %                      44.0       22.5       35.3       36.5
+    callout time throttled (s)                       0.28       0.07       0.20       0.22
+    generator CPU ms per connection                  0.82       0.88       0.86       1.06
+    generator cores busy while bursting (limit 2)     1.12       0.85       1.01       1.26
+    generator periods throttled %                    41.3       26.3       36.8       51.3
+    generator time throttled (s)                     0.36       0.34       0.32       0.36
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+

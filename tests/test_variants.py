@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import json
+import re
 import shutil
 import subprocess
 import tomllib
@@ -343,3 +344,87 @@ def test_preflight_refuses_variants_whose_overlays_have_different_objects(monkey
     checks = pf.preflight(run, "eks", pair, "deploy/stack/overlays/eks", "deploy/loadgen/overlays/eks", fake(pf.Manifest(200, ("linux/amd64",))))
     bad = next(c for c in checks if c.name == "variants")
     assert not bad.ok and "Service/extra" in bad.detail and "leave the extra object behind" in bad.detail
+
+
+# -- callout_replicas ---------------------------------------------------------------------------------------------------------------------------
+REPLICA_FILE = {"variant": [{"label": "one", "image": "x"}, {"label": "three", "image": "x", "callout_replicas": 3}]}
+
+
+def test_a_variant_can_say_how_many_callout_pods_run_and_the_other_keeps_the_overlays_one():
+    one, three = variants.parse(REPLICA_FILE, "localhost/", REPO_ROOT)
+    assert one.callout_replicas == 0 and three.callout_replicas == 3
+    assert "callout_replicas" not in one.describe() and three.describe()["callout_replicas"] == 3          # recorded in environment.json when set
+    assert ab.Variant.from_dict(three.describe()).callout_replicas == 3                                    # and read back by --resume
+
+
+@pytest.mark.parametrize("bad", [-1, 11, 2.5, "3", True, None])
+def test_a_silly_replica_count_is_refused(bad):
+    with pytest.raises(ValueError, match="callout_replicas must be a whole number from 1 to 10"):
+        variants.parse({"variant": [{"label": "a", "image": "x", "callout_replicas": bad}, {"label": "b", "image": "x"}]}, "localhost/", REPO_ROOT)
+
+
+def test_the_replicas_become_a_patch_on_the_callout_deployment_only_for_the_variant_that_asks(tmp_path):
+    one, three = variants.parse(REPLICA_FILE, "localhost/", REPO_ROOT)
+    def callout_patches(v):
+        doc = variants.kustomization(v, REPO_ROOT / "deploy/stack/overlays/eks", tmp_path / v.label)
+        return [json.loads(p["patch"]) for p in doc.get("patches", []) if json.loads(p["patch"])["kind"] == "Deployment"]
+    assert callout_patches(one) == []
+    (patch,) = callout_patches(three)
+    assert patch["metadata"]["name"] == "callout" and patch["spec"]["replicas"] == 3
+
+
+@pytest.mark.skipif(not shutil.which("kubectl"), reason="needs kubectl kustomize")
+def test_the_rendered_callout_has_the_replicas_the_variant_asked_for_and_the_other_variant_has_one(tmp_path):
+    one, three = variants.parse(REPLICA_FILE, "localhost/", REPO_ROOT)
+    def replicas(v):
+        out = subprocess.run(["kubectl", "kustomize", str(variants.write(v, "deploy/stack/overlays/eks", tmp_path))], capture_output=True, text=True, check=True).stdout
+        doc = next(d for d in out.split("\n---\n") if "kind: Deployment" in d and "name: callout" in d)
+        return int(re.search(r"replicas: (\d+)", doc).group(1))
+    assert (replicas(one), replicas(three)) == (1, 3)
+
+
+# -- no_tls -------------------------------------------------------------------------------------------------------------------------------------
+TLS_FILE = {"variant": [{"label": "tls", "image": "x"}, {"label": "plain", "image": "x", "no_tls": True}]}
+
+
+def test_no_tls_is_recorded_for_the_variant_that_asks_and_read_back():
+    tls, plain = variants.parse(TLS_FILE, "localhost/", REPO_ROOT)
+    assert tls.no_tls is False and plain.no_tls is True
+    assert "no_tls" not in tls.describe() and plain.describe()["no_tls"] is True
+    assert ab.Variant.from_dict(plain.describe()).no_tls is True and ab.Variant.from_dict(tls.describe()).no_tls is False
+
+
+@pytest.mark.parametrize("bad", ["yes", 1, 0, None, [True]])
+def test_no_tls_must_be_a_real_boolean(bad):
+    with pytest.raises(ValueError, match="no_tls must be true or false"):
+        variants.parse({"variant": [{"label": "a", "image": "x", "no_tls": bad}, {"label": "b", "image": "x"}]}, "localhost/", REPO_ROOT)
+
+
+def test_a_variant_that_writes_its_own_websocket_block_cannot_also_ask_for_no_tls():
+    with pytest.raises(ValueError, match="no_tls writes the broker's websocket block itself"):
+        variants.parse({"variant": [{"label": "a", "image": "x", "no_tls": True, "conf": "websocket { listen: 0.0.0.0:1 }"}, {"label": "b", "image": "x"}]}, "localhost/", REPO_ROOT)
+
+
+def test_the_broker_and_the_generator_are_switched_together_and_only_for_that_variant(tmp_path):
+    tls, plain = variants.parse(TLS_FILE, "localhost/", REPO_ROOT)
+    def extra_conf(v):
+        doc = variants.kustomization(v, REPO_ROOT / "deploy/stack/overlays/eks", tmp_path / v.label)
+        found = [json.loads(p["patch"]) for p in doc.get("patches", []) if json.loads(p["patch"])["kind"] == "ConfigMap"]
+        return found[0]["data"]["extra.conf"] if found else None
+    assert extra_conf(tls) is None
+    assert "no_tls: true" in extra_conf(plain) and "listen: 0.0.0.0:8443" in extra_conf(plain)             # the broker's side
+    plan = ab.Plan(variants=(tls, plain), blocks=1, sizes=(800,))
+    phase = plan.phases[-1]
+    assert plan.storm_env(phase, "x", tls).get("STORM_URL") is None and plan.storm_env(phase, "x", plain)["STORM_URL"] == "ws://broker:8443"   # the generator's
+
+
+def test_the_user_conf_and_no_tls_both_reach_extra_conf(tmp_path):
+    v = variants.parse({"variant": [{"label": "a", "image": "x", "no_tls": True, "conf": "max_payload: 1048576"}, {"label": "b", "image": "x"}]}, "localhost/", REPO_ROOT)[0]
+    doc = variants.kustomization(v, REPO_ROOT / "deploy/stack/overlays/eks", tmp_path / "a")
+    conf = json.loads(next(p["patch"] for p in doc["patches"] if json.loads(p["patch"])["kind"] == "ConfigMap"))["data"]["extra.conf"]
+    assert conf.startswith("max_payload: 1048576") and "no_tls: true" in conf
+
+
+def test_a_variant_still_cannot_set_the_url_itself():
+    with pytest.raises(ValueError, match="STORM_URL"):
+        variants.parse({"variant": [{"label": "a", "image": "x", "storm": {"STORM_URL": "ws://elsewhere"}}, {"label": "b", "image": "x"}]}, "localhost/", REPO_ROOT)

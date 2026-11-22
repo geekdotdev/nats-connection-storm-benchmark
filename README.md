@@ -54,7 +54,7 @@ These commands are implemented. The image, cluster and run commands have been tr
 ```sh
 uv run bench --dry-run images build <full commit sha> [--repo https://github.com/nats-io/nats-server.git]
 uv run bench images load-kind localhost/nats-server:<short sha> localhost/callout:dev localhost/loadgen:dev localhost/provision:dev
-uv run bench cluster up|down            # local kind cluster, own kubeconfig; `--target eks` for EKS (see infra/eks)
+uv run bench cluster up|down            # local kind cluster, own kubeconfig; `--target eks` for EKS (see infra/eks), where `up` also creates the TLS Secret and installs monitoring
 uv run bench secrets create|delete      # the TLS Secret, generated in memory, never written to disk; delete also removes the keys the callout pod's init container made (`--target local|eks`)
 uv run bench preflight --a <sha> --b <sha>   # check cluster, Secrets, node placement and (eks) registry images; `run` does this first
 uv run bench images push nats-server:<short sha>

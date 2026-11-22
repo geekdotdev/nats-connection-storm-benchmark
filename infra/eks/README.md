@@ -9,7 +9,8 @@ export AWS_REGION=us-east-1            # required; there is deliberately no defa
 export AWS_PROFILE=<a profile you chose on purpose>
 uv run bench cluster config --target eks                 # print the ClusterConfig; touches nothing
 uv run bench --dry-run cluster up --target eks           # print the eksctl command; touches nothing
-uv run bench cluster up --target eks --yes               # create it: BILLABLE until you run the next line
+uv run bench cluster up --target eks --yes               # create it: BILLABLE until you run the next line. Then it creates the TLS Secret and
+                                                         # installs the CPU probes and Prometheus (--no-monitoring skips that; --client-nodes 2 for a second client node)
 uv run bench cluster down --target eks
 ```
 
@@ -37,6 +38,20 @@ uv run bench cluster addons --target eks --yes    # an existing cluster: install
 ```
 
 An EBS volume belongs to one availability zone, so a pod with a claim can only run in the zone its volume is in (all nodes here are in one zone). A `gp3` volume, which is what the `gp3` class makes, attaches to one node at a time (`ReadWriteOnce`). EBS can attach one volume to several nodes at once (Multi-Attach, up to 16 Nitro instances in the same zone), but only `io1`/`io2` volumes support it, and the CSI driver supports it only as a raw block volume (`volumeMode: Block`, `ReadWriteMany`), never with a filesystem: ext4 and xfs assume one mounter, so whatever sits on the shared device must coordinate its own writes. Neither helps a Prometheus database, which has one writer and needs a filesystem. Volumes cost by the hour like any other resource: **delete the claims before `cluster down`**, because a volume that is still attached when the cluster is deleted is left behind, unattached and billed.
+
+## NetworkPolicy enforcement (off by default)
+
+`vpc-cni`, the default CNI eksctl installs on every cluster, does not enforce Kubernetes `NetworkPolicy` objects out of the box: the API
+server accepts one and nothing acts on it. `bench cluster network-policy --target eks --yes` reconfigures `vpc-cni` (not one of `ADDONS`:
+it always exists, so this is an update, never a fresh add-on) to add its own enforcement agent to every node. It changes how **every** pod
+on the cluster may talk, not only a workload a policy selects, so it is a separate, explicit step rather than part of `cluster up`'s
+defaults. A policy still has to name what it restricts: `deploy/loadgen/overlays/eks-restricted` is one, used with `--loadgen-overlay` to
+contain the load generator in a storm of bad-faith connections (`plans/bad-faith-storm.md`) without touching how any other pod, including
+GHCR image pulls (which happen on the node, outside any pod's network namespace), reaches the network.
+
+```sh
+uv run bench cluster network-policy --target eks --yes    # an existing cluster: turn on NetworkPolicy enforcement (once per cluster)
+```
 
 ## Kubeconfig
 

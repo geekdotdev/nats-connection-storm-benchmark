@@ -143,6 +143,18 @@ def test_the_jobs_of_a_unit_or_a_finished_run_are_deleted_by_label(kubeconfig, c
     assert "could not delete the run's Jobs" in capsys.readouterr().err
 
 
+def test_prepare_picks_the_job_out_of_an_overlay_that_also_renders_a_networkpolicy(kubeconfig):
+    # eks-restricted renders two resources; kubectl's --dry-run=client -o json prints each as its own JSON value, one after
+    # the other, not a single document or a List -- prepare() must not assume the overlay's dry-run output is one object.
+    job = {"kind": "Job", "metadata": {"name": "loadgen"}, "spec": {"template": {"spec": {"containers": [{"name": "loadgen", "env": []}]}}}}
+    netpol = {"kind": "NetworkPolicy", "metadata": {"name": "loadgen-restricted"}}
+    as_json = json.dumps(job, indent=2) + "\n" + json.dumps(netpol, indent=2) + "\n"
+    run = Scripted(["rendered yaml (unused by the fake)", as_json])
+    b = kube.KubeBackend(run, read_cpu=False, sleep=lambda s: None)
+    b.prepare((ab.Variant("a", A, "x"),), apply=False)
+    assert b._job["kind"] == "Job" and b._job["metadata"]["name"] == "loadgen"
+
+
 def test_the_manifest_keeps_the_name_and_label_the_driver_selects_by_and_has_no_ttl():
     text = (REPO_ROOT / "deploy" / "loadgen" / "base" / "job.yaml").read_text()
     assert "ttlSecondsAfterFinished" not in text.replace("There is no ttlSecondsAfterFinished", "")

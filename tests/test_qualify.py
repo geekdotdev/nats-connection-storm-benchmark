@@ -56,7 +56,7 @@ def test_a_new_run_qualifies_every_output_it_writes(tmp_path):
 
 def test_the_eks_target_is_labelled_eks(tmp_path):
     args = cli.build_parser().parse_args(["--target", "eks", "run", "--a", "a" * 40, "--b", "b" * 40, "--image-prefix", "ghcr.io/o/", "--blocks", "1",
-                                          "--sizes", "800", "--out", str(tmp_path / "out"), "--no-preflight"])
+                                          "--sizes", "800", "--out", str(tmp_path / "out"), "--no-preflight", "--no-monitoring"])
     assert runcmd.execute(Runner(), args, make_store=lambda t: state.MemoryStore(), backend_factory=FakeCluster().factory()) == 0
     assert env_of(tmp_path / "out")["cluster_kind"] == "eks"
     assert " cluster eks · " in (tmp_path / "out" / "summary.txt").read_text().splitlines()[0]

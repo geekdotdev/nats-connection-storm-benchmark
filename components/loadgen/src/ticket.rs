@@ -109,6 +109,17 @@ impl Ticket {
     }
 }
 
+/// A signature over `nonce` made by a key with no relation to any ticket: a connection presenting a real, validly-issued ticket
+/// (`Issuer::ticket`) but this instead of `Ticket::sign_nonce` fails the broker's nonce-signature check after every other check
+/// (decode, account lookup, the scope's signature chain) has already passed. A stolen-ticket-without-the-key attempt, not a forged
+/// JWT: the JWT itself is untouched. A fresh key is generated and discarded; nobody needs to verify with it.
+pub fn sign_nonce_with_unrelated_key(nonce: &str) -> Res<String> {
+    let mut seed = [0u8; 32];
+    SystemRandom::new().fill(&mut seed).map_err(|_| "no randomness".to_string())?;
+    let key = Ed25519KeyPair::from_seed_unchecked(&seed).map_err(|_| "the fresh seed is not a usable ed25519 seed".to_string())?;
+    Ok(b64(key.sign(nonce.as_bytes()).as_ref()))
+}
+
 /// Makes tickets with the scoped signing key.
 pub struct Issuer {
     key: Ed25519KeyPair,
@@ -138,6 +149,23 @@ impl Issuer {
     /// The scoped key's public key: the ticket's `iss`.
     pub fn public(&self) -> &str {
         &self.public
+    }
+
+    /// An issuer whose account was never provisioned anywhere: for a `nonexistent-account` bad-faith connection. `ticket()` on it
+    /// makes a structurally perfect JWT, self-signed and self-consistent (its `iss` and `issuer_account` are the same fresh key,
+    /// generated here and nowhere else), so it decodes and self-verifies exactly like a real ticket -- but the broker's account
+    /// lookup will never find it, because this key exists only in this process, this call. Reuses `ticket()` unchanged.
+    pub fn random(roles: &[String], ttl_secs: u64) -> Res<Issuer> {
+        if ttl_secs == 0 {
+            return Err("the ticket lifetime must be positive".into());
+        }
+        let mut seed = [0u8; 32];
+        let rng = SystemRandom::new();
+        rng.fill(&mut seed).map_err(|_| "no randomness".to_string())?;
+        let key = Ed25519KeyPair::from_seed_unchecked(&seed).map_err(|_| "the fresh seed is not a usable ed25519 seed".to_string())?;
+        let public = encode_public(PREFIX_BYTE_ACCOUNT, key.public_key().as_ref());
+        let roles = roles.iter().map(|r| r.trim().to_lowercase()).filter(|r| !r.is_empty()).collect();
+        Ok(Issuer { auth_account: public.clone(), public, key, roles, ttl_secs, rng })
     }
 
     /// A fresh user key and a ticket for it, issued at `now_secs` (Unix time).
@@ -341,6 +369,52 @@ mod tests {
         let took = start.elapsed();
         println!("1600 tickets in {took:?}");
         assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
+    }
+
+    #[test]
+    fn an_unrelated_signature_does_not_verify_against_the_tickets_own_key() {
+        let it = issuer(&["app-feed-publish-orders"], 60);
+        let t = it.ticket("storm-0", 1).unwrap();
+        let claims: serde_json::Value = serde_json::from_slice(&decode_part(t.jwt.split('.').nth(1).unwrap())).unwrap();
+        let sub = BASE32_NOPAD.decode(claims["sub"].as_str().unwrap().as_bytes()).unwrap();
+        let real_sig = t.sign_nonce("the-nonce");
+        UnparsedPublicKey::new(&ED25519, &sub[1..33]).verify(b"the-nonce", &decode_part(&real_sig)).unwrap();
+        // The whole point: a signature from an unrelated key, over the same nonce, must NOT verify against the ticket's own subject.
+        let wrong_sig = sign_nonce_with_unrelated_key("the-nonce").unwrap();
+        assert_ne!(wrong_sig, real_sig);
+        assert!(UnparsedPublicKey::new(&ED25519, &sub[1..33]).verify(b"the-nonce", &decode_part(&wrong_sig)).is_err());
+        // And it is not simply broken or empty: it is a real signature, by some key, that a reader cannot tell from a real one without
+        // knowing which key it should have been signed by.
+        assert!(!wrong_sig.is_empty() && !wrong_sig.contains('=') && !wrong_sig.contains('+') && !wrong_sig.contains('/'));
+        assert_ne!(sign_nonce_with_unrelated_key("the-nonce").unwrap(), wrong_sig, "a fresh key each call, not a fixed one");
+    }
+
+    #[test]
+    fn a_random_issuer_is_self_consistent_but_never_the_real_account() {
+        let real = issuer(&["app-feed-publish-orders"], 3600);
+        let rogue = Issuer::random(&["app-feed-publish-orders".to_string()], 3600).unwrap();
+        assert_ne!(rogue.public(), real.public(), "never collides with the real AUTH account by construction");
+        let t = rogue.ticket("storm-0", 1_800_000_000).unwrap();
+        let parts: Vec<&str> = t.jwt.split('.').collect();
+        let claims: serde_json::Value = serde_json::from_slice(&decode_part(parts[1])).unwrap();
+        // Self-referential: the signer (iss) and the account the broker is told to look up (issuer_account) are the same fresh key.
+        assert_eq!(claims["iss"], rogue.public());
+        assert_eq!(claims["nats"]["issuer_account"], rogue.public());
+        // Structurally a perfect ticket: it self-verifies exactly like a real one (a_ticket_has_the_shape... checks the full shape).
+        let pub_raw = BASE32_NOPAD.decode(rogue.public().as_bytes()).unwrap();
+        let signed = format!("{}.{}", parts[0], parts[1]);
+        UnparsedPublicKey::new(&ED25519, &pub_raw[1..33]).verify(signed.as_bytes(), &decode_part(parts[2])).unwrap();
+        // And its own nonce-signing path works normally: nothing about this kind fails at the signature-matches-subject check,
+        // only at the broker's account lookup, which this test cannot exercise.
+        let sub = BASE32_NOPAD.decode(claims["sub"].as_str().unwrap().as_bytes()).unwrap();
+        let sig = t.sign_nonce("n");
+        UnparsedPublicKey::new(&ED25519, &sub[1..33]).verify(b"n", &decode_part(&sig)).unwrap();
+        assert_ne!(Issuer::random(&[], 60).unwrap().public(), Issuer::random(&[], 60).unwrap().public(), "a fresh account each call");
+    }
+
+    #[test]
+    fn a_random_issuer_also_validates_its_lifetime() {
+        assert!(Issuer::random(&[], 0).err().unwrap().contains("lifetime"));
     }
 
     #[test]

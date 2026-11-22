@@ -1,0 +1,264 @@
+{
+ "run": "tls-b5-warm",
+ "runs": [
+  {
+   "authMs": {
+    "max": 97.726112,
+    "n": 200,
+    "p50": 83.470857,
+    "p90": 94.19489,
+    "p99": 97.327552
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 25004,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 184496,
+    "userUsec": 159492
+   },
+   "connections": 200,
+   "endedAtMs": 1795376544602,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 41.389,
+   "index": 1,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 2,
+      "pod": "loadgen-tls-b5-warm-e91e1c-8r249",
+      "systemUsec": 25205,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 185473,
+      "userUsec": 160268
+     },
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 2,
+      "pod": "callout-6b8b6fb5f4-ksgp4",
+      "systemUsec": 9096,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 108828,
+      "userUsec": 99732
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 3,
+      "pod": "broker-0",
+      "systemUsec": 58109,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 323848,
+      "userUsec": 265738
+     }
+    ],
+    "errors": [],
+    "probes": 6
+   },
+   "rampMs": 0,
+   "run": "tls-b5-warm",
+   "seconds": 0.24,
+   "startedAtMs": 1795376544364,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 235.666103,
+    "n": 200,
+    "p50": 211.801743,
+    "p90": 231.289289,
+    "p99": 234.98692400000002
+   }
+  },
+  {
+   "authMs": {
+    "max": 83.044635,
+    "n": 200,
+    "p50": 46.782969,
+    "p90": 79.226794,
+    "p99": 81.67658999999999
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 1,
+    "systemUsec": 71583,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 178366,
+    "userUsec": 106783
+   },
+   "connections": 200,
+   "endedAtMs": 1795376547286,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 1.928,
+   "index": 2,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 2,
+      "pod": "loadgen-tls-b5-warm-e91e1c-8r249",
+      "systemUsec": 71664,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 179481,
+      "userUsec": 107818
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 1,
+      "pod": "broker-0",
+      "systemUsec": 32624,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 321211,
+      "userUsec": 288588
+     },
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-6b8b6fb5f4-ksgp4",
+      "systemUsec": 14031,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 111551,
+      "userUsec": 97519
+     }
+    ],
+    "errors": [],
+    "probes": 6
+   },
+   "rampMs": 0,
+   "run": "tls-b5-warm",
+   "seconds": 0.14,
+   "startedAtMs": 1795376547142,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 144.095677,
+    "n": 200,
+    "p50": 102.650493,
+    "p90": 138.89364400000002,
+    "p99": 143.62944
+   }
+  },
+  {
+   "authMs": {
+    "max": 76.40823099999999,
+    "n": 200,
+    "p50": 51.874755,
+    "p90": 73.49216799999999,
+    "p99": 75.991156
+   },
+   "cgroupCpu": {
+    "limitCores": 2.0,
+    "periods": 2,
+    "systemUsec": 52318,
+    "throttledPeriods": 0,
+    "throttledUsec": 0,
+    "usageUsec": 172849,
+    "userUsec": 120532
+   },
+   "connections": 200,
+   "endedAtMs": 1795376549951,
+   "failures": {},
+   "generatorSchedulingDelayP99Ms": 2.535,
+   "index": 3,
+   "outcomes": {
+    "admitted": 200,
+    "error": 0,
+    "refused": 0,
+    "timeout": 0
+   },
+   "probeCpu": {
+    "containers": [
+     {
+      "component": "callout",
+      "container": "callout",
+      "limitCores": 1.0,
+      "periods": 1,
+      "pod": "callout-6b8b6fb5f4-ksgp4",
+      "systemUsec": 6955,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 104764,
+      "userUsec": 97809
+     },
+     {
+      "component": "loadgen",
+      "container": "loadgen",
+      "limitCores": 2.0,
+      "periods": 2,
+      "pod": "loadgen-tls-b5-warm-e91e1c-8r249",
+      "systemUsec": 52318,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 173722,
+      "userUsec": 121404
+     },
+     {
+      "component": "broker",
+      "container": "broker",
+      "limitCores": 3.0,
+      "periods": 1,
+      "pod": "broker-0",
+      "systemUsec": 62845,
+      "throttledPeriods": 0,
+      "throttledUsec": 0,
+      "usageUsec": 308598,
+      "userUsec": 245754
+     }
+    ],
+    "errors": [],
+    "probes": 6
+   },
+   "rampMs": 0,
+   "run": "tls-b5-warm",
+   "seconds": 0.13,
+   "startedAtMs": 1795376549819,
+   "successRate": 1.0,
+   "totalMs": {
+    "max": 131.496699,
+    "n": 200,
+    "p50": 94.775666,
+    "p90": 126.517304,
+    "p99": 130.32470500000002
+   }
+  }
+ ],
+ "qualifiers": {
+  "run_id": "c1ac47e5ed7e",
+  "cluster": "eks",
+  "target": "eks",
+  "namespace": "storm-bench",
+  "started": "2026-11-22T11:22:48-08:00",
+  "github_user": "cfedersp",
+  "unit": "tls-b5",
+  "storm": "tls-b5-warm"
+ }
+}

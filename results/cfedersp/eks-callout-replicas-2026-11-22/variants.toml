@@ -1,0 +1,18 @@
+# Is the auth callout what paces the burst? Same broker, same image digest, same generator; the only difference is how many callout pods run.
+# `bench run --variants callout-replicas-variants.toml --blocks 8 --sizes 800,1600` (plans/callout-replicas.md). Needs a second client node
+# (`bench cluster scale --target eks --client-nodes 2 --yes`, and back to 1 afterwards): 3 callout pods of 1 CPU plus the 2 CPU generator do
+# not fit one c6i.xlarge beside the cluster's own pods (preflight's "fit together" says so).
+# The replicas share one queue group, so they share the work: 3 pods of 1 CPU (16 workers each) are 3 CPU and 48 workers of callout.
+# Both variants run in the SAME blocks, interleaved, so the comparison is within one run (the only kind the report tests). Prediction and
+# falsifier are in the plan, written before the run.
+
+[[variant]]
+label = "main"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+
+[[variant]]
+label = "main_callout3"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+callout_replicas = 3

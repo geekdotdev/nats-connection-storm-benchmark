@@ -47,10 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
     pu.add_argument("--insecure", action="store_true", help="skip TLS verification; only for a test registry on localhost")
 
     cl = sub.add_parser("cluster", parents=[on_target], help="create or delete the cluster (local = kind, eks = eksctl), or print the EKS config")
-    cl.add_argument("action", choices=["up", "down", "config", "addons", "infra", "scale"], help="config prints the eksctl ClusterConfig (eks only) and touches nothing; "
+    cl.add_argument("action", choices=["up", "down", "config", "addons", "infra", "scale", "network-policy"], help="config prints the eksctl ClusterConfig (eks only) and touches nothing; "
                     "addons installs the EBS CSI driver and its IAM role on an existing eks cluster (needs --yes); "
                     "infra adds the infra node group (for Prometheus) to an existing eks cluster (needs --yes); "
-                    "scale resizes the clients node group of an existing eks cluster to --client-nodes N (needs --yes; not during a run)")
+                    "scale resizes the clients node group of an existing eks cluster to --client-nodes N (needs --yes; not during a run); "
+"network-policy turns on NetworkPolicy enforcement (vpc-cni's own agent) on an existing eks cluster, needed before any "
+"NetworkPolicy object actually restricts anything (needs --yes)")
     cl.add_argument("--yes", action="store_true", help="eks up: confirm that you accept the AWS charges")
     cl.add_argument("--region", help="eks: AWS region (default: AWS_REGION)")
     cl.add_argument("--zone", help="eks: availability zone for the nodes (default: <region>a)")
@@ -59,6 +61,8 @@ def build_parser() -> argparse.ArgumentParser:
     cl.add_argument("--client-nodes", type=int, help="eks: nodes in the clients group (default 1)")
     cl.add_argument("--infra-nodes", type=int, help="eks: nodes in the infra group, for Prometheus and its volume (default 1; 0 for none)")
     cl.add_argument("--infra-instance-type", help="eks: instance type of the infra nodes (default c6i.large)")
+    cl.add_argument("--no-monitoring", action="store_true", help="eks up: do not install the CPU probes and Prometheus after creating the cluster "
+                    "(runs on it then need `run --no-monitoring`)")
     cl.add_argument("--k8s-version", help="eks: Kubernetes version, e.g. 1.36 (default: pinned in the driver, see eks.DEFAULT_K8S_VERSION)")
 
     se = sub.add_parser("secrets", parents=[on_target], help="create the TLS Secret (never written to disk) or delete it and what the provision init container made, in the target's cluster")
@@ -167,12 +171,17 @@ def main(argv: list[str] | None = None) -> int:
                     print(eks.render(params), end="")
                 elif args.action == "up":
                     kc = eks.up(run, params, args.yes)
-                    if not args.dry_run:
-                        print(f"kubeconfig: {kc}\nsecrets and run use it with --target eks")
+                    if args.dry_run:
+                        print("then it would create the TLS Secret" + ("" if args.no_monitoring else " and install the CPU probes and Prometheus"))
+                    else:
+                        print(f"kubeconfig: {kc}")
+                        runcmd.prepare_cluster(run, "eks", not args.no_monitoring)
                 elif args.action == "addons":
                     eks.add_addons(run, params, args.yes)
                 elif args.action == "infra":
                     eks.add_infra(run, params, args.yes)
+                elif args.action == "network-policy":
+                    eks.add_network_policy(run, params, args.yes)
                 elif args.action == "scale":
                     if args.client_nodes is None:
                         print("bench cluster scale: give --client-nodes N (the size the clients group should have)", file=sys.stderr)
@@ -181,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     eks.down(run, params)
                 return 0
-            if args.action in ("config", "addons", "infra", "scale"):
+            if args.action in ("config", "addons", "infra", "scale", "network-policy"):
                 print(f"bench cluster {args.action}: only for --target eks", file=sys.stderr)
                 return 2
             (kind.up if args.action == "up" else kind.down)(run)
@@ -225,6 +234,9 @@ def main(argv: list[str] | None = None) -> int:
             print("bench: if the Secret already exists, run `bench secrets delete` first and restart the pods afterwards", file=sys.stderr)
         return 1
     except (state.StateError, state.LeaseHeld) as e:
+        print(f"bench: {e}", file=sys.stderr)
+        return 1
+    except runcmd.MonitoringNotInstalled as e:
         print(f"bench: {e}", file=sys.stderr)
         return 1
     except config.MissingSecret as e:

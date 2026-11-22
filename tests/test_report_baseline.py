@@ -72,3 +72,42 @@ def test_the_command_prints_for_another_baseline_and_leaves_the_stored_summary_a
 def test_a_two_variant_run_can_be_turned_around_too(tmp_path):
     got = changes(report.summarize(make_run(tmp_path, (("a", 100.0), ("b", 80.0))), baseline="b"))
     assert set(got) == {("a", "b")} and got[("a", "b")] > 15
+
+
+# -- where a connection's time goes: setup (total minus auth) ----------------------------------------------------------------------------------
+def make_split_run(tmp_path, setups=(("a", 200.0), ("b", 400.0)), auth=100.0, blocks=4, with_total=True):
+    out = tmp_path / "split"
+    (out / "raw").mkdir(parents=True)
+    env = {"target": "eks", "cluster_kind": "eks", "namespace": "storm-bench", "run_id": "aaaabbbbcccc", "date": "2026-11-21T09:00:00-08:00",
+           "variants": [{"label": l, "commit": "", "image": f"img-{l}"} for l, _ in setups], "design": {"phases": ["warm", "idle", "n800"]}}
+    (out / "environment.json").write_text(json.dumps(env))
+    for label, setup in setups:
+        for b in range(1, blocks + 1):
+            (out / "raw" / f"{label}-b{b}.meta.json").write_text("{}")
+            burst = {"connections": 100, "seconds": 1.0, "outcomes": {"admitted": 100, "refused": 0, "timeout": 0, "error": 0},
+                     "authMs": {"n": 100, "p50": auth + (b % 2), "p90": auth + 5, "p99": auth + 9, "max": auth + 10}}
+            if with_total:
+                burst["totalMs"] = {"n": 100, "p50": auth + (b % 2) + setup, "p90": 1, "p99": 1, "max": 1}
+            for phase in ("idle", "n800"):
+                (out / "raw" / f"{label}-b{b}-{phase}.json").write_text(json.dumps({"runs": [burst, burst]}))
+    return out
+
+
+def test_the_report_splits_a_connections_time_into_setup_and_auth(tmp_path):
+    text = report.summarize(make_split_run(tmp_path))
+    assert "where a connection's time goes" in text
+    assert "a        total p50  300.5 ms = setup  200.0 ms (67%) + auth  100.5 ms" in text          # 200 ms of setup and 100 ms of auth, 67% setup
+    assert "b        total p50  500.5 ms = setup  400.0 ms (80%) + auth  100.5 ms" in text
+    assert "change b vs a in setup: +100.0%" in text and "change b vs a in total p50: +66.6%" in text   # auth did not change: the whole difference is setup
+    assert "change b vs a in the mean of block medians: +0.0%" in text
+
+
+def test_a_run_from_before_total_was_recorded_has_no_split_and_is_not_broken(tmp_path):
+    text = report.summarize(make_split_run(tmp_path, with_total=False))
+    assert "where a connection's time goes" not in text and "change b vs a in the mean of block medians" in text
+
+
+def test_the_split_is_for_bursts_not_for_the_idle_phase(tmp_path):
+    text = report.summarize(make_split_run(tmp_path))
+    idle = text.split("\nn800")[0]
+    assert "where a connection's time goes" not in idle and text.count("where a connection's time goes") == 1

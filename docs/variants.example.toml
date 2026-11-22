@@ -14,6 +14,10 @@
 #   generator_resources           the same for the load generator's Job (set per storm). Preflight checks that the callout and the generator
 #                                 fit the client node at once, with what the cluster already uses there: a bigger pair may need a second client node
 #   callout_args  the callout's whole argument list, replacing the overlay's (so give `--url` too)
+#   no_tls        true: a DIAGNOSTIC, never a production setting. The broker's WebSocket port listens without TLS (the driver adds the websocket block to the
+#                 variant's extra.conf) and the generator goes to ws://broker:8443, both together so they cannot disagree. To see what TLS costs.
+#   callout_replicas  how many callout pods run (1 to 10), all in one queue group so they share the work. Each has the overlay's (or the
+#                 variant's callout_resources) CPU: 3 replicas of 1 CPU are 3 CPU of callout, and preflight checks they fit beside the generator
 #   storm         generator STORM_* settings, on top of the run's (not the phase variables STORM_CONNECTIONS and the like, nor the
 #                 key wiring STORM_SCOPED_SEED, STORM_AUTH_ACCOUNT and their _FILE forms; STORM_ROLES, STORM_TICKET_TTL_S and
 #                 STORM_TIMEOUT_MS may be varied)

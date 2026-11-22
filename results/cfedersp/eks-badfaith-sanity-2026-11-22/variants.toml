@@ -1,0 +1,20 @@
+# First real exercise of the bad-faith generator code (plans/bad-faith-storm.md) against a live broker: never run before this. `main` is
+# the plain baseline (no bad-faith connections, for comparison); `main_badfaith` adds all four kinds at a modest 10% each (40% bad-faith,
+# 60% good-faith of each burst), so every kind's broker-side behavior is exercised and reported. Run with the isolated, NetworkPolicy-
+# restricted loadgen overlay (--loadgen-overlay deploy/loadgen/overlays/eks-restricted), which needs vpc-cni's NetworkPolicy enforcement
+# turned on first (bench cluster network-policy --target eks --yes). Same broker image as every other run on this cluster build.
+
+[[variant]]
+label = "main"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+
+[[variant]]
+label = "main_badfaith"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+[variant.storm]
+STORM_INVALID_FRACTION = "0.1"
+STORM_NONEXISTENT_ACCOUNT_FRACTION = "0.1"
+STORM_FORGED_FRACTION = "0.1"
+STORM_INCOMPLETE_HANDSHAKE_FRACTION = "0.1"

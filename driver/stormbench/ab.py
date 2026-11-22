@@ -36,12 +36,14 @@ class Variant:
     generator_resources: dict = field(default_factory=dict)  # the load generator Job's, the same way
     callout_env: dict = field(default_factory=dict)       # environment variables for the callout container
     callout_args: tuple = ()      # the callout's whole argument list, replacing the overlay's
+    no_tls: bool = False          # a diagnostic: the broker's WebSocket listener without TLS and the generator on ws:// (the two are set together)
+    callout_replicas: int = 0     # how many callout pods (they share one queue group, so they share the work); 0 = as the overlay has it (1)
     storm: dict = field(default_factory=dict)             # generator STORM_* variables, on top of the plan's
 
     def settings(self) -> dict:
         """What differs from the defaults, for the record in environment.json and the report."""
         out: dict = {}
-        for name in ("stack", "conf", "broker_env", "broker_resources", "callout_resources", "generator_resources", "callout_env", "callout_args", "storm"):
+        for name in ("stack", "conf", "broker_env", "broker_resources", "callout_resources", "generator_resources", "callout_env", "callout_args", "callout_replicas", "no_tls", "storm"):
             value = getattr(self, name)
             if value:
                 out[name] = list(value) if isinstance(value, tuple) else value
@@ -54,13 +56,14 @@ class Variant:
     def from_dict(cls, d: dict) -> "Variant":
         """The inverse of describe(): a variant from its recorded form (the run state in the cluster keeps variants this way)."""
         known = {"label", "commit", "image", "stack", "conf", "broker_env", "broker_resources", "callout_resources", "generator_resources",
-                 "callout_env", "callout_args", "storm"}
+                 "callout_env", "callout_args", "callout_replicas", "no_tls", "storm"}
         if set(d) - known:
             raise ValueError(f"a recorded variant has unknown key(s) {sorted(set(d) - known)}: it was made by a different driver")
         return cls(label=d["label"], commit=d.get("commit", ""), image=d["image"], stack=d.get("stack", ""), conf=d.get("conf", ""),
                    broker_env=dict(d.get("broker_env", {})), broker_resources=dict(d.get("broker_resources", {})),
                    callout_resources=dict(d.get("callout_resources", {})), generator_resources=dict(d.get("generator_resources", {})),
-                   callout_env=dict(d.get("callout_env", {})), callout_args=tuple(d.get("callout_args", ())), storm=dict(d.get("storm", {})))
+                   callout_env=dict(d.get("callout_env", {})), callout_args=tuple(d.get("callout_args", ())), callout_replicas=int(d.get("callout_replicas", 0)),
+                   no_tls=bool(d.get("no_tls", False)), storm=dict(d.get("storm", {})))
 
 
 Arm = Variant  # the name this class had when a run compared exactly two commits
@@ -73,6 +76,9 @@ class Phase:
     runs: int
     pause_ms: int
     hold_ms: int
+
+
+NO_TLS_URL = "ws://broker:8443"   # where the generator goes when a variant's broker listens without TLS (the broker Service's websocket port)
 
 
 @dataclass
@@ -109,6 +115,8 @@ class Plan:
             env["STORM_SAMPLES"] = "1"  # every connection's timings, which is what the queue curves (queue.py) are drawn from
         if variant:
             env.update(variant.storm)  # the variant's own generator settings (variants.py keeps them off the phase variables)
+            if variant.no_tls:
+                env["STORM_URL"] = NO_TLS_URL   # the manifests' wss:// is reserved against a variant's own settings; this is the one way it changes
         return env
 
 

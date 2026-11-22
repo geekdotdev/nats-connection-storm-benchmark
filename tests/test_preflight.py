@@ -150,12 +150,6 @@ def test_images_of_lists_each_once_in_order():
     assert pf.images_of(objs) == ["a/x:1", "b/y:1"]
 
 
-def test_json_stream_reads_one_object_a_list_or_several_in_a_row():
-    one, two = {"kind": "Job", "metadata": {"name": "j"}}, {"kind": "Service", "metadata": {"name": "s"}}
-    assert pf.json_stream(json.dumps(one)) == [one]
-    assert pf.json_stream(json.dumps({"kind": "List", "items": [one, two]})) == [one, two]
-    assert pf.json_stream(json.dumps(one, indent=2) + "\n" + json.dumps(two, indent=2) + "\n") == [one, two]
-    assert pf.json_stream("") == []
 
 
 # -- the whole preflight ------------------------------------------------------------------------------------------
@@ -275,7 +269,7 @@ def test_no_preflight_skips_the_checks(monkeypatch, tmp_path):
 
     monkeypatch.setattr(runcmd, "KubeBackend", backend)
     with pytest.raises(Stop):
-        cli.main(["--target", "eks", "run", "--a", SHA_A, "--b", SHA_B, "--out", str(tmp_path / "out"), "--no-preflight"])
+        cli.main(["--target", "eks", "run", "--a", SHA_A, "--b", SHA_B, "--out", str(tmp_path / "out"), "--no-preflight", "--no-monitoring"])
     assert reached[0]["target"] == "eks"
 
 
