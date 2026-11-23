@@ -327,7 +327,7 @@ def _start(run: Runner, args, make_store, backend_factory) -> int:
         return 1
     probes = use_monitoring(run, args)
     with backend_factory(run, target=args.target, stack=args.stack_overlay, loadgen=args.loadgen_overlay, settle_s=settle_s,
-                         read_cpu=not args.no_cpu and not probes, cpuprobe=probes) as backend:
+                         read_cpu=not args.no_cpu and not probes, cpuprobe=probes, read_varz=args.varz) as backend:
         backend.prepare(plan.variants)
         if hasattr(backend, "delete_storm_jobs"):
             backend.delete_storm_jobs()  # the storms of an earlier run, and the single Job older drivers made: a new run starts with none
@@ -401,7 +401,7 @@ def _resume(run: Runner, args, make_store, backend_factory) -> int:
           f"(started by {doc['driver_revision']})", flush=True)
     probes = use_monitoring(run, args)
     with backend_factory(run, target=args.target, stack=doc["stack_overlay"], loadgen=doc["loadgen_overlay"],
-                         settle_s=doc["settle_s"], read_cpu=not args.no_cpu and not probes, cpuprobe=probes) as backend:
+                         settle_s=doc["settle_s"], read_cpu=not args.no_cpu and not probes, cpuprobe=probes, read_varz=args.varz) as backend:
         backend.prepare(plan.variants, apply=False)  # nothing is changed on the cluster until a unit needs a fresh broker (see KubeBackend.prepare)
         env_path = out / "environment.json"
         env = json.loads(env_path.read_text())

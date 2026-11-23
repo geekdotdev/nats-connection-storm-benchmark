@@ -183,10 +183,10 @@ class Progress(Protocol):
     def complete(self) -> None: ...
 
 
-def _labelled(report: dict, progress: "Progress | None", unit: "Unit", st: "Step", cpu: dict | None = None) -> dict:
+def _labelled(report: dict, progress: "Progress | None", unit: "Unit", st: "Step", cpu: dict | None = None, varz: list | None = None) -> dict:
     """A storm's report with what qualifies it added (the cluster kind, namespace, run id and start, and which unit and storm it is), so
     that the file says where it came from even when it is alone. A run with no progress record has nothing to add."""
-    out = {**report, **({"cpu": cpu} if cpu else {})}
+    out = {**report, **({"cpu": cpu} if cpu else {}), **({"varz": varz} if varz else {})}
     if progress is None:
         return out
     return {**out, "qualifiers": {**progress.qualifiers(), "unit": unit.key, "storm": st.label}}
@@ -310,7 +310,8 @@ def run_blocks(plan: Plan, backend: Backend, raw: Path, *, sleep: Callable[[floa
             text = backend.run_storm(st.label, env)
             (raw / f"{st.label}.txt").write_text(text)
             (raw / f"{st.label}.json").write_text(
-                json.dumps(_labelled(parse_report(text), progress, unit, st, getattr(backend, "last_cpu", None)), indent=1) + "\n")
+                json.dumps(_labelled(parse_report(text), progress, unit, st, getattr(backend, "last_cpu", None), getattr(backend, "last_varz", None)),
+                          indent=1) + "\n")
             sleep(2)
             if progress:
                 progress.beat()

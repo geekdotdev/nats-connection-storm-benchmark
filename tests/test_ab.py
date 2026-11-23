@@ -91,6 +91,32 @@ def test_a_failed_storm_stops_the_run_and_keeps_what_was_collected(tmp_path):
     assert (raw / "main-b1-warm.json").exists() and not (raw / "main-b1-idle.json").exists() and not (raw / "DONE").exists()
 
 
+def test_labelled_merges_cpu_and_varz_only_when_there_is_something_to_merge():
+    class Unit:
+        key = "main-b1"
+    unit, st = Unit(), type("St", (), {"label": "main-b1-n800"})()
+    assert ab._labelled({"x": 1}, None, unit, st) == {"x": 1}
+    assert ab._labelled({"x": 1}, None, unit, st, cpu={"c": 1}) == {"x": 1, "cpu": {"c": 1}}
+    assert ab._labelled({"x": 1}, None, unit, st, varz=[{"mem": 1}]) == {"x": 1, "varz": [{"mem": 1}]}
+    assert ab._labelled({"x": 1}, None, unit, st, cpu={"c": 1}, varz=[]) == {"x": 1, "cpu": {"c": 1}}   # an empty series is not worth keeping
+
+
+def test_a_backends_varz_series_is_written_into_the_storms_report(tmp_path):
+    class WithVarz(Fake):
+        def __init__(self):
+            super().__init__()
+            self.last_varz = None
+
+        def run_storm(self, label, env):
+            self.last_varz = [{"mem": 1, "atMs": 1}, {"mem": 2, "atMs": 2}] if label.endswith("n800") else None
+            return super().run_storm(label, env)
+    raw = tmp_path / "raw"
+    ab.run_blocks(ab.Plan(variants=(A, B), blocks=1, sizes=(800,)), WithVarz(), raw, sleep=lambda s: None, log=lambda m: None)
+    got = json.loads((raw / "main-b1-n800.json").read_text())
+    assert got["varz"] == [{"mem": 1, "atMs": 1}, {"mem": 2, "atMs": 2}]
+    assert "varz" not in json.loads((raw / "main-b1-warm.json").read_text())   # not every phase had one
+
+
 def test_parse_report_takes_the_last_report_line_and_complains_when_there_is_none():
     assert ab.parse_report("a\n" + ab.REPORT_PREFIX + '{"x": 1}\n' + ab.REPORT_PREFIX + '{"x": 2}\n') == {"x": 2}
     with pytest.raises(ab.StormFailed):

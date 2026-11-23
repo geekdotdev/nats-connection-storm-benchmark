@@ -1,0 +1,20 @@
+# Calibration for plans/held-connection-exhaustion.md: a single storm at the sweep's largest planned size (6000), checking whether the
+# generator itself becomes the bottleneck (generatorSchedulingDelayP99Ms, its own cgroup CPU/throttling) before any broker-side number
+# from this plan is trusted. `main` is the unchanged baseline; `main_exhaustion` is 80% bad-faith (40% forged, 40% incompleteHandshake,
+# 0% invalid/nonexistentAccount per the plan's Question), ramped over 30s so the burst is a sustained arrival process, not one spike.
+# Run with --blocks 1 --sizes 6000 and the isolated, NetworkPolicy-restricted loadgen overlay
+# (--loadgen-overlay deploy/loadgen/overlays/eks-restricted). Same broker image as every other run on this cluster build.
+
+[[variant]]
+label = "main"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # nats-server:582fb8e939a7
+
+[[variant]]
+label = "main_exhaustion"
+commit = "582fb8e939a77b6a33ef845955a208bdc222d767"
+image = "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"      # the same image
+[variant.storm]
+STORM_FORGED_FRACTION = "0.4"
+STORM_INCOMPLETE_HANDSHAKE_FRACTION = "0.4"
+STORM_RAMP_MS = "30000"

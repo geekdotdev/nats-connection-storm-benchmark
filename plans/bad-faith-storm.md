@@ -1,6 +1,6 @@
 # bad-faith-storm
 
-**Status:** running. **Run:** [eks-badfaith-sanity-2026-11-22](../results/cfedersp/eks-badfaith-sanity-2026-11-22/NOTES.md) (a sanity check, not yet the full ratio sweep in Design).
+**Status:** dropped (2026-11-22: satisfied with the broker's performance and sound in the findings so far; further benchmarking on this line is paused until there is a reason to scale). **Run:** [eks-badfaith-sanity-2026-11-22](../results/cfedersp/eks-badfaith-sanity-2026-11-22/NOTES.md) (a sanity check; the full ratio sweep in Design was never run and is not planned for now).
 
 ## Question
 
@@ -68,3 +68,5 @@ Three separate things, at three separate levels of cost and risk:
 Prediction #2 (good-faith degradation at a mixed ratio) was not cleanly tested in this run — the mixed burst had 120 good-faith of 200 total against `main`'s 200-of-200, a different total count that confounds queueing on its own. No good-faith errors or refusals were seen at 60:40 good:bad, but a real test needs the Design's matched-good-faith-count comparison across ratios, not yet run.
 
 **Next:** decide whether to run the full ratio sweep (worth it now that `forged` is known to be as expensive as `incompleteHandshake`, which changes what the sweep would be measuring — effectively two kinds of "held connection" attack instead of one cheap and one expensive), and whether to spend a bit more cluster time closing the last link in the `forged` mechanism (read the callout's own counters mid-run next time, by scraping its log before the next variant's apply recycles the pod).
+
+**2026-11-22: dropped.** Satisfied with the broker's performance and confident the implementation is sound on the strength of the sanity check's findings (`invalid`/`nonexistentAccount` cheap as predicted; `forged` surprisingly expensive, traced to a real mechanism). The full ratio sweep above was never run and is not planned now; revisit when there is a reason to scale.

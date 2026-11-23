@@ -1,0 +1,135 @@
+{
+ "target": "eks",
+ "cluster_kind": "eks",
+ "namespace": "storm-bench",
+ "auth": {
+  "mode": "operator",
+  "resolver": "memory",
+  "tenant_accounts": 1,
+  "ticket": "signed by the AUTH account's scoped key, pre-signed before each run",
+  "callout": "role-name mapper, user JWT valid 1 hour"
+ },
+ "github_user": "cfedersp",
+ "date": "2026-11-22T14:41:18-08:00",
+ "variants": [
+  {
+   "label": "main",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d"
+  },
+  {
+   "label": "main_exhaustion",
+   "commit": "582fb8e939a77b6a33ef845955a208bdc222d767",
+   "image": "ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d",
+   "storm": {
+    "STORM_FORGED_FRACTION": "0.4",
+    "STORM_INCOMPLETE_HANDSHAKE_FRACTION": "0.4",
+    "STORM_RAMP_MS": "30000"
+   }
+  }
+ ],
+ "design": {
+  "blocks": 1,
+  "order": "alternating by block",
+  "phases": [
+   "warm",
+   "idle",
+   "n6000"
+  ],
+  "sizes": [
+   6000
+  ],
+  "threads": 4,
+  "settle_s": 8.0,
+  "per_phase": {
+   "warm": {
+    "connections": 200,
+    "runs": 3,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   },
+   "idle": {
+    "connections": 1,
+    "runs": 40,
+    "pause_ms": 100,
+    "hold_ms": 100
+   },
+   "n6000": {
+    "connections": 6000,
+    "runs": 8,
+    "pause_ms": 1500,
+    "hold_ms": 1000
+   }
+  }
+ },
+ "cluster": {
+  "nodes": [
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966028Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966020Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "4",
+    "memory": "7966028Ki"
+   },
+   {
+    "os_image": "Amazon Linux 2023.12.20261118",
+    "kernel": "6.18.62-127.179.amzn2023.x86_64",
+    "kubelet": "v1.37.1-eks-9adbfea",
+    "container_runtime": "containerd://2.3.7+unknown",
+    "cpu": "2",
+    "memory": "3907372Ki"
+   }
+  ]
+ },
+ "driver_host": {
+  "system": "Darwin",
+  "machine": "arm64",
+  "cpus": 16
+ },
+ "driver_version": "0.0.0",
+ "run_id": "054ebec42bcd",
+ "driver_revision": "18d0ebd1b4f1+dirty",
+ "cpu_source": "probe",
+ "monitoring": {
+  "probe": true,
+  "prometheus": true,
+  "scrape_interval_s": 1
+ },
+ "variants_file": {
+  "path": "exhaustion-variants.toml",
+  "sha256": "783565455af419acfc53b605d77da7ca5f624545fcf617d23896f9922550ba70"
+ }
+}

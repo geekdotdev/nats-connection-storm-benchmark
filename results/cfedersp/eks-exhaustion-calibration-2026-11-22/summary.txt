@@ -1,0 +1,63 @@
+eks-exhaustion-calibration-2026-11-22: cluster eks · namespace storm-bench · run id 054ebec42bcd · started 2026-11-22T14:41:18-08:00 · run by cfedersp
+blocks found: [1]
+main: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d
+main_exhaustion: commit 582fb8e939a7, image ghcr.io/cfedersp/nats-server@sha256:7e89e5a9ad5adf167322479a901b13df6750f4ff7ec3e254eaffa00113aedf5d   settings {"storm": {"STORM_FORGED_FRACTION": "0.4", "STORM_INCOMPLETE_HANDSHAKE_FRACTION": "0.4", "STORM_RAMP_MS": "30000"}}
+
+idle
+  main     median auth p50 per block (ms): [1.7]  mean 1.7   admitted 40/40   burst length median 0.00s
+  main_exhaustion median auth p50 per block (ms): [1.7]  mean 1.7   admitted 40/40   burst length median 0.00s
+  change main_exhaustion vs main in the mean of block medians: +0.2%   exact permutation p=1.00000  (n=1 v 1 blocks)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                           main  main_exhaustion
+    broker CPU ms per connection                           1.81             1.81
+    broker cores busy while bursting (limit 3)                -                -
+    broker periods throttled %                              0.0              0.0
+    broker time throttled (s)                              0.00             0.00
+    callout CPU ms per connection                          0.65             0.67
+    callout cores busy while bursting (limit 1)               -                -
+    callout periods throttled %                             0.0                -
+    callout time throttled (s)                             0.00             0.00
+    generator CPU ms per connection                        0.85             0.84
+    generator cores busy while bursting (limit 2)              -                -
+    generator periods throttled %                           0.0              0.0
+    generator time throttled (s)                           0.00             0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+
+n6000
+  main     median auth p50 per block (ms): [772.2]  mean 772.2   admitted 48000/48000   burst length median 4.08s
+  main_exhaustion median auth p50 per block (ms): [1.5]  mean 1.5   admitted 9600/48000   burst length median 30.05s
+  change main_exhaustion vs main in the mean of block medians: -99.8%   exact permutation p=1.00000  (n=1 v 1 blocks)
+  burst length (throughput proxy) change main_exhaustion vs main: +637.4%
+  where a connection's time goes (median over blocks of each block's median; total = start of the connection to the answer; setup = total minus auth: TCP, TLS, the WebSocket upgrade and INFO, before CONNECT):
+  main     total p50 2533.2 ms = setup 1791.3 ms (71%) + auth  772.2 ms
+  main_exhaustion total p50    2.5 ms = setup    1.1 ms (43%) + auth    1.5 ms
+  change main_exhaustion vs main in total p50: -99.9%   exact permutation p=1.00000  (n=1 v 1 blocks)
+  change main_exhaustion vs main in setup: -99.9%   exact permutation p=1.00000  (n=1 v 1 blocks)
+  the queue (CONNECT sent, no answer yet), per burst; mean over blocks of each block's median:
+                                                     main  main_exhaustion
+    peak queue (connections)                         3144                2
+    peak at (ms)                                     2387            24336
+    90% of CONNECTs sent by (ms)                     2337                -
+    10% admitted by (ms)                              837            27043
+    50% admitted by (ms)                             2599                -
+    90% admitted by (ms)                             3903                -
+    all admitted by (ms)                             4072                -
+    drain rate 10-90% (connections/s)                1561                -
+    peak queue (connections): main_exhaustion vs main -100.0%   exact permutation p=1.00000  (n=1 v 1 blocks)
+    (three features are tested, so read each p as one comparison among three per variant; the curves are in queue-<phase>.svg)
+  CPU (each burst: the probes' readings for the broker and callout, the generator's own for itself); mean over blocks of each block's median:
+                                                           main  main_exhaustion
+    broker CPU ms per connection                           1.72             1.22
+    broker cores busy while bursting (limit 3)             2.53             0.24
+    broker periods throttled %                              3.7              0.0
+    broker time throttled (s)                              0.00             0.00
+    callout CPU ms per connection                          0.50             0.11
+    callout cores busy while bursting (limit 1)            0.73             0.02
+    callout periods throttled %                            40.7              0.0
+    callout time throttled (s)                             1.03             0.00
+    generator CPU ms per connection                        0.90             0.69
+    generator cores busy while bursting (limit 2)           1.32             0.14
+    generator periods throttled %                          56.8              0.0
+    generator time throttled (s)                           1.07             0.00
+    (no p values: CPU is shown to read alongside the queue, not as another comparison)
+

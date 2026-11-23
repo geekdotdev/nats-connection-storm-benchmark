@@ -85,6 +85,9 @@ def build_parser() -> argparse.ArgumentParser:
     ru.add_argument("--loadgen-overlay", help="kustomize overlay of the storm Job (default: deploy/loadgen/overlays/<target>)")
     ru.add_argument("--no-cpu", action="store_true", help="do not read the broker's and callout's CPU use around each storm (about 2 kubectl calls "
                     "before and after each; the generator reports its own regardless)")
+    ru.add_argument("--varz", action="store_true", help="poll the broker's own /varz (memory, connection counts) every 2s through each storm, "
+                    "not just before and after (plans/held-connection-exhaustion.md); off by default since its field names are not all "
+                    "verified against a real broker yet")
     ru.add_argument("--no-monitoring", action="store_true", help="ignore the CPU probes and Prometheus even if they are installed (`bench monitoring up`)")
     ru.add_argument("--no-preflight", action="store_true", help="skip the checks made before anything is applied (see `bench preflight`)")
     pf = sub.add_parser("preflight", parents=[on_target], help="check the cluster, Secrets, node placement and (eks) the registry images a run needs; changes nothing")

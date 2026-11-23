@@ -96,6 +96,113 @@ def test_each_storm_gets_its_own_labelled_job_and_only_its_own_is_deleted_first(
     assert run.cmds[-1][5:] == ["logs", f"job/{name}"]                                         # the log of that Job, by its name
 
 
+# -- /varz through a storm ----------------------------------------------------------------------------------------------------------------
+class SyncThread:
+    """Stands in for threading.Thread: runs the target synchronously at start(), so a test has no real concurrency to race against."""
+    def __init__(self, target, daemon=True):
+        self._target = target
+
+    def start(self):
+        self._target()
+
+    def join(self, timeout=None):
+        pass
+
+    def is_alive(self):
+        return False
+
+
+BROKER_POD = json.dumps({"items": [{"metadata": {"name": "broker-0"}}]})
+
+
+def test_run_storm_does_not_poll_varz_unless_read_varz_is_on(kubeconfig, monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("varz.poll must not be called when read_varz is off")
+    monkeypatch.setattr(kube.varz_mod, "poll", boom)
+    run = Scripted([json.dumps({"status": {"succeeded": 1}}), "THE LOG"])
+    b = backend(run)  # backend() passes read_cpu=False and does not set read_varz, so it keeps KubeBackend's own default (off)
+    assert b.run_storm("main-b1-n800", {}) == "THE LOG"
+    assert b.last_varz is None
+    assert not any("broker" in str(c) for c in run.cmds)   # no lookup for a broker pod was ever made
+
+
+def test_run_storm_polls_varz_through_the_storm_when_read_varz_is_on(kubeconfig, monkeypatch):
+    monkeypatch.setattr(kube.threading, "Thread", SyncThread)
+    seen = []
+
+    def fake_poll(run, target, pod, interval_s, stop, say=print):
+        seen.append((target, pod, interval_s, stop.is_set()))
+        return [{"mem": 111, "connections": 7, "atMs": 1}, {"mem": 222, "connections": 9, "atMs": 2}]
+    monkeypatch.setattr(kube.varz_mod, "poll", fake_poll)
+    run = Scripted([BROKER_POD, json.dumps({"status": {"succeeded": 1}}), "THE LOG"])
+    b = backend(run, read_varz=True, varz_interval_s=3.0)
+    assert b.run_storm("main-b1-n800", {}) == "THE LOG"
+    assert seen == [("local", "broker-0", 3.0, False)]        # the pod found, the configured interval, not yet told to stop when called
+    assert b.last_varz == [{"mem": 111, "connections": 7, "atMs": 1}, {"mem": 222, "connections": 9, "atMs": 2}]
+
+
+def test_run_storm_finds_the_broker_pod_only_once_per_unit(kubeconfig, monkeypatch):
+    monkeypatch.setattr(kube.threading, "Thread", SyncThread)
+    monkeypatch.setattr(kube.varz_mod, "poll", lambda *a, **k: [])
+    run = Scripted([BROKER_POD, json.dumps({"status": {"succeeded": 1}}), "THE LOG",
+                    json.dumps({"status": {"succeeded": 1}}), "THE LOG"])   # only one broker-pod lookup in this list
+    b = backend(run, read_varz=True)
+    b.run_storm("main-b1-n800", {})
+    b.run_storm("main-b1-n1600", {})   # a second storm of the same unit: no second lookup, or Scripted would run out of outputs
+    assert sum(1 for c in run.cmds if c[-1] == "json" and "broker" in " ".join(c)) == 1
+
+
+def test_start_variant_forgets_the_broker_pod_so_a_restart_is_found_again(kubeconfig):
+    b = backend(Scripted([]), read_varz=True)
+    b._apply_variant = lambda v, stamp: None
+    b._wait_rollout = lambda what: None
+    b._broker_facts = lambda: {}
+    b._varz_pod = "broker-0"
+    b.start_variant(ab.Variant("a", A, "x"))
+    assert b._varz_pod is None
+
+
+def test_an_unreadable_broker_pod_list_turns_varz_off_for_that_storm_without_failing_it(kubeconfig, monkeypatch, capsys):
+    run = Scripted([subprocess.CalledProcessError(1, ["kubectl"]), json.dumps({"status": {"succeeded": 1}}), "THE LOG"])
+    b = backend(run, read_varz=True)
+    assert b.run_storm("main-b1-n800", {}) == "THE LOG"
+    assert b.last_varz is None
+    assert "could not list the broker pods for /varz" in capsys.readouterr().err
+
+
+def test_the_varz_poll_is_stopped_even_when_the_storm_fails(kubeconfig, monkeypatch):
+    monkeypatch.setattr(kube.threading, "Thread", SyncThread)
+
+    def fake_poll(run, target, pod, interval_s, stop, say=print):
+        return []   # a real poll would still be running at this point (the storm is about to fail), but the SyncThread already ran it
+    monkeypatch.setattr(kube.varz_mod, "poll", fake_poll)
+    run = Scripted([BROKER_POD, json.dumps({"status": {"failed": 1}}), "boom\nlog"])
+    b = backend(run, read_varz=True)
+    with pytest.raises(ab.StormFailed):
+        b.run_storm("main-b1-n800", {})
+    assert b.last_varz is None   # the poll (a SyncThread) already finished with nothing by the time the failure was raised
+
+
+def test_a_varz_poll_that_will_not_stop_is_left_running_and_said_once(kubeconfig, monkeypatch, capsys):
+    class StuckThread(SyncThread):
+        def is_alive(self):
+            return True
+    monkeypatch.setattr(kube.threading, "Thread", StuckThread)
+    monkeypatch.setattr(kube.varz_mod, "poll", lambda *a, **k: [{"mem": 1}])
+    run = Scripted([BROKER_POD, json.dumps({"status": {"succeeded": 1}}), "THE LOG"])
+    b = backend(run, read_varz=True)
+    assert b.run_storm("main-b1-n800", {}) == "THE LOG"
+    assert "did not stop in time" in capsys.readouterr().err
+    assert b.last_varz == [{"mem": 1}]   # still returned: a thread left running does not discard what it already collected
+
+
+def test_collect_storm_resets_last_varz_the_same_as_last_cpu(kubeconfig):
+    b = backend(Scripted([""]), read_varz=True)
+    b.last_varz = [{"mem": 1}]
+    b.collect_storm("main-b1-n800", "att0001")
+    assert b.last_varz is None
+
+
 def test_collect_storm_finds_nothing_where_there_is_no_job_or_it_is_another_attempts(kubeconfig):
     assert backend(Scripted([""])).collect_storm("main-b1-n800", "att0001") is None
     assert backend(Scripted([job_json("someone-elses", succeeded=1)])).collect_storm("main-b1-n800", "att0001") is None

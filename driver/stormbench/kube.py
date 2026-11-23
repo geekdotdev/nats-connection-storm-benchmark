@@ -13,11 +13,12 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Sequence
 
-from . import cpu as cpu_mod, k8s, monitoring, variants as variants_mod
+from . import cpu as cpu_mod, k8s, monitoring, variants as variants_mod, varz as varz_mod
 from .config import NAMESPACE
 from .ab import StormFailed, Variant
 from .runner import Runner
@@ -104,6 +105,7 @@ class KubeBackend:
     def __init__(self, run: Runner, *, target: str = "local", stack: str | None = None, loadgen: str | None = None,
                  settle_s: float = 8.0, job_timeout_s: float = 900.0, poll_s: float = 2.0,
                  read_retries: int = 60, read_retry_wait_s: float = 10.0, read_cpu: bool = True, cpuprobe: bool = False,
+                 read_varz: bool = False, varz_interval_s: float = 2.0,
                  sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> None:
         self.run, self.target = run, target
         self.stack = stack or STACK_OVERLAYS[target]
@@ -113,13 +115,17 @@ class KubeBackend:
         self.probe_fallback = False                  # set when the generator turned out not to report the probes' readings (see run_storm)
         self.cpuprobe = cpuprobe                     # the CPU probes are installed: the generator asks them itself (STORM_CPUPROBE)
         self.read_cpu = read_cpu                     # read the broker's and callout's CPU around each storm (cpu.py); --no-cpu turns it off
+        self.read_varz, self.varz_interval_s = read_varz, varz_interval_s   # poll the broker's /varz through a storm (varz.py); off by default
         self.sleep, self.clock = sleep, clock
         self._job: dict | None = None
         self._ctx = {"run_id": "", "unit": "", "attempt": ""}
         self._generator_resources: dict = {}         # the current variant's cpu/memory for the storm Jobs (variants.py)
         self.last_cpu: dict | None = None            # the CPU use of the storm run_storm ran last (see cpu.py); None when it could not be read
+        self.last_varz: list[dict] | None = None     # the /varz series of the storm run_storm ran last (see varz.py); None when none was read
         self._cpu_targets: list[tuple[str, str, str]] | None = None
         self._cpu_notes: set[str] = set()
+        self._varz_pod: str | None = None
+        self._varz_notes: set[str] = set()
         self._tmp: tempfile.TemporaryDirectory | None = None
 
     def __enter__(self) -> "KubeBackend":
@@ -180,6 +186,7 @@ class KubeBackend:
         for d in ("statefulset/broker", "deployment/callout"):
             self._wait_rollout(d)
         self._cpu_targets = None   # new pods: found again at the first reading
+        self._varz_pod = None      # the broker pod is new too
         self._generator_resources = dict(variant.generator_resources)
         self.sleep(self.settle_s)  # let the callout connect and the broker settle before the first storm
         return self._broker_facts()
@@ -253,6 +260,54 @@ class KubeBackend:
             snap.setdefault(comp, {})[pod] = reading
         return snap
 
+    # -- the broker's /varz through a storm -----------------------------------------------------------------------
+    def _find_varz_pod(self) -> str | None:
+        """The broker pod's name, found once per unit (a broker restart makes a new pod, and start_variant forgets this). None, said
+        once, when it cannot be found: a missing broker is covered elsewhere (_wait_rollout), so this just has nothing to poll."""
+        if self._varz_pod is None:
+            try:
+                pods = json.loads(self.run.output(self._kc("get", "pods", "-l", "app.kubernetes.io/name=broker", "-o", "json"), quiet=True))["items"]
+            except (subprocess.CalledProcessError, ValueError, KeyError) as e:
+                self._varz_say(f"could not list the broker pods for /varz ({e})")
+                return None
+            live = [p["metadata"]["name"] for p in pods if "deletionTimestamp" not in p["metadata"]]
+            if not live:
+                self._varz_say("no broker pod to read /varz from")
+                return None
+            self._varz_pod = live[0]
+        return self._varz_pod
+
+    def _varz_say(self, message: str) -> None:
+        if message not in self._varz_notes:   # said once per distinct message, like a CPU reading that cannot be made (_cpu_note)
+            self._varz_notes.add(message)
+            print(f"bench: {message}", file=sys.stderr, flush=True)
+
+    def _start_varz_poll(self) -> tuple[threading.Thread, threading.Event, list] | None:
+        """Starts a background poll of the broker's /varz, if read_varz is on and the broker pod can be found. The result list is
+        filled in by the polling thread; read it only after joining (see _stop_varz_poll)."""
+        if not self.read_varz:
+            return None
+        pod = self._find_varz_pod()
+        if pod is None:
+            return None
+        stop = threading.Event()
+        result: list[dict] = []
+        thread = threading.Thread(target=lambda: result.extend(varz_mod.poll(self.run, self.target, pod, self.varz_interval_s, stop, say=self._varz_say)),
+                                  daemon=True)
+        thread.start()
+        return thread, stop, result
+
+    def _stop_varz_poll(self, polling: tuple[threading.Thread, threading.Event, list] | None) -> list[dict] | None:
+        """Stops a poll _start_varz_poll began and returns its series (None if none was started, or it read nothing)."""
+        if polling is None:
+            return None
+        thread, stop, result = polling
+        stop.set()
+        thread.join(timeout=self.varz_interval_s * 5)
+        if thread.is_alive():
+            self._varz_say("a /varz poll did not stop in time; its thread is left running (daemon, so it will not block process exit)")
+        return result or None
+
     # -- the storms' Jobs ----------------------------------------------------------------------------------------
     def set_context(self, run_id: str, unit: str, attempt: str) -> None:
         """What the Jobs made from now on are labelled with: the run, the unit and the attempt at it."""
@@ -312,8 +367,12 @@ class KubeBackend:
             res.setdefault("requests", {}).update(self._generator_resources)
             res.setdefault("limits", {}).update(self._generator_resources)
         before = self.cpu_snapshot() if self.read_cpu else {}   # as late as it can be: just before the storm's Job exists
+        polling = self._start_varz_poll()   # a time series through the whole storm, not two snapshots: held connections, not CPU, is the question
         self.run(self._k("create", "-f", "-"), input=json.dumps(job))
-        log = self._finished_log(name, label)
+        try:
+            log = self._finished_log(name, label)
+        finally:
+            self.last_varz = self._stop_varz_poll(polling)   # stopped even when the storm failed, so no poll thread outlives its storm
         if self.cpuprobe and '"runs"' in log and '"probeCpu"' not in log:
             # A generator from before the probe ignores STORM_CPUPROBE and says nothing about it. That is a fine generator to run (to compare
             # against an older one, say); what it must not do is leave the run with no broker or callout CPU while the run claims the probes
@@ -348,6 +407,7 @@ class KubeBackend:
         Job, or the Job belongs to another attempt at the unit (an attempt's measurements are only ever mixed with its own)."""
         name = job_name(label)
         self.last_cpu = None                               # a storm read afterwards has no readings taken around it
+        self.last_varz = None                              # nor a /varz series: there was no live poll to take
         out = self._read(self._kc("get", "job", name, "-o", "json", "--ignore-not-found"), "looking for the storm's Job")
         if not out.strip():
             return None
